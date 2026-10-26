@@ -1,0 +1,23 @@
+
+
+
+.claude
+# Server (Python)
+server/.venv/
+server/.env
+__pycache__/
+*.pyc
+server/*.db
+server/app/storage/calibration_profiles/*
+!server/app/storage/calibration_profiles/.gitkeep
+
+# Tracking worker runtime files
+server/app/storage/tracking_worker.pid
+server/app/storage/tracking_worker.stop
+server/app/storage/tracking_worker.log*
+
+# Site
+site/.env
+
+.pytest_cache/
+server/app/storage/device_settings.json

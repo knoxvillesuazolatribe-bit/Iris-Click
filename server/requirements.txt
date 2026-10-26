@@ -1,0 +1,33 @@
+# Web framework
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+
+# Validation & settings
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-dotenv==1.2.4
+
+# Database & migrations
+sqlalchemy==2.1.6
+alembic==1.20.1
+psycopg[binary]==3.3.6
+
+# Eye tracking engine (Windows, CPython 3.12)
+# MediaPipe already requires the contrib wheel. Installing both OpenCV wheel
+# variants makes them overwrite the same cv2 files, so only contrib is pinned.
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4
+
+# GazeFollower deep gaze source (app/core/gaze/deep_gaze.py). MNN runs the
+# network; GazeFollower supplies the weights (CC BY-NC-SA 4.0, non-commercial).
+# Install GazeFollower WITHOUT its dependencies, they would replace the pinned
+# MediaPipe and add a second OpenCV wheel:
+#   .venv\Scripts\python -m pip install --no-deps gazefollower==1.1.0
+MNN==3.6.1
+
+# Desktop worker: OS cursor control, tray icon, offline voice (Windows SAPI5)
+pyautogui==0.9.54
+pyttsx3==2.99
+pystray==0.19.5
+Pillow==13.0.0
