@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -41,8 +41,24 @@ class Settings(BaseSettings):
     device_settings_path: Path = STORAGE_DIR / "device_settings.json"
     face_model_path: Path = STORAGE_DIR / "face_landmarker.task"
     profiles_dir: Path = STORAGE_DIR / "calibration_profiles"
+    # Geometric gaze sources need the screen's physical size and assume the
+    # webcam sits centred just above its top edge (laptop or monitor-top
+    # camera). Empty sizes are read from the display's EDID.
+    screen_width_cm: float | None = Field(None, gt=0)
+    screen_height_cm: float | None = Field(None, gt=0)
+    camera_above_screen_cm: float = Field(0.8, ge=0)
+    # Latest quick re-centre, kept per calibration profile.
+    recenter_path: Path = STORAGE_DIR / "recenter.json"
     worker_pid_path: Path = STORAGE_DIR / "tracking_worker.pid"
     worker_log_path: Path = STORAGE_DIR / "tracking_worker.log"
+    # Capture backend and pixel format (see core/camera/capture.py). "auto"
+    # and an empty FOURCC keep OpenCV's defaults; compare alternatives with
+    # scripts/benchmark_gaze.py camera before changing them.
+    camera_backend: Literal["auto", "msmf", "dshow"] = "auto"
+    camera_fourcc: str = Field("", pattern=r"^([A-Z0-9]{4})?$")
+    # Higher sizes give the pupil fit more pixels per eye; drivers that cannot
+    # deliver one fall back to their nearest size (logged as "Camera N opened").
+    camera_resolution: Literal["720p", "1080p", "1440p"] = "720p"
     refine_pupils: bool = True
     deep_gaze_enabled: bool = True
     low_power: bool = False
@@ -57,6 +73,10 @@ class Settings(BaseSettings):
     dwell_radius_px: int = 45
     dwell_cooldown_ms: int = 500
     blink_threshold: float = 0.18
+    # How little eye travel reaches the left/right screen edge (see
+    # core/gaze/edge_reach.py). Default only: the control bar's choice is saved
+    # in device_settings_path and wins.
+    edge_sensitivity: Literal["off", "low", "medium", "high"] = "medium"
     # Snap gaze onto the nearest clickable control within this radius (physical
     # px); webcam gaze error (~90 px) is larger than small buttons.
     target_snap_enabled: bool = True
@@ -71,6 +91,26 @@ class Settings(BaseSettings):
     # MediaPipe labels eyes on the mirrored frame. Flip this if a wink of one
     # eye triggers the other eye's command on your camera.
     swap_blink_sides: bool = False
+
+    # Cursor navigation mode (see core/gaze/navigation.py). "steer": eyes move
+    # the cursor; once the gaze rests it snaps to a nearby control and small
+    # head movements fine-aim. "legacy" is the original stacked filters. Filter
+    # values are One Euro parameters in Hz and screen pixels.
+    gaze_mode: Literal["legacy", "raw", "filtered", "head", "assisted", "steer"] = "steer"
+    gaze_filter_mincutoff: float = Field(0.8, gt=0)
+    gaze_filter_beta: float = Field(0.01, ge=0)
+    fixation_assist_enabled: bool = True
+    fixation_assist_radius_px: float = Field(50.0, gt=0)
+
+    # Floating camera preview with a line from the eyes to the cursor, the
+    # recent cursor path and the raw gaze point; toggled from the control bar.
+    camera_preview_enabled: bool = True
+
+    # Gaze diagnostics: JSON stage/latency summaries in the worker log every
+    # interval; the optional trace adds one JSON line per gaze frame.
+    diagnostics_enabled: bool = False
+    diagnostics_interval_s: float = Field(10.0, gt=0)
+    diagnostics_trace_path: Path | None = None
 
     @property
     def uses_postgres(self) -> bool:

@@ -9,7 +9,15 @@ import queue
 import tkinter as tk
 
 from app.desktop.display import make_tool_window
-from app.desktop.system_tray import PAUSE, QUIT, RECALIBRATE, TOGGLE_VOICE
+from app.desktop.system_tray import (
+    CYCLE_EDGE,
+    PAUSE,
+    QUIT,
+    RECALIBRATE,
+    RECENTER,
+    TOGGLE_PREVIEW,
+    TOGGLE_VOICE,
+)
 
 BACKGROUND = "#0F1B2D"
 PANEL = "#1B2B45"
@@ -54,6 +62,9 @@ class ControlBar:
 
         self._pause = self._button(frame, "Pause", PAUSE)
         self._voice = self._button(frame, "Voice: on", TOGGLE_VOICE)
+        self._camera = self._button(frame, "Camera: on", TOGGLE_PREVIEW)
+        self._edge = self._button(frame, "Edge: medium", CYCLE_EDGE)
+        self._recenter = self._button(frame, "Re-centre", RECENTER)
         self._button(frame, "Recalibrate", RECALIBRATE)
         self._quit = self._button(frame, "Quit", None, command=self._quit_pressed)
 
@@ -110,3 +121,14 @@ class ControlBar:
         self._pause.configure(text="Resume" if paused else "Pause",
                               bg=SUCCESS if paused else PANEL,
                               fg=BACKGROUND if paused else TEXT)
+
+    def set_preview(self, enabled: bool):
+        self._camera.configure(text=f"Camera: {'on' if enabled else 'off'}")
+
+    def set_edge_level(self, level: str):
+        self._edge.configure(text=f"Edge: {level}")
+
+    def set_recentering(self, active: bool):
+        self._recenter.configure(text="Cancel re-centre" if active else "Re-centre",
+                                 bg=WARNING if active else PANEL,
+                                 fg=BACKGROUND if active else TEXT)

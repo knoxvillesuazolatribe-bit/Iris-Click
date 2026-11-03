@@ -34,6 +34,12 @@ NUM_FEATURES = 6
 # between the two eye centres (roughly one eye width), so its range is
 # comparable to the gx/gy ratios and suits the model's scale floors.
 EYE_LINE_UNIT_FRACTION = 1.0 / 3.0
+# Focal length in frame widths (~58 deg horizontal field of view). Laptop
+# webcams are 58-70 deg; on recordings s1-s3 0.8-1.0 fitted equally well.
+FOCAL_FRAME_WIDTHS = 0.9
+# Adult average distance between the eye centres; sets the absolute scale
+# of the eye position (a 10% error scales distance, not direction).
+EYE_SPACING_CM = 6.3
 
 # Comfortable eye-centre spacing, as a fraction of the camera frame width.
 EYE_DISTANCE_MIN = 0.105
@@ -246,3 +252,61 @@ def distance_advice(eye_line):
     if spacing > EYE_DISTANCE_MAX:
         return "back"
     return None
+
+
+def eye_geometry_features(midpoint_features, eye_line, frame_w, frame_h):
+    """(gx, gy, x, y, z, pitch) for the geometric mapping, or None.
+
+    gx, gy and pitch come from an eye_line_pointer feature vector; x, y, z
+    are the eye-line centre in cm from the camera (x right, y down as seen by
+    the user, z away from the camera), from its image position and the
+    apparent eye spacing. ``eye_line`` is that pointer's info dict.
+    """
+    if midpoint_features is None or not eye_line:
+        return None
+    spacing_px = float(eye_line.get("eye_distance", 0.0)) * frame_w
+    if spacing_px <= 1.0:
+        return None
+    focal = FOCAL_FRAME_WIDTHS * frame_w
+    z = focal * EYE_SPACING_CM / spacing_px
+    u, v = eye_line["line_centre"]
+    x = (u * frame_w - frame_w / 2.0) * z / focal
+    y = (v * frame_h - frame_h / 2.0) * z / focal
+    return (float(midpoint_features[0]), float(midpoint_features[1]), float(x), float(y),
+            float(z), float(midpoint_features[5]))
+
+
+def eyeball_features(eye_line, frame_w, frame_h, yaw, pitch, iris_centres=None):
+    """Per-eye ray features for the eyeball mapping, or None.
+
+    Returns (lx, ly, rx, ry, Lx, Ly, Rx, Ry, z, yaw, pitch): each iris's offset
+    from its own eye centre (corner midpoint), then each eye centre's position,
+    all in cm in camera axes (x right as seen by the user, y down) at depth z.
+    Offsets stay in image axes, not the eye line's frame: gaze is a direction in
+    the camera frame, so head roll must not rotate it. ``iris_centres``
+    optionally replaces the iris-ring centres with fitted pupils (pixels).
+    """
+    if not eye_line:
+        return None
+    spacing_px = float(eye_line.get("eye_distance", 0.0)) * frame_w
+    if spacing_px <= 1.0:
+        return None
+    focal = FOCAL_FRAME_WIDTHS * frame_w
+    z = focal * EYE_SPACING_CM / spacing_px
+    cm_per_px = z / focal
+    size = np.array([frame_w, frame_h], dtype=float)
+    centre = size / 2.0
+    left_eye = np.asarray(eye_line["left_eye"], dtype=float) * size
+    right_eye = np.asarray(eye_line["right_eye"], dtype=float) * size
+    if iris_centres is None:
+        left_iris = np.asarray(eye_line["left_iris"], dtype=float) * size
+        right_iris = np.asarray(eye_line["right_iris"], dtype=float) * size
+    else:
+        left_iris = np.asarray(iris_centres[0], dtype=float)
+        right_iris = np.asarray(iris_centres[1], dtype=float)
+    values = np.concatenate([
+        (left_iris - left_eye) * cm_per_px, (right_iris - right_eye) * cm_per_px,
+        (left_eye - centre) * cm_per_px, (right_eye - centre) * cm_per_px,
+        [z, yaw, pitch],
+    ])
+    return tuple(float(v) for v in values)

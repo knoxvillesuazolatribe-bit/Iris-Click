@@ -17,7 +17,6 @@ only hand data to the Tk main thread, which owns every window and OS-input call.
 import argparse
 import json
 import logging
-import math
 import os
 import queue
 import sys
@@ -25,35 +24,54 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
+from collections import deque
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 from app.config import Settings, get_settings
 from app.core.actions.dwell_click import DwellClicker
 from app.core.actions.mouse_controller import MouseController
-from app.core.actions.target_snap import TargetLock
+from app.core.calibration.posture import PostureMonitor
 from app.core.calibration.profile import load_profile
+from app.core.calibration.recenter import (
+    RECENTER_POINTS,
+    RecenterSession,
+    load_recenter_record,
+    save_recenter,
+)
+from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
 from app.core.detection.lighting import LIGHTING_GUIDANCE
 from app.core.gaze.estimator import GazeTracker
 from app.core.gaze.blink_anchor import BlinkAnchor
-from app.core.gaze.head_nudge import HeadNudge
+from app.core.gaze.diagnostics import Diagnostics
+from app.core.gaze.edge_reach import next_edge_level
+from app.core.gaze.feature_sources import required_engines
+from app.core.gaze.navigation import CursorNavigator, NavigationConfig
 from app.core.gaze.pipeline import TRANSIENT_REASONS, GazePipeline
-from app.core.gaze.smoothing import CursorGlide, GazeStabilizer
+from app.core.gaze.smoothing import CursorGlide
+from app.desktop.camera_preview import PREVIEW_WIDTH, CameraPreview
 from app.desktop.display import enable_dpi_awareness
 from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
+    CYCLE_EDGE,
     PAUSE,
     QUIT,
     RECALIBRATE,
+    RECENTER,
+    TOGGLE_PREVIEW,
     TOGGLE_VOICE,
     SystemTray,
 )
 from app.desktop.target_assist import TargetFinder, tk_button_targets
 from app.desktop.voice import Speaker, VoiceGuide
-from app.services.camera_service import get_camera_service
+from app.services.camera_service import (
+    get_camera_service,
+    read_device_settings,
+    update_device_settings,
+)
 from app.services.tracking_service import pid_alive, stop_request_path
 
 TICK_MS = 20
@@ -62,14 +80,14 @@ TOPMOST_EVERY_TICKS = 100
 LOCAL_TARGETS_EVERY_TICKS = 50
 CAMERA_RETRY_S = 3.0
 CAMERA_START_ATTEMPTS = 4
-CURSOR_DEADZONE_PX = 4.0
 # Eyes re-settle for a moment after reopening; hold the cursor meanwhile.
 POST_BLINK_HOLD_S = 0.3
-# Fixation-lock radius at smoothing 0 and the extra range up to smoothing 1.
-# Measured webcam jitter is ~30 px/frame with 100-160 px steps, so the default
-# smoothing (0.25) locks within 80 px.
-FIXATION_RADIUS_MIN_PX = 40.0
-FIXATION_RADIUS_RANGE_PX = 160.0
+# Non-legacy modes show the glide one tick ahead: CursorGlide.position at the
+# instant set_target is called is still the previous point, which delays every
+# new estimate by a full tick.
+GLIDE_LEAD_S = TICK_MS / 1000.0
+# Length of the cursor path drawn while the camera preview is on.
+TRAIL_S = 1.0
 
 REASON_TEXT = {
     "no_face": "Face not visible. Face the screen or improve the lighting.",
@@ -96,6 +114,12 @@ DISTANCE_TEXT = {
     "closer": "Move forward a little: eyes are too small for the camera.",
     "back": "Move back a little: too close to the camera.",
 }
+POSTURE_TEXT = {
+    "distance": "You moved nearer or farther since calibration. Choose Re-centre.",
+    "angle": "Your head turned since calibration. Choose Re-centre.",
+}
+POSTURE_SPEECH = ("You are sitting differently from when the aim was set. "
+                  "Choose Re-centre to fix it, or sit as before.")
 
 logger = logging.getLogger("irisclick.worker")
 
@@ -142,11 +166,17 @@ class PidFile:
 
 
 class TrackingWorker:
-    def __init__(self, settings: Settings, tracker: GazeTracker, model, pid_file: PidFile):
+    def __init__(self, settings: Settings, tracker: GazeTracker, model, pid_file: PidFile,
+                 profile_id: str | None = None, posture=None):
+        """``posture``: PostureReference the active mapping was fitted in, or None."""
         self.settings = settings
         self.tracker = tracker
         self.model = model
         self.pid_file = pid_file
+        self.profile_id = profile_id
+        self.posture = PostureMonitor(posture)
+        self.recenter: RecenterSession | None = None
+        self._correction_before_recenter = None
         self.mouse = MouseController()
         self.screen_w, self.screen_h = self.mouse.screen_size()
 
@@ -155,6 +185,7 @@ class TrackingWorker:
         self.root.title("IrisClick")
         self.overlay = GazeOverlay(self.root, self.screen_w, self.screen_h)
         self.bar = ControlBar(self.root, self.commands, self.screen_w)
+        self.preview = CameraPreview(self.root, self.screen_w, self.screen_h)
         self.tray = SystemTray(self.commands)
         self.speaker = Speaker()
         self.voice = VoiceGuide(self.speaker)
@@ -162,17 +193,26 @@ class TrackingWorker:
 
         self.pipeline = GazePipeline()
         self.blink = BlinkDetector(threshold=settings.blink_threshold)
-        self.stabilizer = GazeStabilizer(radius=FIXATION_RADIUS_MIN_PX
-                                         + settings.cursor_smoothing * FIXATION_RADIUS_RANGE_PX)
+        edge_level = read_device_settings(settings).edge_sensitivity or settings.edge_sensitivity
+        self.navigator = CursorNavigator(
+            NavigationConfig.from_settings(settings, edge_sensitivity=edge_level),
+            self.screen_w, self.screen_h)
+        self.bar.set_edge_level(edge_level)
+        self.tray.set_edge_level(edge_level)
+        self._glide_lead = 0.0 if self.navigator.config.mode == "legacy" else GLIDE_LEAD_S
         self.glide = CursorGlide()
-        self.nudge = HeadNudge(gain_px=settings.head_fine_tune_gain_px,
-                               max_offset_px=settings.head_fine_tune_max_px)
         self.dwell = DwellClicker(radius_px=settings.dwell_radius_px, dwell_ms=settings.dwell_ms,
                                   cooldown_ms=settings.dwell_cooldown_ms)
         self.dwell_enabled = settings.dwell_click_enabled
         self.targets = TargetFinder()
-        self.target_lock = TargetLock(radius=settings.target_snap_radius_px)
+        self.diagnostics = Diagnostics(settings.diagnostics_enabled,
+                                       settings.diagnostics_interval_s,
+                                       settings.diagnostics_trace_path)
+        self._last_frame_id = 0
+        self._last_tick_at = None
         self._target = None
+        self._fine_aim = False
+        self._fine_aim_announced = False
         self._handoff_until = 0.0
         self._handoff_pos = None
         self.blink_anchor = BlinkAnchor()
@@ -182,9 +222,12 @@ class TrackingWorker:
         self.paused = False
         self._pause_reason = ""
         self._was_paused = False
-        self._last_cursor = None
         self._showing_cursor = False
         self._tick_count = 0
+        self._trail: deque[tuple[float, float, float]] = deque()
+        self._raw_point = None
+        self._set_preview(settings.camera_preview_enabled)
+        logger.info("Gaze navigation mode: %s", self.navigator.config.mode)
         self._camera_restart: threading.Thread | None = None
         self._next_camera_retry = 0.0
         self._quitting = False
@@ -192,7 +235,7 @@ class TrackingWorker:
     def run(self):
         self.tray.start()
         self.speaker.start()
-        if self.settings.target_snap_enabled:
+        if self.navigator.config.uses_targets:
             self.targets.start()
         self.voice.announce("Eye tracking is on.", time.monotonic())
         self.root.after(TICK_MS, self._tick)
@@ -202,6 +245,7 @@ class TrackingWorker:
             self.tray.stop()
             self.speaker.stop()
             self.targets.stop()
+            self.diagnostics.close()
 
     def quit(self):
         if self._quitting:
@@ -225,17 +269,28 @@ class TrackingWorker:
 
     def _reset_motion(self):
         self.pipeline.reset()
-        self.stabilizer.reset()
-        self.nudge.reset()
+        self.navigator.reset()
         self.glide.reset()
         self.dwell.reset()
-        self.target_lock.reset()
         self.blink_anchor.reset()
         self._wink_point = None
         self._target = None
-        self._last_cursor = None
+        self._fine_aim = False
         self._showing_cursor = False
+        self._trail.clear()
+        self._raw_point = None
         self.mouse.forget_position()
+
+    def _set_preview(self, enabled: bool):
+        """Camera preview window plus the eyes-to-cursor line on the overlay."""
+        self.preview.set_visible(enabled)
+        # Only pay for the downscaled frame while someone is looking at it.
+        self.tracker.preview_width = PREVIEW_WIDTH if enabled else None
+        self.bar.set_preview(enabled)
+        self.tray.set_preview(enabled)
+        if not enabled:
+            self.overlay.hide_link()
+            self._trail.clear()
 
     def _mouse_in_use(self, now: float) -> bool:
         """True while the physical mouse is being used; gaze steps aside."""
@@ -251,10 +306,14 @@ class TrackingWorker:
             logger.info("Physical mouse released; gaze resumed")
             return False
         if self.mouse.moved_by_user():
+            gaze_sent = self.mouse.last_sent
             self._handoff_pos = self.mouse.position()
             self._handoff_until = now + self.settings.mouse_handoff_s
             self._reset_motion()
-            logger.info("Physical mouse in use; gaze handed off")
+            # Positions show whether a hand-off was a real mouse move or a
+            # false trigger (each one pauses gaze for mouse_handoff_s).
+            logger.info("Physical mouse in use; gaze handed off (cursor %s, gaze sent %s)",
+                        self._handoff_pos, gaze_sent)
             return True
         return False
 
@@ -272,11 +331,25 @@ class TrackingWorker:
                 self.voice.enabled = not self.voice.enabled
                 if self.voice.enabled:
                     self.voice.announce("Voice guidance on.", now)
+            elif command == RECENTER:
+                self._toggle_recenter(now)
+            elif command == TOGGLE_PREVIEW:
+                self._set_preview(not self.preview.visible)
+            elif command == CYCLE_EDGE:
+                self._cycle_edge(now)
             elif command == RECALIBRATE:
                 webbrowser.open(f"{self.settings.site_url.rstrip('/')}/calibration")
                 self.quit()
             elif command == QUIT:
                 self.quit()
+
+    def _cycle_edge(self, now: float):
+        level = next_edge_level(self.navigator.config.edge_sensitivity)
+        self.navigator.set_edge_sensitivity(level)
+        self.bar.set_edge_level(level)
+        self.tray.set_edge_level(level)
+        update_device_settings(self.settings, edge_sensitivity=level)
+        self.voice.announce(f"Edge sensitivity {level}.", now)
 
     def _hide(self, text: str, kind: str):
         self.overlay.hide_cursor()
@@ -287,11 +360,18 @@ class TrackingWorker:
         if self._quitting:
             return
         self._tick_count += 1
+        started = time.perf_counter()
+        if self._last_tick_at is not None:
+            self.diagnostics.record("tick_interval", (started - self._last_tick_at) * 1000.0)
+        self._last_tick_at = started
         try:
             self._step()
         except Exception as exc:
             logger.exception("Tracking step failed: %s", exc)
             self._pause("Something went wrong.")
+        finished = time.perf_counter()
+        self.diagnostics.record("tick", (finished - started) * 1000.0)
+        self.diagnostics.maybe_report(finished)
         if not self._quitting:
             self.root.after(TICK_MS, self._tick)
 
@@ -305,11 +385,14 @@ class TrackingWorker:
         if self._tick_count % TOPMOST_EVERY_TICKS == 0:
             self.overlay.keep_on_top()
             self.bar.keep_on_top()
+            self.preview.keep_on_top()
         if self._tick_count % LOCAL_TARGETS_EVERY_TICKS == 1:
             self.targets.set_local_targets(tk_button_targets(self.bar.win))
         now_s = time.monotonic()
 
-        if not self.paused and self._mouse_in_use(now_s):
+        # A re-centre needs no cursor, and clicking its button with the real
+        # mouse must not pause the dots it just started.
+        if not self.paused and self.recenter is None and self._mouse_in_use(now_s):
             self.blink.reset()
             self._hide("Mouse in use. Gaze resumes when you let go.", "paused")
             return
@@ -322,11 +405,27 @@ class TrackingWorker:
             return
 
         reading = self.tracker.read()
+        if reading.frame_id != self._last_frame_id:
+            self._last_frame_id = reading.frame_id
+            self.diagnostics.count("frames")
+            self.diagnostics.count("dropped_frames", reading.dropped)
+            self.diagnostics.record_many(reading.timings, "tracker.")
+            # Shown even without a face: framing the face is what it is for.
+            self.preview.show(reading)
         estimate = self.pipeline.process(reading, self.model, self.settings.cursor_smoothing,
                                          output_size=(self.screen_w, self.screen_h))
         reason = self.pipeline.reason
         lighting = LIGHTING_GUIDANCE.get(reading.lighting_status)
         distance = distance_advice(reading.eye_line) if reading.face_found else None
+        # Also fed during a re-centre: its frames become the new reference.
+        if (self.posture.update(now_s, reading) and self.recenter is None
+                and not self.paused):
+            logger.info("Posture changed (%s) since the mapping was fitted", self.posture.change)
+            self.voice.announce(POSTURE_SPEECH, now_s)
+
+        if self.recenter is not None:
+            self._step_recenter(estimate, reason, now_s)
+            return
 
         if self.paused:
             self.voice.observe(None, None, now_s)
@@ -346,8 +445,7 @@ class TrackingWorker:
                        "problem")
             return
 
-        eye_ear = min(reading.left_ear, reading.right_ear)
-        eye_closing = eye_ear < self.settings.blink_threshold
+        eye_closing = self.blink.classify(reading.left_ear, reading.right_ear) is not None
         if eye_closing and not self._lid_down and not self.paused:
             self._lid_down = True
             # The lid dragged the cursor before the eye counted as closed; go
@@ -369,8 +467,7 @@ class TrackingWorker:
         if now_s < self._hold_until and not self.paused:
             # Eyes re-settle after reopening; that motion is not a gaze shift.
             # A fresh fixation starts when the hold ends.
-            self.stabilizer.reset()
-            self.nudge.reset()
+            self.navigator.reset_fixation()
             self.dwell.reset()
             return
         self._wink_point = None
@@ -396,35 +493,58 @@ class TrackingWorker:
             self._hide("Waiting for eyes to reopen", "tracking")
             return
 
-        x = min(max(estimate.x, 0.0), self.screen_w - 1.0)
-        y = min(max(estimate.y, 0.0), self.screen_h - 1.0)
-        x, y = self.stabilizer.update(x, y, reading.captured_at,
-                                      eye_difference=(reading.features[2], reading.features[3]))
-        if self.settings.head_fine_tune_enabled:
-            apex = (reading.eye_line or {}).get("nose_apex")
-            dx, dy = self.nudge.update(apex, self.stabilizer.anchor_id, reading.captured_at)
-            x = min(max(x + dx, 0.0), self.screen_w - 1.0)
-            y = min(max(y + dy, 0.0), self.screen_h - 1.0)
-        self._target = None
-        if self.settings.target_snap_enabled:
-            x, y, self._target = self.target_lock.snap(x, y, self.targets.targets(), now_s)
-        # Tiny landmark fluctuations must not vibrate the OS cursor or keep
-        # re-anchoring the dwell timer.
-        if self._last_cursor is not None and math.dist((x, y), self._last_cursor) < CURSOR_DEADZONE_PX:
-            x, y = self._last_cursor
-        else:
-            self._last_cursor = (x, y)
+        config = self.navigator.config
+        targets = self.targets.targets() if config.uses_targets else ()
+        step = self.navigator.update(estimate, reading, targets, now_s)
+        x, y, self._target = step.x, step.y, step.target
+        self._fine_aim = step.fine
+        if step.fine and not self._fine_aim_announced:
+            self._fine_aim_announced = True
+            self.voice.announce("Fine aim. Keep your eyes still and move your head slightly "
+                                "to adjust. Wink left to click.", now_s)
+        self._raw_point = (min(max(estimate.raw_x, 0.0), self.screen_w - 1.0),
+                           min(max(estimate.raw_y, 0.0), self.screen_h - 1.0))
 
+        if not config.glides:
+            self.glide.reset()
         self.glide.set_target(x, y, now)
-        gx, gy = self.glide.position(now)
+        gx, gy = self.glide.position(now + self._glide_lead)
+        nav_done = time.perf_counter()
         self.mouse.move(gx, gy, force=True)
+        moved = time.perf_counter()
+        self._record_cursor(reading, estimate, step, (gx, gy), now, nav_done, moved)
         if self.dwell_enabled and self.dwell.update(x, y):
             self.mouse.left_click(x, y)
             self.glide.reset()
             self.glide.set_target(x, y, now)
             gx, gy = x, y
-        self._draw(gx, gy, DISTANCE_TEXT.get(distance))
-        self.blink_anchor.record(now_s, gx, gy, eye_ear)
+        self._draw(gx, gy, DISTANCE_TEXT.get(distance) or POSTURE_TEXT.get(self.posture.change))
+        self.blink_anchor.record(now_s, gx, gy, reading.left_ear, reading.right_ear)
+
+    def _record_cursor(self, reading, estimate, step, shown, started, nav_done, moved):
+        """``started``/``nav_done``/``moved``: perf_counter around navigation and the OS move."""
+        diagnostics = self.diagnostics
+        if not diagnostics.enabled:
+            return
+        diagnostics.count("cursor_updates")
+        diagnostics.record("navigate", (nav_done - started) * 1000.0)
+        diagnostics.record("mouse_move", (moved - nav_done) * 1000.0)
+        # Software latency only: camera read return -> OS cursor set.
+        diagnostics.record("capture_to_cursor", (moved - reading.captured_at) * 1000.0)
+        if step.target is not None:
+            diagnostics.count("snapped")
+        if self.navigator.config.uses_head:
+            diagnostics.record("head_offset_px", step.head_offset_px)
+        diagnostics.trace({
+            "t": round(reading.captured_at, 4), "frame": reading.frame_id,
+            "raw": [round(estimate.raw_x, 1), round(estimate.raw_y, 1)],
+            "pipeline": [round(estimate.x, 1), round(estimate.y, 1)],
+            "cursor": [round(step.x, 1), round(step.y, 1)],
+            "shown": [round(shown[0], 1), round(shown[1], 1)],
+            "head_px": round(step.head_offset_px, 1), "snapped": step.target is not None,
+            "age_ms": round((moved - reading.captured_at) * 1000.0, 1),
+            "tracker_ms": reading.timings,
+        })
 
     @staticmethod
     def _problem_speech(reason, lighting, distance):
@@ -438,11 +558,24 @@ class TrackingWorker:
     def _glide(self, now: float):
         if not self._showing_cursor:
             return
-        position = self.glide.position(now)
+        position = self.glide.position(now + self._glide_lead)
         if position is None:
             return
         self.mouse.move(*position)
-        self.overlay.show_cursor(*position, self._dwell_progress(), self._target_rect())
+        self.overlay.show_cursor(*position, self._dwell_progress(), self._target_rect(),
+                                 self._fine_aim)
+        self._draw_link(*position)
+
+    def _draw_link(self, x: float, y: float, new_frame: bool = False):
+        if not self.preview.visible:
+            return
+        if new_frame:
+            now = time.monotonic()
+            self._trail.append((now, x, y))
+            while self._trail and now - self._trail[0][0] > TRAIL_S:
+                self._trail.popleft()
+        trail = [(tx, ty) for _, tx, ty in self._trail] + [(x, y)]
+        self.overlay.show_link(self.preview.eye_point_on_screen(), (x, y), trail, self._raw_point)
 
     def _dwell_progress(self) -> float:
         return self.dwell.progress() if self.dwell_enabled else 0.0
@@ -452,13 +585,17 @@ class TrackingWorker:
         return (t.left, t.top, t.right, t.bottom) if t is not None else None
 
     def _draw(self, x: float, y: float, warning: str | None):
-        self.overlay.show_cursor(x, y, self._dwell_progress(), self._target_rect())
+        self.overlay.show_cursor(x, y, self._dwell_progress(), self._target_rect(),
+                                 self._fine_aim)
+        self._draw_link(x, y, new_frame=True)
         self._showing_cursor = True
         if warning:
             self._set_status(warning, "problem")
         elif self._target is not None:
             self._set_status(f"Target: {self._target.name[:30] or 'button'}. Wink left to click.",
                              "tracking")
+        elif self._fine_aim:
+            self._set_status("Fine aim: move your head slightly. Wink left to click.", "tracking")
         else:
             source = "landmark fallback" if self.pipeline.using_reference_model else "Tracking"
             self._set_status(source, "tracking")
@@ -483,6 +620,69 @@ class TrackingWorker:
             logger.info("Right wink: %s", self.settings.right_blink_action)
         self.dwell.reset()
 
+    def _toggle_recenter(self, now: float):
+        """Start the 5-dot re-centre, or cancel one in progress."""
+        if self.recenter is not None:
+            self._finish_recenter(None, "Re-centre cancelled.")
+            return
+        if self.model is None or not hasattr(self.model, "set_correction"):
+            return
+        # Dots are fitted against the uncorrected mapping; restored on failure.
+        self._correction_before_recenter = self.model.correction
+        self.model.set_correction(None)
+        self._reset_motion()
+        self.overlay.hide_cursor()
+        self.recenter = RecenterSession(now)
+        self.bar.set_recentering(True)
+        logger.info("Re-centre started")
+        self.voice.announce("Re-centre. Look at each yellow dot until its ring fills.", now)
+
+    def _step_recenter(self, estimate, reason, now: float):
+        session = self.recenter
+        prediction = None
+        # Only fresh open-eye frames count; a frame is offered once (duplicates
+        # and blinks give no estimate).
+        if estimate is not None and reason is None:
+            prediction = (estimate.raw_x / self.screen_w, estimate.raw_y / self.screen_h)
+        session.update(now, prediction)
+        if session.error is not None:
+            self._finish_recenter(None, f"Re-centre failed. {session.error}")
+            return
+        if session.finished:
+            try:
+                correction, residual = session.result()
+            except ValueError as exc:
+                self._finish_recenter(None, f"Re-centre failed. {exc}")
+                return
+            self._finish_recenter(correction, "Re-centred.", residual)
+            return
+        tx, ty = session.target
+        label = f"{session.index + 1} / {len(RECENTER_POINTS)}"
+        self.overlay.show_dot(tx * (self.screen_w - 1), ty * (self.screen_h - 1),
+                              session.progress(now), label)
+        self._set_status(f"Re-centre: look at dot {label}", "tracking")
+
+    def _finish_recenter(self, correction, message: str, residual: float = 0.0):
+        self.recenter = None
+        self.bar.set_recentering(False)
+        self.overlay.hide_dot()
+        if correction is None:
+            self.model.set_correction(self._correction_before_recenter)
+            logger.info(message)
+        else:
+            self.model.set_correction(correction)
+            # The dots span the whole screen, like the calibration's, so the
+            # recent median posture is a fair reference for the new mapping.
+            posture = self.posture.current()
+            self.posture.set_reference(posture)
+            logger.info("Re-centred (residual %.3f): %s, posture %s", residual,
+                        [round(v, 3) for v in correction.as_list()], posture)
+            if self.profile_id is not None:
+                save_recenter(self.settings.recenter_path, self.profile_id, correction, residual,
+                              posture)
+        self._reset_motion()
+        self.voice.announce(message, time.monotonic())
+
     def _recover_camera(self):
         if self._camera_restart is not None and self._camera_restart.is_alive():
             return
@@ -502,10 +702,17 @@ class TrackingWorker:
         self._camera_restart.start()
 
 
-def start_tracker(settings: Settings, camera_index: int) -> GazeTracker:
+def start_tracker(settings: Settings, camera_index: int, model=None) -> GazeTracker:
+    pupils, deep = required_engines(model) if model is not None else (True, True)
+    # Calibration runs every engine to compare sources; live tracking only
+    # needs the chosen one. Unused pupil/MGazeNet passes cost CPU per frame.
     tracker = GazeTracker(settings.face_model_path, camera_index=camera_index,
-                          refine_pupils=settings.refine_pupils,
-                          deep_gaze=settings.deep_gaze_enabled, low_power=settings.low_power)
+                          refine_pupils=settings.refine_pupils and pupils,
+                          deep_gaze=settings.deep_gaze_enabled and deep,
+                          low_power=settings.low_power,
+                          camera_backend=settings.camera_backend,
+                          camera_fourcc=settings.camera_fourcc,
+                          camera_resolution=settings.camera_resolution)
     # The calibration session may still be releasing the webcam.
     for attempt in range(1, CAMERA_START_ATTEMPTS + 1):
         try:
@@ -533,6 +740,16 @@ def main(argv=None) -> int:
         logger.error("No usable calibration profile; opening the calibration page")
         webbrowser.open(f"{settings.site_url.rstrip('/')}/calibration")
         return 2
+    recentre = load_recenter_record(settings.recenter_path, profile.id)
+    posture = profile.posture
+    if recentre is not None:
+        model.set_correction(ScreenCorrection(recentre.matrix))
+        # A re-centre without a stored posture predates tracking; unknown.
+        posture = recentre.posture
+        logger.info("Applied saved re-centre for profile %s: %s", profile.id,
+                    [round(v, 3) for v in recentre.matrix])
+    if posture is None:
+        logger.info("No posture reference; posture-change prompts are off until a re-centre")
 
     pid_file = PidFile(settings)
     if not pid_file.claim(profile.id):
@@ -541,17 +758,19 @@ def main(argv=None) -> int:
     camera_index = (profile.camera_index if profile.camera_index is not None
                     else get_camera_service().preferred_camera())
     try:
-        tracker = start_tracker(settings, camera_index)
+        tracker = start_tracker(settings, camera_index, model)
     except RuntimeError as exc:
         logger.error("Camera %d could not start: %s", camera_index, exc)
         pid_file.release()
         return 1
 
-    logger.info("Tracking with profile %s on camera %d (%s, per-dot error %.3f, deep gaze %s)",
+    logger.info("Tracking with profile %s on camera %d (%s, per-dot error %.3f, deep gaze %s, "
+                "pupil refinement %s)",
                 profile.id, camera_index, model.feature_source, profile.accuracy_fraction,
-                "on" if tracker.deep_gaze_available else "off")
+                "on" if tracker.deep_gaze_available else "off",
+                "on" if tracker.refine_pupils else "off")
     try:
-        TrackingWorker(settings, tracker, model, pid_file).run()
+        TrackingWorker(settings, tracker, model, pid_file, profile.id, posture).run()
     finally:
         try:
             tracker.stop()

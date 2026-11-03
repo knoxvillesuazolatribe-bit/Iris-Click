@@ -20,6 +20,12 @@ MAX_SAMPLE_AGE_S = 0.25
 POST_BLINK_SETTLE_S = 0.10
 FEATURE_SMOOTHING_ALPHA = 0.6
 FEATURE_REFERENCE_PERIOD_S = 0.020
+# Fitted pupils drop out on ~20% of frames when looking at the bottom row
+# (s3.jsonl), mostly for 1-3 frames; shorter gaps reuse the last pupil frame.
+FALLBACK_HOLD_S = 0.2
+# The fallback model sat ~220 px below the pupil model on the same frames
+# (s3.jsonl); this EMA of their difference keeps a switch from jumping.
+FALLBACK_OFFSET_ALPHA = 0.1
 
 # Reasons that mean "no new usable estimate yet", not "tracking was lost".
 TRANSIENT_REASONS = (None, "duplicate", "eyes_closed", "recovering")
@@ -100,6 +106,26 @@ class GazePipeline:
         self._reset_signal()
         self._feature_source = None
         self.using_reference_model = False
+        self._primary_hold = None
+        # Primary minus fallback prediction (screen fractions), learned on
+        # frames where both sources exist.
+        self._fallback_offset = None
+
+    def _learn_fallback_offset(self, model, features, reference, reference_features):
+        try:
+            px, py = model.predict(features)
+            rx, ry = reference.predict(reference_features)
+        except (ValueError, TypeError, OverflowError, FloatingPointError):
+            return
+        dx, dy = px - rx, py - ry
+        if not (math.isfinite(dx) and math.isfinite(dy)):
+            return
+        if self._fallback_offset is None:
+            self._fallback_offset = (dx, dy)
+        else:
+            ox, oy = self._fallback_offset
+            a = FALLBACK_OFFSET_ALPHA
+            self._fallback_offset = (ox + a * (dx - ox), oy + a * (dy - oy))
 
     def _reset_signal(self):
         self.cursor_filter.reset()
@@ -121,19 +147,34 @@ class GazePipeline:
         source = model_feature_source(model)
         features = features_for_model(reading, model)
         self.using_reference_model = False
-        fallback_source = reference_source(source)
-        if features is None and fallback_source is not None:
-            reference = getattr(model, "reference_model", None)
-            if reference is not None:
-                reference_features = features_for_model(reading, reference)
-                if reference_features is not None:
-                    effective_model = reference
-                    source = fallback_source
-                    features = reference_features
-                    self.using_reference_model = True
+        reference = (getattr(model, "reference_model", None)
+                     if reference_source(source) is not None else None)
+        reference_features = (features_for_model(reading, reference)
+                              if reference is not None else None)
+        if features is not None:
+            self._primary_hold = (features, stamp)
+            if reference_features is not None:
+                self._learn_fallback_offset(model, features, reference, reference_features)
+        elif (self._primary_hold is not None
+              and stamp - self._primary_hold[1] <= FALLBACK_HOLD_S):
+            # A brief dropout (often a lowered lid when looking down): keep
+            # the primary model on its last features instead of switching.
+            features = self._primary_hold[0]
+        offset = (0.0, 0.0)
+        if features is None and reference_features is not None:
+            effective_model = reference
+            source = reference_source(source)
+            features = reference_features
+            offset = self._fallback_offset or (0.0, 0.0)
+            self.using_reference_model = True
         if self._feature_source is not None and self._feature_source != source:
-            # Never blend two coordinate systems during a source transition.
-            self._reset_signal()
+            # Feature vectors of two sources never blend. The screen-space
+            # filter may continue only when the fallback is aligned to the
+            # primary; otherwise the cursor would jump by the models' bias.
+            if self._fallback_offset is None:
+                self._reset_signal()
+            else:
+                self._features = None
         self._feature_source = source
         if features is None:
             self.gate.reason = "missing_features"
@@ -149,9 +190,11 @@ class GazePipeline:
         self._last_signal_time = stamp
 
         def predict(values):
+            x, y = effective_model.predict(values)
+            x, y = x + offset[0], y + offset[1]
             if output_size is not None:
-                return effective_model.predict_for_screen(values, *output_size)
-            return effective_model.predict(values)
+                return x * float(output_size[0]), y * float(output_size[1])
+            return x, y
 
         try:
             raw_x, raw_y = predict(features)

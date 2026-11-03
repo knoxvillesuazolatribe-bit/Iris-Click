@@ -33,9 +33,22 @@ class CalibrationProfileRead(BaseModel):
     candidates: list[CandidateScore]
 
 
+class PostureReference(BaseModel):
+    """Where the head was while a mapping was fitted (median over its frames)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    # Eye-centre spacing as a fraction of frame width (shrinks as the user leans back).
+    eye_distance: float = Field(gt=0)
+    yaw: float  # radians, MediaPipe facial transform
+    pitch: float
+
+
 class CalibrationProfileFile(CalibrationProfileRead):
     # Fitted CalibrationModel.to_dict(); never sent to the site.
     model: dict[str, Any]
+    # None for profiles saved before posture tracking.
+    posture: PostureReference | None = None
 
 
 class CalibrationStartMessage(BaseModel):
@@ -117,3 +130,14 @@ class CalibrationErrorMessage(BaseModel):
     type: Literal["error"] = "error"
     message: str
     fatal: bool = False
+
+
+class RecenterFile(BaseModel):
+    """storage/recenter.json: the latest re-centre for one calibration profile."""
+
+    profile_id: str
+    created_at: datetime
+    # Row-major 2x3 affine in screen fractions (see ScreenCorrection).
+    matrix: Annotated[list[float], Field(min_length=6, max_length=6)]
+    residual_fraction: float = Field(ge=0)
+    posture: PostureReference | None = None

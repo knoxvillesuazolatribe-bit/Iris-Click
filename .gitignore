@@ -21,3 +21,7 @@ site/.env
 
 .pytest_cache/
 server/app/storage/device_settings.json
+server/app/storage/recenter.json
+
+# Gaze benchmark recordings and diagnostics traces (local baselines, never committed)
+*.jsonl

@@ -14,7 +14,12 @@ from pydantic import ValidationError
 
 from app.core.calibration.processor import CalibrationOutcome
 from app.core.gaze.screen_mapper import CalibrationModel
-from app.schemas.calibration import CalibrationProfileFile, CandidateScore, ScreenSize
+from app.schemas.calibration import (
+    CalibrationProfileFile,
+    CandidateScore,
+    PostureReference,
+    ScreenSize,
+)
 
 logger = logging.getLogger("irisclick.profiles")
 
@@ -29,7 +34,8 @@ def _profile_path(profiles_dir: Path, profile_id: str) -> Path:
 
 def save_profile(profiles_dir: Path, outcome: CalibrationOutcome, profile_name: str,
                  sample_count: int, screen: ScreenSize | None,
-                 deep_gaze_available: bool, camera_index: int | None = None) -> CalibrationProfileFile:
+                 deep_gaze_available: bool, camera_index: int | None = None,
+                 posture: PostureReference | None = None) -> CalibrationProfileFile:
     created_at = datetime.now().astimezone()
     profile = CalibrationProfileFile(
         id=f"{created_at:%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:8]}",
@@ -45,6 +51,7 @@ def save_profile(profiles_dir: Path, outcome: CalibrationOutcome, profile_name: 
         candidates=[CandidateScore(feature_source=s, error_fraction=round(e, 6))
                     for s, e in outcome.candidates],
         model=outcome.model.to_dict(),
+        posture=posture,
     )
     profiles_dir.mkdir(parents=True, exist_ok=True)
     path = _profile_path(profiles_dir, profile.id)

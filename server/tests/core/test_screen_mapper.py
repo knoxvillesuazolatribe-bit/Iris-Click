@@ -110,3 +110,21 @@ def test_profiles_without_edge_stretch_still_load(rng):
     payload = model.to_dict()
     del payload["edge_stretch"]
     assert CalibrationModel.from_dict(payload).edge_stretch == (0.0, 1.0, 0.0, 1.0)
+
+
+def test_eye_midpoint_models_ignore_head_pose(rng):
+    model = CalibrationModel(feature_source=EYE_MIDPOINT_FEATURE_SOURCE)
+    model.fit(_samples(rng))
+    assert model.eye_only
+    still = (0.1, -0.05, 0.01, 0.0, -0.07, 0.08)
+    turned = (0.1, -0.05, 0.03, 0.01, -0.07 + 0.09, 0.08 - 0.09)  # ~5 deg yaw and pitch
+    assert model.predict(turned) == pytest.approx(model.predict(still))
+
+
+def test_profiles_saved_before_eye_only_keep_their_head_terms(rng):
+    model = CalibrationModel(feature_source=EYE_MIDPOINT_FEATURE_SOURCE)
+    model.fit(_samples(rng))
+    data = model.to_dict()
+    assert CalibrationModel.from_dict(data).eye_only
+    del data["eye_only"]
+    assert not CalibrationModel.from_dict(data).eye_only

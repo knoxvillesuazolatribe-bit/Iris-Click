@@ -65,3 +65,20 @@ def make_tool_window(window: tk.Misc, click_through: bool = False):
     _user32.SetWindowLongW(hwnd, GWL_EXSTYLE, _user32.GetWindowLongW(hwnd, GWL_EXSTYLE) | bits)
     # Extended styles only apply after the frame is recalculated.
     _user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_FLAGS)
+
+
+HORZSIZE, VERTSIZE = 4, 6
+
+
+def physical_screen_size_cm() -> tuple[float, float] | None:
+    """The primary display's physical size from its EDID, or None if unknown."""
+    hdc = _user32.GetDC(0)
+    try:
+        width_mm = ctypes.windll.gdi32.GetDeviceCaps(hdc, HORZSIZE)
+        height_mm = ctypes.windll.gdi32.GetDeviceCaps(hdc, VERTSIZE)
+    finally:
+        _user32.ReleaseDC(0, hdc)
+    # Projectors and some virtual displays report 0 or nonsense.
+    if not (50 <= width_mm <= 3000 and 30 <= height_mm <= 2000):
+        return None
+    return width_mm / 10.0, height_mm / 10.0

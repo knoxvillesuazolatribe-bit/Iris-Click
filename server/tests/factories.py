@@ -1,9 +1,42 @@
 import itertools
 import time
 
+import math
+
 import numpy as np
 
 from app.core.gaze.estimator import GazeReading
+from app.core.gaze.eyeball_mapper import DEFAULT_PITCH_GAIN, DEFAULT_YAW_GAIN, EYEBALL_RADIUS_CM
+
+SCREEN_CM = (34.4, 19.4)
+CAMERA_ABOVE_CM = 0.8
+# Radians of eye rotation per unit of pupil-midpoint offset (synthetic).
+EYE_GAIN = 1.5
+
+
+def geometry_features(target, eye=(0.0, 8.0, 55.0), pitch=-0.01):
+    """Geometry features of an eye at ``eye`` (cm) looking at ``target`` (fractions)."""
+    x, y, z = eye
+    sx = (target[0] - 0.5) * SCREEN_CM[0]
+    sy = target[1] * SCREEN_CM[1] + CAMERA_ABOVE_CM
+    gx = math.atan2(sx - x, z) / EYE_GAIN
+    gy = (math.atan2(sy - y, z) - pitch) / EYE_GAIN
+    return gx, gy, x, y, z, pitch
+
+
+def eyeball_features(target, eye=(0.0, 8.0, 55.0), yaw=0.0, pitch=-0.01):
+    """Eyeball features of eyes centred on ``eye`` (cm) looking at ``target`` (fractions)."""
+    x, y, z = eye
+    sx = (target[0] - 0.5) * SCREEN_CM[0]
+    sy = target[1] * SCREEN_CM[1] + CAMERA_ABOVE_CM
+    offsets, origins = [], []
+    for ex in (x + 3.15, x - 3.15):
+        ax = math.atan2(sx - ex, z) - DEFAULT_YAW_GAIN * yaw
+        ay = math.atan2(sy - y, z) - DEFAULT_PITCH_GAIN * pitch
+        offsets += [EYEBALL_RADIUS_CM * ax / EYE_GAIN, EYEBALL_RADIUS_CM * ay / EYE_GAIN]
+        origins += [ex, y]
+    return (*offsets, *origins, z, yaw, pitch)
+
 
 _frame_ids = itertools.count(1)
 
@@ -32,5 +65,9 @@ def synthetic_reading(target, rng, noise=0.002, deep=True, pupils=True, nose=Tru
         deep_features=jitter((tx, ty, 0.0, 0.0, 0.02, -0.01)) if deep else None,
         nose_features=nose_eye if nose else None,
         pupil_nose_features=jitter(nose_eye) if nose and pupils else None,
+        geometry_features=jitter(geometry_features(target)),
+        pupil_geometry_features=jitter(geometry_features(target)) if pupils else None,
+        eyeball_features=jitter(eyeball_features(target)),
+        pupil_eyeball_features=jitter(eyeball_features(target)) if pupils else None,
         eye_line=None,
     )

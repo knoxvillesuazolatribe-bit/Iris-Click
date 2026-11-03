@@ -12,6 +12,8 @@ while the head stays exactly where it was during calibration.
 import numpy as np
 
 from app.core.gaze.feature_sources import (
+    EYE_MIDPOINT_FEATURE_SOURCE,
+    EYE_MIDPOINT_PUPIL_FEATURE_SOURCE,
     IRIS_FEATURE_SOURCE,
     NOSE_EYE_FEATURE_SOURCE,
     NOSE_EYE_PUPIL_FEATURE_SOURCE,
@@ -49,10 +51,35 @@ IDENTITY_STRETCH = (0.0, 1.0, 0.0, 1.0)
 MAX_EDGE_STRETCH = 1.5
 MIN_STRETCH_DOTS = 5
 
+# These features already cancel head movement, and a 13-dot calibration with a
+# still head cannot fit head-pose terms: profile 20261027T230854 moved the
+# cursor ~740 px diagonally per 5 deg of yaw. Their models use only the
+# pupil-midpoint offset (benchmark s1-s3: worst other-sitting error 277 -> 186 px).
+EYE_ONLY_SOURCES = frozenset({EYE_MIDPOINT_FEATURE_SOURCE, EYE_MIDPOINT_PUPIL_FEATURE_SOURCE})
+
 MIN_SAMPLES = 12
 MIN_GROUP_INLIERS = 8
 OUTLIER_MAD_MULTIPLIER = 3.5
 OUTLIER_NORMALIZED_FLOOR = 0.012
+
+
+class ScreenCorrection:
+    """Affine fix-up (shift, scale, shear) of a mapping, in screen fractions.
+
+    A posture change after calibration moves the whole mapping; a few dots
+    measure that without refitting the regression.
+    """
+
+    def __init__(self, matrix):
+        self.matrix = np.asarray(matrix, dtype=float).reshape(2, 3)
+
+    def apply(self, x: float, y: float) -> tuple[float, float]:
+        m = self.matrix
+        return (float(m[0, 0] * x + m[0, 1] * y + m[0, 2]),
+                float(m[1, 0] * x + m[1, 1] * y + m[1, 2]))
+
+    def as_list(self) -> list[float]:
+        return [float(v) for v in self.matrix.reshape(-1)]
 
 
 def _expand(features):
@@ -74,6 +101,8 @@ class CalibrationModel:
         if feature_source not in SUPPORTED_FEATURE_SOURCES:
             raise ValueError(f"Unsupported calibration feature source: {feature_source}")
         self.feature_source = feature_source
+        # Profiles saved before this flag existed keep their head terms (from_dict).
+        self.eye_only = feature_source in EYE_ONLY_SOURCES
         # Landmark fallback for frames where this source is missing.
         self.reference_model = reference_model
         self.coef_x = None
@@ -83,6 +112,14 @@ class CalibrationModel:
         # This is what the steadied pointer achieves; rms_error also counts
         # every frame's jitter.
         self.fixation_error = None
+        # Leave-one-dot-out error: each dot predicted by a fit that never saw
+        # it. fixation_error is in-sample and optimistic with 13 dots and 12
+        # coefficients per axis. Diagnostic only; None for older profiles.
+        self.validation_error = None
+        self.held_out_dot_errors: dict | None = None
+        # Re-centre for the current sitting (see calibration.recenter); applied
+        # after the regression and never saved with the profile.
+        self.correction: ScreenCorrection | None = None
         self.feature_mean = None
         self.feature_scale = None
         self.inlier_count = None
@@ -103,7 +140,7 @@ class CalibrationModel:
         """samples: list of (features, (screen_x_fraction, screen_y_fraction))."""
         if len(samples) < MIN_SAMPLES:
             raise ValueError("Not enough calibration samples to fit a model.")
-        raw = np.array([_expand(feat) for feat, _ in samples], dtype=float)
+        raw = np.array([_expand(self._inputs(feat)) for feat, _ in samples], dtype=float)
         targets = np.array([target for _, target in samples], dtype=float)
         if not np.all(np.isfinite(raw)) or not np.all(np.isfinite(targets)):
             raise ValueError("Calibration data contains invalid values.")
@@ -203,13 +240,27 @@ class CalibrationModel:
         a = self._normalise_matrix(raw)
         return np.column_stack((a @ self.coef_x, a @ self.coef_y))
 
+    def _inputs(self, features):
+        """Zero the eye-disagreement and head-pose inputs of an eye-only model."""
+        if not self.eye_only:
+            return features
+        return features[0], features[1], 0.0, 0.0, 0.0, 0.0
+
     def predict(self, features):
         """Return the (x, y) screen fraction for one feature vector."""
         if not self.is_fitted:
             raise RuntimeError("CalibrationModel used before fit().")
-        feat = self._normalise_matrix(_expand(features)[None, :])[0]
+        feat = self._normalise_matrix(_expand(self._inputs(features))[None, :])[0]
         (x, y), = self._stretch((float(feat @ self.coef_x), float(feat @ self.coef_y)))
+        if self.correction is not None:
+            x, y = self.correction.apply(x, y)
         return float(x), float(y)
+
+    def set_correction(self, correction: "ScreenCorrection | None"):
+        """Apply a re-centre correction to this model and its fallback model."""
+        self.correction = correction
+        if self.reference_model is not None:
+            self.reference_model.set_correction(correction)
 
     def predict_for_screen(self, features, screen_w, screen_h):
         """Predict physical screen pixels for the current display."""
@@ -224,9 +275,15 @@ class CalibrationModel:
             "coef_y": self.coef_y.tolist(),
             "rms_error": self.rms_error,
             "fixation_error": self.fixation_error,
+            "validation_error": self.validation_error,
+            # [dot x, dot y, held-out error] per calibration dot, for diagnostics.
+            "held_out_dot_errors": ([[float(x), float(y), float(e)]
+                                     for (x, y), e in self.held_out_dot_errors.items()]
+                                    if self.held_out_dot_errors else None),
             "feature_mean": self.feature_mean.tolist(),
             "feature_scale": self.feature_scale.tolist(),
             "inlier_count": self.inlier_count,
+            "eye_only": self.eye_only,
             "edge_stretch": list(self.edge_stretch),
         }
         if self.reference_model is not None:
@@ -235,7 +292,13 @@ class CalibrationModel:
 
     @classmethod
     def from_dict(cls, data):
-        """Rebuild a fitted model, or return None for an invalid/unknown payload."""
+        """Rebuild a fitted model, or return None for an invalid/unknown payload.
+
+        Geometric payloads (``"kind": "geometric"`` or ``"eyeball"``) load as
+        GeometricModel or EyeballModel.
+        """
+        if isinstance(data, dict) and data.get("kind") in ("geometric", "eyeball"):
+            return cls._geometric_from_dict(data)
         if not isinstance(data, dict) or data.get("model_version") != MODEL_VERSION:
             return None
         source = data.get("feature_source")
@@ -250,7 +313,13 @@ class CalibrationModel:
             model.rms_error = float(data["rms_error"])
             fixation = data.get("fixation_error")
             model.fixation_error = float(fixation) if fixation is not None else None
+            validation = data.get("validation_error")
+            model.validation_error = float(validation) if validation is not None else None
+            dots = data.get("held_out_dot_errors")
+            model.held_out_dot_errors = ({(float(x), float(y)): float(e) for x, y, e in dots}
+                                         if dots else None)
             model.inlier_count = data.get("inlier_count")
+            model.eye_only = bool(data.get("eye_only", False))
             stretch = tuple(float(v) for v in data.get("edge_stretch", IDENTITY_STRETCH))
         except (KeyError, TypeError, ValueError):
             return None
@@ -274,3 +343,22 @@ class CalibrationModel:
                 return None
             model.reference_model = reference
         return model
+
+    @classmethod
+    def _geometric_from_dict(cls, data):
+        # Imported here: geometric_mapper imports this module.
+        from app.core.gaze.eyeball_mapper import EyeballModel
+        from app.core.gaze.feature_sources import EYEBALL_SOURCES, GEOMETRY_SOURCES
+        from app.core.gaze.geometric_mapper import GeometricModel
+
+        source = data.get("feature_source")
+        eyeball = data.get("kind") == "eyeball"
+        if source not in GEOMETRY_SOURCES or eyeball != (source in EYEBALL_SOURCES):
+            return None
+        reference = None
+        nested = data.get("reference_model")
+        if nested is not None:
+            reference = cls.from_dict(nested)
+            if reference is None or reference.feature_source != reference_source(source):
+                return None
+        return (EyeballModel if eyeball else GeometricModel).from_dict(data, reference)

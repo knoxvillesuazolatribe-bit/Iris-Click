@@ -28,6 +28,10 @@ class MouseController:
         x, y = pyautogui.position()
         return int(x), int(y)
 
+    @property
+    def last_sent(self) -> tuple[int, int] | None:
+        return self._sent
+
     def moved_by_user(self) -> bool:
         if self._sent is None:
             return False

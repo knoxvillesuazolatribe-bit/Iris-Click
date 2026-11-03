@@ -16,31 +16,39 @@ from app.services.tracking_service import TrackingService, get_tracking_service
 logger = logging.getLogger("irisclick.camera_service")
 
 
+def read_device_settings(settings: Settings) -> DeviceSettings:
+    try:
+        return DeviceSettings.model_validate_json(settings.device_settings_path.read_text("utf-8"))
+    except FileNotFoundError:
+        return DeviceSettings(camera_index=settings.camera_index)
+    except (OSError, ValidationError) as exc:
+        logger.warning("Device settings unreadable, using defaults: %s", exc)
+        return DeviceSettings(camera_index=settings.camera_index)
+
+
+def update_device_settings(settings: Settings, **changes) -> DeviceSettings:
+    updated = read_device_settings(settings).model_copy(update=changes)
+    path = settings.device_settings_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(updated.model_dump_json(indent=2), encoding="utf-8")
+    return updated
+
+
 class CameraService:
     def __init__(self, settings: Settings, tracking: TrackingService):
         self._settings = settings
         self._tracking = tracking
-        self._path = settings.device_settings_path
         self._scan_lock = threading.Lock()
         self._snapshots: dict[int, bytes] = {}
 
     def device_settings(self) -> DeviceSettings:
-        try:
-            return DeviceSettings.model_validate_json(self._path.read_text("utf-8"))
-        except FileNotFoundError:
-            return DeviceSettings(camera_index=self._settings.camera_index)
-        except (OSError, ValidationError) as exc:
-            logger.warning("Device settings unreadable, using defaults: %s", exc)
-            return DeviceSettings(camera_index=self._settings.camera_index)
+        return read_device_settings(self._settings)
 
     def preferred_camera(self) -> int:
         return self.device_settings().camera_index
 
     def set_preferred_camera(self, index: int) -> DeviceSettings:
-        updated = self.device_settings().model_copy(update={"camera_index": index})
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(updated.model_dump_json(indent=2), encoding="utf-8")
-        return updated
+        return update_device_settings(self._settings, camera_index=index)
 
     def _worker_camera(self) -> int | None:
         status = self._tracking.status()

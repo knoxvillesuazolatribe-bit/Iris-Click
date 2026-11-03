@@ -6,6 +6,7 @@ so all sources are fitted and judged on exactly the same frames and dots.
 
 import numpy as np
 
+from app.core.calibration.posture import median_posture, posture_of
 from app.core.gaze.feature_sources import (
     CANDIDATE_SOURCES,
     IRIS_FEATURE_SOURCE,
@@ -58,6 +59,7 @@ class PointCollector:
         self.started_at = started_at
         self.gate = ReadingGate()
         self._rows: list[dict] = []
+        self._postures: list = []
 
     @property
     def reason(self):
@@ -72,11 +74,17 @@ class PointCollector:
             return False
         self._rows.append({source: features_for_source(reading, source)
                            for source in CANDIDATE_SOURCES})
+        self._postures.append(posture_of(reading))
         return True
 
+    def _keep(self) -> list[bool]:
+        return outlier_mask([row[IRIS_FEATURE_SOURCE] for row in self._rows])
+
     def cleaned_rows(self) -> list[dict]:
-        keep = outlier_mask([row[IRIS_FEATURE_SOURCE] for row in self._rows])
-        return [row for row, ok in zip(self._rows, keep) if ok]
+        return [row for row, ok in zip(self._rows, self._keep()) if ok]
+
+    def cleaned_postures(self) -> list:
+        return [p for p, ok in zip(self._postures, self._keep()) if ok and p is not None]
 
     def is_finished(self, elapsed_ms: float) -> bool:
         if elapsed_ms >= MAX_COLLECT_MS:
@@ -95,8 +103,15 @@ class CalibrationCollector:
         self.samples: dict[str, list] = {source: [] for source in CANDIDATE_SOURCES}
         # Per-source sample count at each dot; a source needs every dot covered.
         self.point_counts: dict[str, list[int]] = {source: [] for source in CANDIDATE_SOURCES}
+        self.postures: list = []
+
+    @property
+    def posture(self):
+        """Median head posture over every accepted frame, or None."""
+        return median_posture(self.postures)
 
     def add_point(self, point: PointCollector):
+        self.postures.extend(point.cleaned_postures())
         rows = point.cleaned_rows()
         for source in CANDIDATE_SOURCES:
             values = [(row[source], point.target) for row in rows if row[source] is not None]

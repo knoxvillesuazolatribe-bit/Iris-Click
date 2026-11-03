@@ -6,13 +6,16 @@ interpreter in the same process on Windows.
 """
 
 import time
+from collections import deque
 from types import SimpleNamespace
 
 import pytest
 
 from app.core.actions.dwell_click import DwellClicker
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT
+from app.desktop.system_tray import CYCLE_EDGE, TOGGLE_PREVIEW
 from app.core.gaze.estimator import GazeReading
+from app.schemas.camera import DeviceSettings
 from app.workers import tracking_worker
 from app.workers.tracking_worker import PidFile, TrackingWorker
 
@@ -59,9 +62,12 @@ class RecordingMouse:
 def settings(tmp_path):
     return tracking_worker.get_settings().model_copy(update={
         "worker_pid_path": tmp_path / "tracking_worker.pid",
+        "device_settings_path": tmp_path / "device_settings.json",
+        "edge_sensitivity": "medium",
         "swap_blink_sides": False,
         "right_blink_action": "go_back",
         "target_snap_enabled": False,
+        "camera_preview_enabled": True,
     })
 
 
@@ -85,6 +91,10 @@ def test_worker_runs_and_quits_on_stop_request(settings, monkeypatch):
     pid_file = PidFile(settings)
     assert pid_file.claim("test-profile")
     worker = TrackingWorker(settings, NoFaceTracker(), model=None, pid_file=pid_file)
+    assert worker.preview.visible and worker.tracker.preview_width
+    assert worker.bar._edge.cget("text") == "Edge: medium"
+    worker.commands.put(TOGGLE_PREVIEW)
+    worker.commands.put(CYCLE_EDGE)
     worker.root.after(1200, lambda: pid_file.stop_path.write_text("stop"))
     started = time.monotonic()
 
@@ -94,8 +104,15 @@ def test_worker_runs_and_quits_on_stop_request(settings, monkeypatch):
     assert time.monotonic() - started < 5
     assert worker.tray._status.startswith("IrisClick: Face not visible")
     assert worker.bar._last_state[:2] == (tracking_worker.REASON_TEXT["no_face"], "problem")
-    assert worker.speaker.lines == ["Eye tracking is on."]
+    assert worker.speaker.lines == ["Eye tracking is on.", "Edge sensitivity high."]
+    assert worker.navigator.config.edge_sensitivity == "high"
+    assert worker.tray._edge_level == "high"
+    saved = DeviceSettings.model_validate_json(settings.device_settings_path.read_text("utf-8"))
+    assert saved.edge_sensitivity == "high"
     assert worker.mouse.calls == []
+    assert not worker.preview.visible
+    assert worker.tracker.preview_width is None
+    assert worker.tray._preview_enabled is False
     assert not settings.worker_pid_path.exists()
 
 
@@ -154,6 +171,8 @@ def test_both_eye_blink_triggers_nothing(settings):
 
 
 class HandOffMouse:
+    last_sent = None
+
     def __init__(self):
         self.pos = (500, 500)
         self.user_moved = False
@@ -191,3 +210,45 @@ def test_left_wink_clicks_where_the_user_looked_before_the_lid_dropped(settings)
     host = _blink_host(settings, LEFT, wink_point=(1890.0, 20.0))
     TrackingWorker._handle_blink(host, GazeReading(face_found=True))
     assert host.mouse.calls == [("left_click", 1890.0, 20.0)]
+
+
+class RecordingOverlay:
+    def __init__(self):
+        self.links = []
+
+    def show_link(self, eye, cursor, trail, raw):
+        self.links.append((eye, cursor, list(trail), raw))
+
+
+def _link_host(visible=True, eye=(1700.0, 900.0)):
+    return SimpleNamespace(
+        preview=SimpleNamespace(visible=visible, eye_point_on_screen=lambda: eye),
+        overlay=RecordingOverlay(), _trail=deque(), _raw_point=(400.0, 300.0))
+
+
+def test_link_joins_the_eyes_in_the_preview_to_the_cursor_with_a_trail():
+    host = _link_host()
+    TrackingWorker._draw_link(host, 100.0, 100.0, new_frame=True)
+    TrackingWorker._draw_link(host, 200.0, 150.0, new_frame=True)
+    TrackingWorker._draw_link(host, 210.0, 155.0)  # glide tick: no new trail point
+
+    eye, cursor, trail, raw = host.overlay.links[-1]
+    assert eye == (1700.0, 900.0)
+    assert cursor == (210.0, 155.0)
+    assert trail == [(100.0, 100.0), (200.0, 150.0), (210.0, 155.0)]
+    assert raw == (400.0, 300.0)
+
+
+def test_old_trail_points_expire(monkeypatch):
+    host = _link_host()
+    clock = iter([0.0, tracking_worker.TRAIL_S + 0.5])
+    monkeypatch.setattr(tracking_worker.time, "monotonic", lambda: next(clock))
+    TrackingWorker._draw_link(host, 100.0, 100.0, new_frame=True)
+    TrackingWorker._draw_link(host, 300.0, 300.0, new_frame=True)
+    assert host.overlay.links[-1][2] == [(300.0, 300.0), (300.0, 300.0)]
+
+
+def test_no_link_while_the_preview_is_off():
+    host = _link_host(visible=False)
+    TrackingWorker._draw_link(host, 100.0, 100.0, new_frame=True)
+    assert host.overlay.links == []

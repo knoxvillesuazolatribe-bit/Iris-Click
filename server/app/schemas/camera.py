@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -17,3 +19,5 @@ class DeviceSettings(BaseModel):
     """Per-computer choices, stored in storage/device_settings.json (camera indices are local)."""
 
     camera_index: int = Field(default=0, ge=0)
+    # None: use Settings.edge_sensitivity.
+    edge_sensitivity: Literal["off", "low", "medium", "high"] | None = None

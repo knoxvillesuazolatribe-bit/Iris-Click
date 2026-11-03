@@ -18,6 +18,9 @@ RED = "#FF6B6B"
 
 PAUSE = "pause"
 TOGGLE_VOICE = "toggle_voice"
+TOGGLE_PREVIEW = "toggle_preview"
+CYCLE_EDGE = "cycle_edge"
+RECENTER = "recenter"
 RECALIBRATE = "recalibrate"
 QUIT = "quit"
 
@@ -38,6 +41,8 @@ class SystemTray:
         self._status = "IrisClick: starting"
         self._paused = False
         self._voice_enabled = True
+        self._preview_enabled = True
+        self._edge_level = ""
         self._icons = {"tracking": _eye_icon(YELLOW), "paused": _eye_icon(GREY),
                        "problem": _eye_icon(RED)}
         self._icon = pystray.Icon(
@@ -51,6 +56,11 @@ class SystemTray:
                                  checked=lambda _item: self._paused),
                 pystray.MenuItem("Voice guidance", self._queue(TOGGLE_VOICE),
                                  checked=lambda _item: self._voice_enabled),
+                pystray.MenuItem("Re-centre gaze (5 dots)", self._queue(RECENTER)),
+                pystray.MenuItem("Camera preview", self._queue(TOGGLE_PREVIEW),
+                                 checked=lambda _item: self._preview_enabled),
+                pystray.MenuItem(lambda _item: f"Edge sensitivity: {self._edge_level}",
+                                 self._queue(CYCLE_EDGE)),
                 pystray.MenuItem("Recalibrate…", self._queue(RECALIBRATE)),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quit IrisClick", self._queue(QUIT)),
@@ -78,3 +88,13 @@ class SystemTray:
         self._icon.title = status[:127]
         self._icon.icon = self._icons[kind]
         self._icon.update_menu()
+
+    def set_preview(self, enabled: bool):
+        if enabled != self._preview_enabled:
+            self._preview_enabled = enabled
+            self._icon.update_menu()
+
+    def set_edge_level(self, level: str):
+        if level != self._edge_level:
+            self._edge_level = level
+            self._icon.update_menu()

@@ -25,6 +25,7 @@ from app.core.calibration.profile import list_profiles, save_profile
 from app.core.detection.iris_detector import DISTANCE_GUIDANCE, distance_advice
 from app.core.detection.lighting import LIGHTING_GUIDANCE
 from app.core.gaze.estimator import GazeTracker
+from app.desktop.display import physical_screen_size_cm
 from app.schemas.calibration import (
     CalibrationErrorMessage,
     CalibrationPoint,
@@ -113,6 +114,9 @@ class CalibrationSession:
             refine_pupils=self._settings.refine_pupils,
             deep_gaze=self._settings.deep_gaze_enabled,
             low_power=self._settings.low_power,
+            camera_backend=self._settings.camera_backend,
+            camera_fourcc=self._settings.camera_fourcc,
+            camera_resolution=self._settings.camera_resolution,
         )
         try:
             await asyncio.to_thread(tracker.start)
@@ -182,9 +186,10 @@ class CalibrationSession:
             message="That dot was not clear. Rest your eyes, then we will try it again."))
 
     async def _finish(self):
+        geometry = self._geometry()
         try:
             outcome = await asyncio.to_thread(
-                fit_hybrid, self._collector.samples, self._collector.point_counts)
+                fit_hybrid, self._collector.samples, self._collector.point_counts, geometry)
         except ValueError as exc:
             logger.warning("Calibration fit failed: %s", exc)
             await self._fail("Calibration did not fit. Please try again.")
@@ -199,7 +204,8 @@ class CalibrationSession:
         deep_available = self._tracker.deep_gaze_available
         profile = await asyncio.to_thread(
             save_profile, self._settings.profiles_dir, outcome, self._profile_name,
-            self._collector.sample_count, self._screen, deep_available, self._camera_index)
+            self._collector.sample_count, self._screen, deep_available, self._camera_index,
+            self._collector.posture)
         # The worker needs the camera this session still holds.
         await self._release_camera()
 
@@ -219,6 +225,16 @@ class CalibrationSession:
             profile=CalibrationProfileRead.model_validate(profile.model_dump(exclude={"model"})),
             worker_started=worker_started,
         ))
+
+    def _geometry(self) -> dict | None:
+        """Screen size and camera placement for the geometric sources, or None."""
+        size = (self._settings.screen_width_cm, self._settings.screen_height_cm)
+        if None in size:
+            size = physical_screen_size_cm()
+        if size is None:
+            logger.info("Physical screen size unknown; geometric gaze sources skipped")
+            return None
+        return {"screen_cm": size, "camera_above_cm": self._settings.camera_above_screen_cm}
 
     async def _fail(self, message: str):
         self.finished = True

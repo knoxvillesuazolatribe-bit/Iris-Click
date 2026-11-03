@@ -149,8 +149,9 @@ class GazeStabilizer:
     SAME_DIRECTION_COS = math.cos(math.radians(50))
 
     def __init__(self, radius=80.0, confirm_s=0.06, confirm_frames=2,
-                 eye_jump_limit=0.12, eye_baseline_alpha=0.2):
+                 eye_jump_limit=0.12, eye_baseline_alpha=0.2, window=FIXATION_WINDOW):
         self.radius = float(radius)
+        self.window = int(window)
         self.confirm_s = confirm_s
         self.confirm_frames = confirm_frames
         self.eye_jump_limit = eye_jump_limit
@@ -193,7 +194,7 @@ class GazeStabilizer:
             self._candidate = []
             self._candidate_since = None
             self._fixation.append((x, y))
-            del self._fixation[:-self.FIXATION_WINDOW]
+            del self._fixation[:-self.window]
             n = len(self._fixation)
             self._anchor = (sum(p[0] for p in self._fixation) / n,
                             sum(p[1] for p in self._fixation) / n)

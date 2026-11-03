@@ -18,6 +18,17 @@ RING_RADIUS = 30
 # Sharp "V" pyramid pointing up; its tip is the exact gaze point.
 PYRAMID_HALF_WIDTH = 11
 PYRAMID_HEIGHT = 30
+LINK = "#4DA3FF"
+LINK_WIDTH = 2
+LINK_DASH = (8, 6)
+TRAIL = "#3DDC84"
+RAW = "#FF6B6B"
+RAW_RADIUS = 6
+DOT_RADIUS = 26
+DOT_CORE = 7
+SECONDARY_RING = "#C9D6E8"
+FINE_RING = "#3DDC84"
+FINE_RING_RADIUS = 14
 
 
 class GazeOverlay:
@@ -37,11 +48,62 @@ class GazeOverlay:
         self.root.attributes("-topmost", True)
 
     def hide_cursor(self):
-        self.canvas.delete("cursor")
+        self.canvas.delete("cursor", "link")
 
-    def show_cursor(self, x: float, y: float, dwell_progress: float, target=None):
-        """``target``: the snapped control's rect (left, top, right, bottom), outlined."""
+    def show_link(self, eye, cursor, trail=(), raw=None):
+        """Navigation visualisation under the cursor: a line from the eyes in the
+        camera preview to the cursor, the recent cursor path, and the raw
+        (unfiltered) gaze point. ``eye``/``raw`` may be None."""
+        self.canvas.delete("link")
+        if len(trail) >= 2:
+            points = [v for point in trail for v in point]
+            self.canvas.create_line(*points, fill=TRAIL, width=2, smooth=True, tags="link")
+        if eye is not None:
+            for colour, width in ((BACKGROUND, LINK_WIDTH + 3), (LINK, LINK_WIDTH)):
+                self.canvas.create_line(*eye, *cursor, fill=colour, width=width,
+                                        dash=LINK_DASH, tags="link")
+        if raw is not None:
+            x, y = raw
+            self.canvas.create_oval(x - RAW_RADIUS, y - RAW_RADIUS, x + RAW_RADIUS,
+                                    y + RAW_RADIUS, outline=RAW, width=2, tags="link")
+        self.canvas.tag_raise("cursor")
+
+    def hide_link(self):
+        self.canvas.delete("link")
+
+    def show_dot(self, x: float, y: float, progress: float, label: str = ""):
+        """A re-centre dot; its ring fills while samples are collected."""
+        self.canvas.delete("dot")
+        r = DOT_RADIUS
+        self.canvas.create_oval(x - r, y - r, x + r, y + r, outline=BACKGROUND,
+                                width=GAZE_WIDTH + 4, tags="dot")
+        self.canvas.create_oval(x - r, y - r, x + r, y + r, outline=SECONDARY_RING,
+                                width=GAZE_WIDTH, tags="dot")
+        if progress > 0:
+            self.canvas.create_arc(x - r, y - r, x + r, y + r, start=90,
+                                   extent=-359.9 * progress, style="arc", outline=HIGHLIGHT,
+                                   width=GAZE_WIDTH, tags="dot")
+        self.canvas.create_oval(x - DOT_CORE, y - DOT_CORE, x + DOT_CORE, y + DOT_CORE,
+                                fill=HIGHLIGHT, outline=BACKGROUND, width=2, tags="dot")
+        if label:
+            # Below the dot, or above it near the bottom edge.
+            ty = y + r + 22 if y + r + 40 < self.canvas.winfo_height() else y - r - 22
+            self.canvas.create_text(x, ty, text=label, fill=HIGHLIGHT,
+                                    font=("Segoe UI", 14, "bold"), tags="dot")
+
+    def hide_dot(self):
+        self.canvas.delete("dot")
+
+    def show_cursor(self, x: float, y: float, dwell_progress: float, target=None,
+                    fine: bool = False):
+        """``target``: the snapped control's rect (left, top, right, bottom), outlined.
+        ``fine``: head fine-aim is active; a small ring marks the exact point."""
         self.canvas.delete("cursor")
+        if fine:
+            r = FINE_RING_RADIUS
+            for colour, width in ((BACKGROUND, 5), (FINE_RING, 2)):
+                self.canvas.create_oval(x - r, y - r, x + r, y + r, outline=colour,
+                                        width=width, tags="cursor")
         if target is not None:
             left, top, right, bottom = target
             for colour, width in ((BACKGROUND, GAZE_WIDTH + 4), (HIGHLIGHT, GAZE_WIDTH)):

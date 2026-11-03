@@ -4,9 +4,17 @@ Blinks are a command channel, so natural blinking must never fire a command:
 
   * Duration gate: a natural blink lasts roughly 100-150 ms, so a closure only
     counts once the eye has stayed closed for ``consec_ms``.
-  * Wink disambiguation: a one-eyed wink is only reported when the other eye
-    is clearly open (``OPEN_MARGIN``). Without that margin a slightly uneven
-    ordinary blink would misfire as a wink.
+  * Wink disambiguation: a one-eyed wink is only reported when the closing eye
+    is well below the other one (``CLOSED_FRACTION``). Without that margin a
+    slightly uneven ordinary blink would misfire as a wink.
+
+Looking down narrows both eyes alike: on recordings s1-s5 the two eyes'
+EAR stayed within 0.01 of each other on every screen row while the row
+median fell from ~0.31 (top) to ~0.13 (taskbar). Fixed levels therefore
+read a low gaze as "closed" (cursor frozen on 96% of bottom-row frames in s4)
+and refused winks below mid-screen (old rule: other eye > 0.29), so eyes
+are compared with each other, and "both closed" is an absolute floor below
+any open-eye level seen.
 
 At most one event is emitted per closure, on reopening, so holding the eyes
 shut does not repeat the command.
@@ -14,9 +22,11 @@ shut does not repeat the command.
 
 import time
 
-# The open eye must exceed the closed threshold by this factor before a
-# one-eyed closure is trusted as a deliberate wink.
-OPEN_MARGIN = 1.6
+# The winking eye must be below this fraction of the open eye. 0.6 gave no
+# wink on s1-s5 (users told not to wink); 0.7 fired a false one on s4.
+CLOSED_FRACTION = 0.6
+# Both eyes count as closed only below this EAR (s4 bottom row: ~0.13 open).
+BOTH_CLOSED_EAR = 0.10
 
 BOTH = "both"
 LEFT = "left"
@@ -32,21 +42,20 @@ class BlinkDetector:
         self._closure_kind = None
         self._last_trigger = float("-inf")
 
-    def _classify(self, left_ear, right_ear):
-        left_closed = left_ear < self.threshold
-        right_closed = right_ear < self.threshold
-        if left_closed and right_closed:
+    def classify(self, left_ear, right_ear):
+        """The closure this frame shows ('left', 'right', 'both') or None if open."""
+        if max(left_ear, right_ear) < BOTH_CLOSED_EAR:
             return BOTH
-        if left_closed and right_ear > self.threshold * OPEN_MARGIN:
+        if left_ear < self.threshold and left_ear < CLOSED_FRACTION * right_ear:
             return LEFT
-        if right_closed and left_ear > self.threshold * OPEN_MARGIN:
+        if right_ear < self.threshold and right_ear < CLOSED_FRACTION * left_ear:
             return RIGHT
         return None
 
     def update(self, left_ear, right_ear, now=None):
         """Feed per-eye aspect ratios; return 'left', 'right', 'both' or None."""
         now = time.monotonic() if now is None else now
-        kind = self._classify(left_ear, right_ear)
+        kind = self.classify(left_ear, right_ear)
         if kind is not None:
             if self._closed_since is None:
                 self._closed_since = now

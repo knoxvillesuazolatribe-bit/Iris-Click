@@ -10,13 +10,17 @@ import time
 from dataclasses import dataclass
 
 import cv2
+import numpy as np
 
 from app.core.camera.capture import CAPTURE_H, CAPTURE_W
 from app.core.detection.face_detector import FaceDetector
 
 MAX_CAMERA_INDEX = 6
-WARMUP_FRAMES = 6
-FACE_CHECK_FRAMES = 3
+LIVE_FRAMES_NEEDED = 10
+WARMUP_TIMEOUT_S = 3.0
+# Mean grey level (0–255) below which a frame counts as blank, not just dim.
+BLANK_LEVEL = 8.0
+FACE_CHECK_FRAMES = 5
 SNAPSHOT_WIDTH = 320
 SNAPSHOT_QUALITY = 70
 
@@ -40,6 +44,35 @@ def _snapshot(frame) -> bytes | None:
     return encoded.tobytes() if ok else None
 
 
+def _is_blank(frame: np.ndarray) -> bool:
+    small = cv2.resize(frame, (64, 36), interpolation=cv2.INTER_AREA)
+    return float(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY).mean()) < BLANK_LEVEL
+
+
+def read_live_frames(cap: cv2.VideoCapture) -> tuple[list[np.ndarray], np.ndarray | None]:
+    """Return (live frames, last frame read) once the camera shows a real picture.
+
+    Webcams start black while exposure settles. Virtual cameras (DroidCam, OBS)
+    replay a stale cached frame, then emit a black frame when the stream
+    reconnects, and only then send live video (~1 s in total). So blank frames
+    reset the count and exact repeats of the previous frame are skipped.
+    """
+    live: list[np.ndarray] = []
+    last = None
+    deadline = time.monotonic() + WARMUP_TIMEOUT_S
+    while len(live) < LIVE_FRAMES_NEEDED and time.monotonic() < deadline:
+        ok, frame = cap.read()
+        if not ok:
+            time.sleep(0.01)
+            continue
+        if _is_blank(frame):
+            live.clear()
+        elif last is None or not np.array_equal(frame, last):
+            live.append(frame)
+        last = frame
+    return live, last
+
+
 def probe_camera(index: int, detector: FaceDetector) -> CameraProbe | None:
     """Describe camera ``index``; None when no device exists at that index."""
     cap = cv2.VideoCapture(index)
@@ -49,18 +82,16 @@ def probe_camera(index: int, detector: FaceDetector) -> CameraProbe | None:
     try:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_W)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_H)
-        frames = []
-        # The first frames of many webcams are black while exposure settles.
-        for _ in range(WARMUP_FRAMES):
-            ok, frame = cap.read()
-            if ok:
-                frames.append(frame)
+        frames, last = read_live_frames(cap)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     finally:
         cap.release()
-    if not frames:
+    if last is None:
         return CameraProbe(index=index, available=False)
+    if not frames:
+        # Only blank frames until the timeout: report it as the dark camera it is.
+        frames = [last]
 
     face_found = False
     for frame in frames[-FACE_CHECK_FRAMES:]:

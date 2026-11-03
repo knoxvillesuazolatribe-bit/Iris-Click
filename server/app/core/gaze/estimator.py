@@ -15,11 +15,13 @@ from pathlib import Path
 
 import cv2
 
-from app.core.camera.capture import LatestFrameGrabber, open_camera
+from app.core.camera.capture import LatestFrameGrabber, describe_camera, open_camera
 from app.core.detection.face_detector import FaceDetector
 from app.core.detection.iris_detector import (
     compute_features,
+    eye_geometry_features,
     eye_line_pointer,
+    eyeball_features,
     nose_eye_pointer,
 )
 from app.core.detection.lighting import face_lighting_status
@@ -58,19 +60,38 @@ class GazeReading:
     deep_features: tuple | None = None
     nose_features: tuple | None = None
     pupil_nose_features: tuple | None = None
+    geometry_features: tuple | None = None
+    pupil_geometry_features: tuple | None = None
+    eyeball_features: tuple | None = None
+    pupil_eyeball_features: tuple | None = None
     eye_line: dict | None = None
     left_pupil_detected: bool = False
     right_pupil_detected: bool = False
     lighting_status: str = "unknown"
+    # Per-stage tracker cost in ms (wait, detect, landmarks, pupils, deep,
+    # lighting, total) and camera frames skipped since the previous reading.
+    timings: dict | None = None
+    dropped: int = 0
+    # Small mirrored RGB frame (uint8 array) while a preview is requested.
+    preview: object | None = None
+    # Driver timestamp (ms since stream start) of the frame, when the backend reports one.
+    camera_ms: float | None = None
 
 
 class GazeTracker:
     """Owns the webcam and the models; runs estimation on a background thread."""
 
     def __init__(self, model_path: Path, camera_index: int = 0, refine_pupils: bool = True,
-                 deep_gaze: bool = True, low_power: bool = False):
+                 deep_gaze: bool = True, low_power: bool = False, camera_backend: str = "auto",
+                 camera_fourcc: str = "", camera_resolution: str = "720p"):
         self._model_path = Path(model_path)
         self._camera_index = camera_index
+        self.camera_backend = camera_backend
+        self.camera_fourcc = camera_fourcc
+        self.camera_resolution = camera_resolution
+        # Format the driver actually negotiated; set on start().
+        self.camera_info: dict = {}
+        self._grabber: LatestFrameGrabber | None = None
         self._lock = threading.Lock()
         self._lifecycle_lock = threading.RLock()
         self._reading = GazeReading(face_found=False)
@@ -83,6 +104,9 @@ class GazeTracker:
         self.deep_gaze = deep_gaze
         self.deep_gaze_available = False
         self.low_power = low_power
+        # Width of the preview frame to publish, or None for no preview. Read
+        # once per frame by the tracker thread, so it can change at runtime.
+        self.preview_width: int | None = None
         self._pupil_localizer = PupilLocalizer()
 
     @property
@@ -98,6 +122,11 @@ class GazeTracker:
         with self._lock:
             return self._reading
 
+    def delivery_log(self) -> list[tuple[float, float | None]]:
+        """(read-return perf_counter s, driver ms) of every frame the camera delivered."""
+        grabber = self._grabber
+        return grabber.delivery_log() if grabber is not None else []
+
     def start(self):
         with self._lifecycle_lock:
             if self._running:
@@ -108,7 +137,10 @@ class GazeTracker:
                 self._error = None
                 self._reading = GazeReading(face_found=False)
             self._ready_event.clear()
-            self._cap = open_camera(self._camera_index, self.low_power)
+            self._cap = open_camera(self._camera_index, self.low_power, self.camera_backend,
+                                    self.camera_fourcc, self.camera_resolution)
+            self.camera_info = describe_camera(self._cap)
+            logger.info("Camera %d opened: %s", self._camera_index, self.camera_info)
             self._running = True
             self._thread = threading.Thread(target=self._run, name="gaze-tracker", daemon=True)
             self._thread.start()
@@ -158,7 +190,7 @@ class GazeTracker:
                         "on" if self.deep_gaze_available else "off")
             self._ready_event.set()
 
-            grabber = LatestFrameGrabber(self._cap)
+            grabber = self._grabber = LatestFrameGrabber(self._cap)
             grabber.start()
             frame_id = 0
             grab_id = 0
@@ -169,12 +201,18 @@ class GazeTracker:
                         raise RuntimeError("The webcam stopped returning frames. Check its connection.")
                     continue
                 loop_started = time.perf_counter()
-                newest_id, camera_frame, captured_at = item
-                stats["dropped"] += max(0, newest_id - grab_id - 1)
+                newest_id, camera_frame, captured_at, camera_ms = item
+                dropped = max(0, newest_id - grab_id - 1)
+                stats["dropped"] += dropped
                 grab_id = newest_id
                 frame_id += 1
+                timings = {"wait": (loop_started - captured_at) * 1000.0}
                 reading = self._process(camera_frame, captured_at, frame_id,
-                                        detector, deep_estimator, stats)
+                                        detector, deep_estimator, stats, timings)
+                timings["total"] = (time.perf_counter() - loop_started) * 1000.0
+                reading.timings = timings
+                reading.dropped = dropped
+                reading.camera_ms = camera_ms
                 stats["frames"] += 1
                 stats["faces"] += int(reading.face_found)
                 with self._lock:
@@ -198,13 +236,27 @@ class GazeTracker:
             if detector is not None:
                 detector.close()
 
-    def _process(self, camera_frame, captured_at, frame_id, detector, deep_estimator, stats):
+    def _process(self, camera_frame, captured_at, frame_id, detector, deep_estimator, stats,
+                 timings):
+        clock = time.perf_counter
+        started = clock()
         # Mirror so the user's left is image-left, like looking in a mirror.
         frame = cv2.flip(camera_frame, 1)
         h, w = frame.shape[:2]
-        landmarks, transform = detector.detect(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), captured_at)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        landmarks, transform = detector.detect(rgb, captured_at)
+        mark = clock()
+        timings["detect"] = (mark - started) * 1000.0
+        preview = None
+        preview_width = self.preview_width
+        if preview_width:
+            preview = cv2.resize(rgb, (preview_width, max(1, round(preview_width * h / w))),
+                                 interpolation=cv2.INTER_AREA)
+            started, mark = mark, clock()
+            timings["preview"] = (mark - started) * 1000.0
         if landmarks is None:
-            return GazeReading(face_found=False, captured_at=captured_at, frame_id=frame_id)
+            return GazeReading(face_found=False, captured_at=captured_at, frame_id=frame_id,
+                               preview=preview)
 
         features, ear, l_ear, r_ear = compute_features(landmarks, w, h, transform_matrix=transform)
         mid_features, eye_line = eye_line_pointer(landmarks, w, h, yaw=features[4], pitch=features[5])
@@ -212,7 +264,12 @@ class GazeTracker:
             landmarks, w, h, yaw=features[4], pitch=features[5])
         if eye_line is not None and nose_points is not None:
             eye_line = {**eye_line, **nose_points}
+        geometry_features = eye_geometry_features(mid_features, eye_line, w, h)
+        eyeball = eyeball_features(eye_line, w, h, features[4], features[5])
+        started, mark = mark, clock()
+        timings["landmarks"] = (mark - started) * 1000.0
         pupil_features = pupil_mid_features = pupil_nose_features = None
+        pupil_geometry_features = pupil_eyeball = None
         left_detected = right_detected = False
         if self.refine_pupils:
             try:
@@ -234,11 +291,18 @@ class GazeTracker:
                         landmarks, w, h, yaw=features[4], pitch=features[5], iris_centres=centres)
                     pupil_nose_features, _ = nose_eye_pointer(
                         landmarks, w, h, yaw=features[4], pitch=features[5], iris_centres=centres)
+                    pupil_geometry_features = eye_geometry_features(
+                        pupil_mid_features, eye_line, w, h)
+                    pupil_eyeball = eyeball_features(
+                        eye_line, w, h, features[4], features[5], iris_centres=centres)
             except Exception as exc:
                 stats["pupil_errors"] += 1
                 if stats["pupil_errors"] == 1:
                     logger.exception("Pupil refinement failed; using landmarks: %s", exc)
 
+        started, mark = mark, clock()
+        if self.refine_pupils:
+            timings["pupils"] = (mark - started) * 1000.0
         deep_features = None
         # A closed eye gives the network nothing to read.
         if deep_estimator is not None and min(l_ear, r_ear) >= CLOSED_EAR:
@@ -252,13 +316,22 @@ class GazeTracker:
                 if stats["deep_errors"] == 1:
                     logger.exception("GazeFollower estimate failed; using landmarks: %s", exc)
 
+        started, mark = mark, clock()
+        if deep_estimator is not None:
+            timings["deep"] = (mark - started) * 1000.0
+        lighting_status = face_lighting_status(frame, landmarks)
+        timings["lighting"] = (clock() - mark) * 1000.0
+
         return GazeReading(
             face_found=True, features=features, ear=ear, left_ear=l_ear, right_ear=r_ear,
             captured_at=captured_at, frame_id=frame_id,
             pupil_features=pupil_features, midpoint_features=mid_features,
             pupil_midpoint_features=pupil_mid_features, deep_features=deep_features,
             nose_features=nose_features, pupil_nose_features=pupil_nose_features,
+            geometry_features=geometry_features, pupil_geometry_features=pupil_geometry_features,
+            eyeball_features=eyeball, pupil_eyeball_features=pupil_eyeball,
             eye_line=eye_line, left_pupil_detected=left_detected,
             right_pupil_detected=right_detected,
-            lighting_status=face_lighting_status(frame, landmarks),
+            lighting_status=lighting_status,
+            preview=preview,
         )
