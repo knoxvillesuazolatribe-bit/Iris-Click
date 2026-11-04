@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     cursor_smoothing: float = 0.25
     # Off by default: clicks come only from a deliberate left wink.
     dwell_click_enabled: bool = False
+    # A left wink clicks. A user may turn it off only while dwell click is on
+    # (Accessibility Settings, Phase 7); otherwise they could not click at all.
+    blink_click_enabled: bool = True
     voice_guidance_enabled: bool = True
     dwell_ms: int = 700
     dwell_radius_px: int = 45

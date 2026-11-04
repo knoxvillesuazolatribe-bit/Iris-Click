@@ -13,7 +13,6 @@ import type { Home } from '@/validators/home-validator'
 
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; home: Home }
 
-const LATER = 'Coming in a later update.'
 
 /** Screen 5: the Home Suite for a signed-in assistive user. */
 export function HomePage() {
@@ -71,9 +70,8 @@ export function HomePage() {
         <HomeCard
           icon={Settings}
           title="Accessibility Settings"
-          description="Dwell time, blink sensitivity and voice volume."
-          unavailable={LATER}
-          onSelect={() => undefined}
+          description="Dwell click, cursor smoothing, blink sensitivity, edge scroll and voice volume."
+          onSelect={() => void navigate('/settings')}
         />
       </nav>
 

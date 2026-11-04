@@ -37,12 +37,11 @@ def gesture_guide(settings: Settings) -> list[dict[str, str]]:
     left_eye, right_eye = ("Click", right_action)
     if settings.swap_blink_sides:
         left_eye, right_eye = right_eye, left_eye
-    guide = [
-        {"gesture": "Look around the screen", "action": "Moves the cursor"},
-        {"gesture": "Wink your left eye", "action": left_eye},
-        {"gesture": "Wink your right eye", "action": right_eye},
-        {"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"},
-    ]
+    guide = [{"gesture": "Look around the screen", "action": "Moves the cursor"}]
+    for gesture, action in (("Wink your left eye", left_eye), ("Wink your right eye", right_eye)):
+        if action != "Click" or settings.blink_click_enabled:
+            guide.append({"gesture": gesture, "action": action})
+    guide.append({"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"})
     if settings.edge_scroll_enabled:
         guide.append({"gesture": "Look at the top or bottom edge",
                       "action": "Scrolls up or down"})
@@ -126,6 +125,28 @@ def start_tracking(db: Session, user: User, settings: Settings, tracking) -> dic
                      f"{user.full_name} started eye tracking with "
                      f"calibration '{calibration.profile_name}'", user.user_id, session=db)
         db.commit()
+    return tracking_view(db, user, settings, tracking)
+
+
+def restart_tracking(db: Session, user: User, settings: Settings, tracking) -> dict:
+    """Stops tracking and starts it again with the user's own calibration, so new
+    settings take effect. A failed start is reported, never hidden."""
+    calibration, reason = usable_calibration(db, user, settings.profiles_dir)
+    if calibration is None:
+        raise HomeError(409, reason)
+    tracking.stop()
+    try:
+        tracking.start(calibration.profile_id)
+    except (LookupError, ValueError) as exc:
+        log_activity("tracking_stopped", f"{user.full_name} restarted eye tracking but it "
+                     "could not start again", user.user_id, session=db)
+        db.commit()
+        raise HomeError(409, f"Eye tracking stopped but could not start again: {exc} "
+                             "Choose Start to try again.") from exc
+    log_activity("tracking_restarted",
+                 f"{user.full_name} restarted eye tracking to apply new settings",
+                 user.user_id, session=db)
+    db.commit()
     return tracking_view(db, user, settings, tracking)
 
 

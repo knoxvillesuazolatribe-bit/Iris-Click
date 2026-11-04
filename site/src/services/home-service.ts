@@ -10,3 +10,7 @@ export const homeService = {
   stopTracking: () =>
     appClient.post('/me/tracking/stop').then((r) => trackingViewSchema.parse(r.data)),
 }
+
+/** Stops and starts tracking with the user's calibration so new settings take effect. */
+export const restartTracking = () =>
+  appClient.post('/me/tracking/restart').then((r) => trackingViewSchema.parse(r.data))

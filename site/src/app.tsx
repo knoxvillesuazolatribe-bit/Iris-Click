@@ -5,6 +5,7 @@ import { AdminPage } from '@/pages/admin-page'
 import { CalibrationPage } from '@/pages/calibration-page'
 import { HomePage } from '@/pages/home-page'
 import { LoginSelectionPage } from '@/pages/login-selection-page'
+import { SettingsPage } from '@/pages/settings-page'
 import { SosConfirmPage } from '@/pages/sos-confirm-page'
 import { SosContactsPage } from '@/pages/sos-contacts-page'
 import { SosPage } from '@/pages/sos-page'
@@ -27,6 +28,7 @@ export function App() {
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />
         <Route path="/sos/sent" element={<RequireRole role="assistive_user"><SosSentPage /></RequireRole>} />
         <Route path="/sos/contacts" element={<RequireRole role="assistive_user"><SosContactsPage /></RequireRole>} />
+        <Route path="/settings" element={<RequireRole role="assistive_user"><SettingsPage /></RequireRole>} />
         <Route path="/admin" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
         <Route path="/calibration" element={<CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

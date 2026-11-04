@@ -59,5 +59,7 @@ class AccessibilitySettings(Base):
                                                      server_default=str(DEFAULT_BLINK_SENSITIVITY))
     voice_volume: Mapped[int] = mapped_column(Integer, default=DEFAULT_VOICE_VOLUME,
                                               server_default=str(DEFAULT_VOICE_VOLUME))
+    # Added by migration 0003 (Phase 7): per-user edge scroll on/off.
+    edge_scroll_enabled: Mapped[bool] = mapped_column(default=True, server_default=true())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now,
                                                  onupdate=utc_now)

@@ -29,9 +29,9 @@ def create_app() -> FastAPI:
         app.include_router(router, prefix=settings.api_prefix)
     # Account routes (sign-in, users). If they fail to load, the routes above still serve.
     try:
-        from app.api.routes import admin_users, assistive, auth, home, sos, voice
+        from app.api.routes import accessibility, admin_users, assistive, auth, home, sos, voice
         for router in (auth.router, assistive.router, admin_users.router, home.router,
-                       voice.router, sos.router):
+                       voice.router, sos.router, accessibility.router):
             app.include_router(router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Account routes not loaded")

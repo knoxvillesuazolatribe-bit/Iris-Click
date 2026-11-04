@@ -87,6 +87,10 @@ try:  # Phase 6 hooks: screenshot, edge scroll, Forward / Next Tab (optional).
     from app.workers.worker_extras import WorkerExtras
 except Exception:  # noqa: BLE001
     extra_keys = WorkerExtras = None
+try:  # Phase 7 hook (H4d): the signed-in user's accessibility settings (optional).
+    from app.workers import user_settings
+except Exception:  # noqa: BLE001
+    user_settings = None
 
 TICK_MS = 20
 STOP_CHECK_EVERY_TICKS = 25
@@ -645,6 +649,8 @@ class TrackingWorker:
             self._live.note_wink(side)
         if self.settings.swap_blink_sides:
             side = {LEFT: RIGHT, RIGHT: LEFT}.get(side, side)
+        if side == LEFT and not getattr(self.settings, "blink_click_enabled", True):
+            side = None  # H4d: the user turned wink-to-click off (dwell click is on)
         if side == LEFT:
             if self._wink_point is not None:
                 self.mouse.left_click(*self._wink_point)
@@ -777,6 +783,8 @@ def main(argv=None) -> int:
     settings = get_settings()
     configure_logging(settings)
     enable_dpi_awareness()
+    with contextlib.suppress(Exception):  # H4d: per-user settings, .env on any failure
+        settings = user_settings.for_active_user(settings)
 
     profile, model = load_profile(settings.profiles_dir, args.profile_id)
     if model is None:
