@@ -60,6 +60,7 @@ from app.desktop.system_tray import (
     CYCLE_EDGE,
     FORWARD,
     HOME,
+    KEYBOARD,
     NEXT_TAB,
     PAUSE,
     QUIT,
@@ -377,6 +378,9 @@ class TrackingWorker:
             elif command in (FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
                 with contextlib.suppress(Exception):
                     extra_keys.press(command)
+            elif command == KEYBOARD:  # H3 (Phase 9): open/close the on-screen keyboard
+                with contextlib.suppress(Exception):
+                    self._extras.toggle_keyboard()
 
     def _cycle_edge(self, now: float):
         level = next_edge_level(self.navigator.config.edge_sensitivity)
@@ -422,7 +426,10 @@ class TrackingWorker:
             self.bar.keep_on_top()
             self.preview.keep_on_top()
         if self._tick_count % LOCAL_TARGETS_EVERY_TICKS == 1:
-            self.targets.set_local_targets(tk_button_targets(self.bar.win))
+            local_targets = tk_button_targets(self.bar.win)
+            with contextlib.suppress(Exception):  # Phase 9: on-screen keyboard keys snap too
+                local_targets = local_targets + self._extras.keyboard_targets()
+            self.targets.set_local_targets(local_targets)
         now_s = time.monotonic()
 
         # A re-centre needs no cursor, and clicking its button with the real
@@ -663,10 +670,9 @@ class TrackingWorker:
             else:
                 self.mouse.go_back()
             logger.info("Right wink: %s", self.settings.right_blink_action)
-        elif side == BOTH:  # H4a: deliberate both-eye blink takes a screenshot
+        elif side == BOTH:  # H4a/H4b: once = screenshot, twice = on-screen keyboard
             with contextlib.suppress(Exception):
-                if self._extras.both_blink(time.monotonic()):
-                    logger.info("Both-eye blink: screenshot")
+                logger.info("Both-eye blink: %s", self._extras.both_blink(time.monotonic()))
         self.dwell.reset()
 
     def _toggle_recenter(self, now: float):

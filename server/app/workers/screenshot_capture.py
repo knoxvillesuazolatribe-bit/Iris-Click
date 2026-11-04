@@ -59,11 +59,19 @@ class ScreenshotTaker:
             self._last_closure_s = now - self._closed_since
             self._closed_since = None
 
+    def is_resting(self) -> bool:
+        """The last closure was too long to be a command: the user rested their eyes."""
+        if self._last_closure_s > MAX_CLOSURE_S:
+            logger.info("Both eyes closed %.1f s: resting, no command", self._last_closure_s)
+            return True
+        return False
+
     def on_both_blink(self, now: float) -> bool:
         """The detector saw a both-eye blink; True if a screenshot was started."""
-        if self._last_closure_s > MAX_CLOSURE_S:
-            logger.info("Both eyes closed %.1f s: resting, no screenshot", self._last_closure_s)
-            return False
+        return not self.is_resting() and self.take(now)
+
+    def take(self, now: float) -> bool:
+        """Takes a screenshot unless one was taken within COOLDOWN_S."""
         if now - self._last_shot < COOLDOWN_S:
             return False
         self._last_shot = now

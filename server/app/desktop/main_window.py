@@ -13,6 +13,7 @@ from app.desktop.system_tray import (
     CYCLE_EDGE,
     FORWARD,
     HOME,
+    KEYBOARD,
     NEXT_TAB,
     PAUSE,
     QUIT,
@@ -75,6 +76,7 @@ class ControlBar:
         self._button(self._extra_row, "Home", HOME)  # opens the site's Home Suite
         self._button(self._extra_row, "Forward", FORWARD)  # Phase 6: Alt+Right
         self._button(self._extra_row, "Next Tab", NEXT_TAB)  # Phase 6: Ctrl+Tab
+        self._button(self._extra_row, "Keyboard", KEYBOARD)  # Phase 9: on-screen keyboard
         self._quit = self._button(frame, "Quit", None, command=self._quit_pressed)
         self._extra_row.pack(in_=frame, side="left", before=self._quit)
 

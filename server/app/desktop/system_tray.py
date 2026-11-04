@@ -26,6 +26,7 @@ QUIT = "quit"
 HOME = "home"  # Phase 3 (H3): open the site's Home Suite.
 FORWARD = "forward"  # Phase 6 (H3): Alt+Right
 NEXT_TAB = "next_tab"  # Phase 6 (H3): Ctrl+Tab
+KEYBOARD = "keyboard"  # Phase 9 (H3): open/close the on-screen keyboard
 
 
 def _eye_icon(iris_colour: str) -> Image.Image:
@@ -68,6 +69,7 @@ class SystemTray:
                 pystray.MenuItem("Home Suite", self._queue(HOME)),  # H3
                 pystray.MenuItem("Forward", self._queue(FORWARD)),  # H3 (Phase 6)
                 pystray.MenuItem("Next Tab", self._queue(NEXT_TAB)),  # H3 (Phase 6)
+                pystray.MenuItem("Keyboard", self._queue(KEYBOARD)),  # H3 (Phase 9)
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quit IrisClick", self._queue(QUIT)),
             ),

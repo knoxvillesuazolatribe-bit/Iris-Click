@@ -42,6 +42,7 @@ def gesture_guide(settings: Settings) -> list[dict[str, str]]:
         if action != "Click" or settings.blink_click_enabled:
             guide.append({"gesture": gesture, "action": action})
     guide.append({"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"})
+    guide.append({"gesture": "Close both eyes twice", "action": "Opens or closes the keyboard"})
     if settings.edge_scroll_enabled:
         guide.append({"gesture": "Look at the top or bottom edge",
                       "action": "Scrolls up or down"})

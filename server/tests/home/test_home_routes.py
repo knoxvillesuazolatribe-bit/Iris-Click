@@ -110,6 +110,7 @@ def test_guide_lists_the_default_gestures(api, ana):
         {"gesture": "Wink your left eye", "action": "Click"},
         {"gesture": "Wink your right eye", "action": "Go back"},
         {"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"},
+        {"gesture": "Close both eyes twice", "action": "Opens or closes the keyboard"},
         {"gesture": "Look at the top or bottom edge", "action": "Scrolls up or down"},
     ]
 

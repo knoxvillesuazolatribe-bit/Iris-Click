@@ -1,4 +1,4 @@
-import { ArrowLeft, Eraser, Keyboard, LoaderCircle, Mic, Send, Volume2 } from 'lucide-react'
+import { ArrowLeft, Eraser, Keyboard, LayoutGrid, LoaderCircle, Mic, Send, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
@@ -7,6 +7,7 @@ import { GazeKeyboard } from '@/components/gaze-keyboard'
 import { MessageHistory } from '@/components/message-history'
 import { ServerDown } from '@/components/server-down'
 import { SpeechPanel } from '@/components/speech-panel'
+import { AacBoard } from '@/components/aac-board'
 import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { speak } from '@/lib/speech'
@@ -30,7 +31,7 @@ const QUICK_PHRASES = [
 const HISTORY_SIZE = 10
 const DEFAULT_VOLUME = 100
 
-type Tab = 'keyboard' | 'speech'
+type Tab = 'keyboard' | 'speech' | 'board'
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready' }
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 
@@ -152,6 +153,7 @@ export function VoicePage() {
           <div role="tablist" aria-label="Ways to communicate" className="flex flex-wrap gap-6">
             {tabButton('keyboard', 'Keyboard', Keyboard)}
             {tabButton('speech', 'Speech', Mic)}
+            {tabButton('board', 'Board', LayoutGrid)}
           </div>
 
           {notice && (
@@ -223,9 +225,13 @@ export function VoicePage() {
 
               <GazeKeyboard onKey={(key) => setMessage((text) => typeKey(text, key, MAX_MESSAGE_CHARS))} />
             </section>
-          ) : (
+          ) : tab === 'speech' ? (
             <section role="tabpanel" aria-label="Speech">
               <SpeechPanel sending={sending} onSend={(text) => send('speech_to_text', text)} />
+            </section>
+          ) : (
+            <section role="tabpanel" aria-label="Board">
+              <AacBoard volume={volume} onError={(text) => setNotice({ kind: 'error', text })} />
             </section>
           )}
 

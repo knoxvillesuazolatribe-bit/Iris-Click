@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { RequireRole } from '@/components/require-role'
+import { useAppName } from '@/lib/use-app-name'
 import { AdminLoginPage } from '@/pages/admin-login-page'
 import { AdminLogsPage } from '@/pages/admin-logs-page'
 import { AdminPage } from '@/pages/admin-page'
@@ -20,6 +21,7 @@ import { UserSelectPage } from '@/pages/user-select-page'
 import { VoicePage } from '@/pages/voice-page'
 
 export function App() {
+  useAppName() // browser tab title = the app name the admin set, on every page
   return (
     <BrowserRouter>
       <Routes>

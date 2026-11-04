@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { appClient } from '@/api/app-client'
 import { homeSchema, trackingViewSchema } from '@/validators/home-validator'
 
@@ -14,3 +15,13 @@ export const homeService = {
 /** Stops and starts tracking with the user's calibration so new settings take effect. */
 export const restartTracking = () =>
   appClient.post('/me/tracking/restart').then((r) => trackingViewSchema.parse(r.data))
+
+const appSchema = z.object({ app_id: z.string(), label: z.string(), note: z.string().nullable() })
+export type AppShortcut = z.infer<typeof appSchema>
+
+/** App shortcuts (Phase 9): only apps found on this computer; the server opens them. */
+export const appsService = {
+  list: () => appClient.get('/me/apps').then((r) => appSchema.array().parse(r.data)),
+  launch: (appId: string) =>
+    appClient.post(`/me/apps/${appId}/launch`).then((r) => z.object({ launched: z.boolean(), label: z.string() }).parse(r.data)),
+}
