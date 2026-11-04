@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     db_password: SecretStr = SecretStr("")
     db_sslmode: str = "require"
     sqlite_path: Path = SERVER_DIR / "irisclick.db"
+    # Postgres schema holding the IrisClick tables. Supabase's public schema
+    # keeps the legacy tables, two of which share names with ours.
+    db_schema: str = Field("irisclick", pattern=r"^[a-z_][a-z0-9_]*$")
 
     # Site page the worker's tray opens for "Recalibrate".
     site_url: str = "http://localhost:5173"
