@@ -6,6 +6,7 @@ from app.models.communication import CommunicationHistory
 from app.models.screenshot import ScreenshotHistory
 from app.models.sos import SosContact, SosHistory
 from app.models.system_log import SystemLog
+from app.models.system_settings import SystemSettings
 from app.models.user import User
 from app.models.user_session import UserSession
 
@@ -17,6 +18,7 @@ __all__ = [
     "SosContact",
     "SosHistory",
     "SystemLog",
+    "SystemSettings",
     "User",
     "UserSession",
 ]

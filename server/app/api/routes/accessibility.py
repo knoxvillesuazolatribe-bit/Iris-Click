@@ -20,7 +20,7 @@ def _read(db: Session, user: User) -> AccessibilitySettingsRead:
     values, is_default = accessibility_service.current(db, user, base)
     return AccessibilitySettingsRead(
         **asdict(values), is_default=is_default,
-        defaults=AccessibilitySettingsWrite(**asdict(accessibility_service.defaults(base))))
+        defaults=AccessibilitySettingsWrite(**asdict(accessibility_service.standard(db, base))))
 
 
 @router.get("", response_model=AccessibilitySettingsRead)

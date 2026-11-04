@@ -7,9 +7,10 @@ because messages can be private.
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.accessibility_settings import DEFAULT_VOICE_VOLUME, AccessibilitySettings
+from app.models.accessibility_settings import AccessibilitySettings
 from app.models.communication import MODE_TEXT_TO_SPEECH, CommunicationHistory
 from app.models.user import User
+from app.services import system_settings_service
 from app.services.system_log_service import log_activity
 
 RECENT_LIMIT = 10
@@ -25,10 +26,10 @@ class VoiceError(Exception):
 
 
 def voice_volume(db: Session, user: User) -> int:
-    """0–100; the default until the user changes it in Settings (Phase 7)."""
+    """0–100: the user's setting, else the admin's global default, else 100."""
     volume = db.scalar(select(AccessibilitySettings.voice_volume)
                        .where(AccessibilitySettings.user_id == user.user_id))
-    return DEFAULT_VOICE_VOLUME if volume is None else volume
+    return system_settings_service.standard_voice(db) if volume is None else volume
 
 
 def recent_messages(db: Session, user: User, limit: int = RECENT_LIMIT) -> list[CommunicationHistory]:

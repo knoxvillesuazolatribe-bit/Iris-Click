@@ -66,3 +66,13 @@ def revoke(db: Session, token: str | None) -> UserSession | None:
     if row is not None and row.revoked_at is None:
         row.revoked_at = utc_now()
     return row
+
+
+def revoke_all_for_user(db: Session, user_id: int) -> int:
+    """Ends every open session of ``user_id`` (caller commits); returns how many."""
+    rows = db.scalars(select(UserSession).where(UserSession.user_id == user_id,
+                                                UserSession.revoked_at.is_(None))).all()
+    now = utc_now()
+    for row in rows:
+        row.revoked_at = now
+    return len(rows)

@@ -15,6 +15,9 @@ psycopg[binary]==3.3.6
 # Admin password hashing (team decision D6)
 argon2-cffi==25.1.0
 
+# Admin PDF reports (team decision D10)
+reportlab==4.4.4
+
 # Eye tracking engine (Windows, CPython 3.12)
 # MediaPipe already requires the contrib wheel. Installing both OpenCV wheel
 # variants makes them overwrite the same cv2 files, so only contrib is pinned.

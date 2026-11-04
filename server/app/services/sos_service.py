@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.models.sos import SOS_FAILED, SOS_PENDING, SOS_SENT, SosContact, SosHistory
 from app.models.timestamps import as_utc, utc_now
 from app.models.user import User
+from app.services import system_settings_service
 from app.services.sos_delivery import EmailSender
 from app.services.sos_dispatcher import CHANNEL_EMAIL, CHANNEL_SMS, dispatcher
 from app.services.system_log_service import log_activity
@@ -49,34 +50,39 @@ def _own_contact(db: Session, user: User, contact_id: int) -> SosContact:
     return contact
 
 
-def add_contact(db: Session, user: User, fields: dict) -> SosContact:
+def _log_contact(db: Session, kind: str, verb: str, user: User, actor: User | None) -> None:
+    by = f" by {actor.full_name}" if actor is not None else ""
+    log_activity(kind, f"Emergency contact {verb} for {user.full_name}{by}",
+                 (actor or user).user_id, session=db)
+
+
+def add_contact(db: Session, user: User, fields: dict, actor: User | None = None) -> SosContact:
+    """``actor``: the admin making the change (Phase 8); None when it is the user."""
     if len(list_contacts(db, user)) >= MAX_CONTACTS:
         raise SosError(409, f"You can have up to {MAX_CONTACTS} emergency contacts.")
     contact = SosContact(user_id=user.user_id, **fields)
     db.add(contact)
     db.flush()
-    log_activity("sos_contact_added", f"Emergency contact added for {user.full_name}",
-                 user.user_id, session=db)
+    _log_contact(db, "sos_contact_added", "added", user, actor)
     db.commit()
     db.refresh(contact)
     return contact
 
 
-def update_contact(db: Session, user: User, contact_id: int, fields: dict) -> SosContact:
+def update_contact(db: Session, user: User, contact_id: int, fields: dict,
+                   actor: User | None = None) -> SosContact:
     contact = _own_contact(db, user, contact_id)
     for key, value in fields.items():
         setattr(contact, key, value)
-    log_activity("sos_contact_updated", f"Emergency contact changed for {user.full_name}",
-                 user.user_id, session=db)
+    _log_contact(db, "sos_contact_updated", "changed", user, actor)
     db.commit()
     db.refresh(contact)
     return contact
 
 
-def delete_contact(db: Session, user: User, contact_id: int) -> None:
+def delete_contact(db: Session, user: User, contact_id: int, actor: User | None = None) -> None:
     db.delete(_own_contact(db, user, contact_id))
-    log_activity("sos_contact_deleted", f"Emergency contact deleted for {user.full_name}",
-                 user.user_id, session=db)
+    _log_contact(db, "sos_contact_deleted", "deleted", user, actor)
     db.commit()
 
 
@@ -95,18 +101,18 @@ def location_text(user: User) -> str | None:
     return ", ".join([*parts, CITY])
 
 
-def build_message(user: User, location: str | None, when: datetime) -> str:
+def build_message(user: User, location: str | None, when: datetime, app_name: str = "IrisClick") -> str:
     time_text = when.astimezone().strftime("%B %d, %Y at %I:%M %p")
     return "\n".join([
         f"EMERGENCY SOS: {user.full_name} needs help.",
         "",
-        f"{user.full_name} pressed the SOS button in IrisClick and may need help right now.",
+        f"{user.full_name} pressed the SOS button in {app_name} and may need help right now.",
         f"Location: {location or 'No address on file. Please call them to find out where they are.'}",
         f"Time: {time_text}",
         "",
         "Please call them or go to them as soon as you can.",
         "",
-        "Sent by IrisClick (PDAO Lapu-Lapu City), a hands-free eye-gaze tool.",
+        f"Sent by {app_name} (PDAO Lapu-Lapu City), a hands-free eye-gaze tool.",
     ])
 
 
@@ -144,7 +150,8 @@ def activate(db: Session, user: User, activation_id: str) -> str:
         raise SosError(409, NO_CONTACTS)
     now = utc_now()
     location = location_text(user)
-    message = build_message(user, location, now)
+    message = build_message(user, location, now,
+                            system_settings_service.app_name(db, get_settings()))
     rows = []
     for contact in contacts:
         channel = CHANNEL_EMAIL if contact.email_address else CHANNEL_SMS

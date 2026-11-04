@@ -47,8 +47,9 @@ def gesture_guide(settings: Settings) -> list[dict[str, str]]:
                       "action": "Scrolls up or down"})
     if settings.dwell_click_enabled:
         seconds = f"{settings.dwell_ms / 1000:g}"
+        unit = "second" if seconds == "1" else "seconds"
         guide.append({"gesture": "Keep looking at one spot",
-                      "action": f"Clicks after {seconds} seconds"})
+                      "action": f"Clicks after {seconds} {unit}"})
     return guide
 
 
