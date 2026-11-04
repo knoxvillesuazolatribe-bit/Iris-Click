@@ -45,9 +45,10 @@ def test_database(empty_database_file, tmp_path_factory, monkeypatch):
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     monkeypatch.setattr(database, "get_engine", lambda: engine)
     monkeypatch.setattr(database, "get_session_factory", lambda: factory)
-    active_user.set_user_id(None)
+    # The signed-in user is saved to a file; keep it out of the real storage/.
+    active_user.use_path(path.with_name("active_user.json"))
     yield factory
     # Finish queued background writes while they still point at this file.
     writer.wait_idle(WRITER_IDLE_TIMEOUT_S)
-    active_user.set_user_id(None)
+    active_user.use_path(path.with_name("unused_active_user.json"))
     engine.dispose()

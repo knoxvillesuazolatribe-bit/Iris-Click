@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import type { CalibrationResult } from '@/validators/calibration-validator'
+import { GoToHomeSuite } from '@/components/go-to-home-suite'
 
 const SOURCE_LABELS: Record<string, string> = {
   iris_ring_v1: 'Iris landmarks',
@@ -109,6 +110,7 @@ export function CalibrationResultCard({ result, error, onRetry }: CalibrationRes
             </div>
           ))}
         </dl>
+        <GoToHomeSuite />
       </CardContent>
       <CardFooter>
         <Button variant="outline" size="lg" className="h-12 w-full" onClick={onRetry}>

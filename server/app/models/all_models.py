@@ -7,6 +7,7 @@ from app.models.screenshot import ScreenshotHistory
 from app.models.sos import SosContact, SosHistory
 from app.models.system_log import SystemLog
 from app.models.user import User
+from app.models.user_session import UserSession
 
 __all__ = [
     "AccessibilitySettings",
@@ -17,4 +18,5 @@ __all__ = [
     "SosHistory",
     "SystemLog",
     "User",
+    "UserSession",
 ]

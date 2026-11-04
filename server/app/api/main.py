@@ -27,6 +27,13 @@ def create_app() -> FastAPI:
     for router in (health.router, calibration.router, cameras.router, tracking.router,
                    calibration_ws.router):
         app.include_router(router, prefix=settings.api_prefix)
+    # Account routes (sign-in, users). If they fail to load, the routes above still serve.
+    try:
+        from app.api.routes import admin_users, assistive, auth
+        for router in (auth.router, assistive.router, admin_users.router):
+            app.include_router(router, prefix=settings.api_prefix)
+    except Exception:
+        logging.getLogger("irisclick.api").exception("Account routes not loaded")
     return app
 
 
