@@ -58,10 +58,9 @@ export function HomePage() {
         <HomeCard
           icon={Siren}
           title="Emergency SOS"
-          description="Ask for help."
-          unavailable="Not set up yet. It cannot send help."
+          description="Alert your emergency contacts that you need help."
           emergency
-          onSelect={() => undefined}
+          onSelect={() => void navigate('/sos')}
         />
         <HomeCard
           icon={Mic}

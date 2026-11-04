@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     # keeps the legacy tables, two of which share names with ours.
     db_schema: str = Field("irisclick", pattern=r"^[a-z_][a-z0-9_]*$")
 
+    # Email for Emergency SOS (team decision D8). Empty host: SOS alerts fail
+    # with "email is not set up" instead of pretending to send.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_timeout_s: float = Field(15.0, gt=0)
+
     # Site page the worker's tray opens for "Recalibrate".
     site_url: str = "http://localhost:5173"
 
