@@ -1,7 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { RequireRole } from '@/components/require-role'
 import { AdminLoginPage } from '@/pages/admin-login-page'
+import { AdminLogsPage } from '@/pages/admin-logs-page'
 import { AdminPage } from '@/pages/admin-page'
+import { AdminReportPage, AdminReportsPage } from '@/pages/admin-reports-pages'
+import { AdminAccessibilityPage, AdminSettingsPage, AdminSystemPage } from '@/pages/admin-settings-pages'
+import { AdminUserPage } from '@/pages/admin-user-page'
+import { AdminUsersPage } from '@/pages/admin-users-page'
 import { CalibrationPage } from '@/pages/calibration-page'
 import { HomePage } from '@/pages/home-page'
 import { LoginSelectionPage } from '@/pages/login-selection-page'
@@ -30,6 +35,14 @@ export function App() {
         <Route path="/sos/contacts" element={<RequireRole role="assistive_user"><SosContactsPage /></RequireRole>} />
         <Route path="/settings" element={<RequireRole role="assistive_user"><SettingsPage /></RequireRole>} />
         <Route path="/admin" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
+        <Route path="/admin/users" element={<RequireRole role="admin"><AdminUsersPage /></RequireRole>} />
+        <Route path="/admin/users/:id" element={<RequireRole role="admin"><AdminUserPage /></RequireRole>} />
+        <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
+        <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><AdminAccessibilityPage /></RequireRole>} />
+        <Route path="/admin/settings/system" element={<RequireRole role="admin"><AdminSystemPage /></RequireRole>} />
+        <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
+        <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
+        <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />
         <Route path="/calibration" element={<CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

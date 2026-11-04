@@ -1,143 +1,79 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { UserPlus, Users } from 'lucide-react'
+import { Crosshair, FileText, ScrollText, Settings, Siren, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
+import { AdminLayout } from '@/components/admin-layout'
 import { ServerDown } from '@/components/server-down'
-import { SignOutButton } from '@/components/sign-out-button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldError, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { adminUsersService } from '@/services/auth-service'
-import { useSessionStore } from '@/store/session-store'
-import {
-  assistiveCreateSchema,
-  type AdminUser,
-  type AssistiveCreateInput,
-} from '@/validators/auth-validator'
+import { adminService } from '@/services/admin-service'
+import type { Dashboard } from '@/validators/admin-validator'
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; users: AdminUser[] }
+type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; data: Dashboard }
 
-const TEXT_FIELDS = [
-  { name: 'full_name', label: 'Full name', autoComplete: 'name' },
-  { name: 'barangay', label: 'Barangay (optional)', autoComplete: 'address-level3' },
-  { name: 'address', label: 'Address (optional)', autoComplete: 'street-address' },
-] as const
+const MENU = [
+  { to: '/admin/users', label: 'Users', text: 'Create users, edit their settings and contacts, deactivate.', icon: Users },
+  { to: '/admin/settings', label: 'Settings', text: 'Global accessibility defaults, email test, app name.', icon: Settings },
+  { to: '/admin/logs', label: 'Logs', text: 'Everything users and admins did, newest first.', icon: ScrollText },
+  { to: '/admin/reports', label: 'Reports', text: 'Calibration, Communication and SOS: preview or PDF.', icon: FileText },
+]
 
-/** Admin landing page: assistive users and creating them (full admin module: Phase 8). */
+/** Screen 18: admin dashboard with real counts. */
 export function AdminPage() {
-  const admin = useSessionStore((s) => s.user)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-  const form = useForm<AssistiveCreateInput>({
-    resolver: zodResolver(assistiveCreateSchema),
-    defaultValues: { full_name: '', barangay: '', address: '' },
-  })
-
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let current = true
-    adminUsersService
-      .list()
-      .then((users) => current && setLoad({ state: 'ready', users }))
-      .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load the users.') }))
+    adminService
+      .dashboard()
+      .then((data) => current && setLoad({ state: 'ready', data }))
+      .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load the dashboard.') }))
     return () => {
       current = false
     }
   }, [attempt])
 
-  const reload = () => setAttempt((n) => n + 1)
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    setNotice(null)
-    try {
-      const created = await adminUsersService.createAssistive(values)
-      setNotice({ kind: 'ok', text: `${created.full_name} can now sign in from the name tiles.` })
-      form.reset()
-      reload()
-    } catch (err) {
-      setNotice({ kind: 'error', text: errorMessage(err, 'The user was not created.') })
-    }
-  })
+  const cards = load.state === 'ready'
+    ? [
+        { label: 'Active Users', value: load.data.active_users, week: `${load.data.active_users_week} signed in this week`, icon: Users, to: '/admin/users' },
+        { label: 'SOS Events', value: load.data.sos_events, week: `${load.data.sos_events_week} in the last 7 days`, icon: Siren, to: '/admin/reports/sos' },
+        { label: 'Calibrations', value: load.data.calibrations, week: `${load.data.calibrations_week} in the last 7 days`, icon: Crosshair, to: '/admin/reports/calibration' },
+      ]
+    : []
 
   return (
-    <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold">Administrator</h1>
-          <p className="text-muted-foreground">Signed in as {admin?.full_name}</p>
+    <AdminLayout title="Dashboard" description="IrisClick at a glance for PDAO Lapu-Lapu City.">
+      {load.state === 'loading' && <p className="text-muted-foreground">Loading…</p>}
+      {load.state === 'error' && (
+        <ServerDown message={load.message} onRetry={() => { setLoad({ state: 'loading' }); setAttempt((n) => n + 1) }} />
+      )}
+      {load.state === 'ready' && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {cards.map(({ label, value, week, icon: Icon, to }) => (
+            <Link key={label} to={to} className="focus-visible:ring-ring rounded-xl outline-none focus-visible:ring-4">
+              <Card className="hover:border-primary h-full transition-colors">
+                <CardHeader>
+                  <CardDescription className="flex items-center gap-2 text-base"><Icon className="size-5" aria-hidden />{label}</CardDescription>
+                  <CardTitle className="text-5xl tabular-nums">{value}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-muted-foreground text-sm">{week}</CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
-        <SignOutButton />
-      </header>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl"><UserPlus aria-hidden /> Create assistive user</CardTitle>
-          <CardDescription>The person then signs in by looking at their name tile. No password is needed.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} noValidate className="grid gap-4 md:grid-cols-3">
-            {TEXT_FIELDS.map(({ name, label, autoComplete }) => (
-              <Controller
-                key={name}
-                control={form.control}
-                name={name}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={`new-${name}`}>{label}</FieldLabel>
-                    <Input id={`new-${name}`} autoComplete={autoComplete} className="h-11"
-                      aria-invalid={fieldState.invalid} {...field} />
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
-            ))}
-            <div className="flex flex-wrap items-center gap-4 md:col-span-3">
-              <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
-                <UserPlus aria-hidden />
-                {form.formState.isSubmitting ? 'Creating…' : 'Create user'}
-              </Button>
-              {notice && (
-                <Alert variant={notice.kind === 'error' ? 'destructive' : 'default'} role="status" className="w-auto flex-1">
-                  <AlertDescription>{notice.text}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl"><Users aria-hidden /> Users</CardTitle>
-          <CardDescription>Full user management, settings, logs and reports come in a later update.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {load.state === 'loading' && <p className="text-muted-foreground">Loading…</p>}
-          {load.state === 'error' && <ServerDown message={load.message} onRetry={() => { setLoad({ state: 'loading' }); reload() }} />}
-          {load.state === 'ready' && (
-            <table className="w-full text-left">
-              <thead className="text-muted-foreground border-b text-sm">
-                <tr><th className="py-2">Name</th><th>Role</th><th>Barangay</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {load.users.map((user) => (
-                  <tr key={user.user_id} className="border-b last:border-0">
-                    <td className="py-3 font-medium">{user.full_name}</td>
-                    <td>{user.role === 'admin' ? 'Administrator' : 'Assistive user'}</td>
-                    <td>{user.barangay ?? '—'}</td>
-                    <td><Badge variant={user.status === 'active' ? 'secondary' : 'destructive'}>{user.status}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+      )}
+      <div className="grid gap-4 md:grid-cols-2">
+        {MENU.map(({ to, label, text, icon: Icon }) => (
+          <Link key={to} to={to} className="focus-visible:ring-ring rounded-xl outline-none focus-visible:ring-4">
+            <Card className="hover:border-primary h-full transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl"><Icon aria-hidden />{label}</CardTitle>
+                <CardDescription>{text}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </AdminLayout>
   )
 }

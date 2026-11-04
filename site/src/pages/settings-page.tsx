@@ -1,28 +1,20 @@
-import { ArrowLeft, LoaderCircle, Play, RefreshCw, RotateCcw, Save, Volume2 } from 'lucide-react'
+import { ArrowLeft, LoaderCircle, Play, RefreshCw, RotateCcw, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
+import { AccessibilityFields } from '@/components/accessibility-fields'
 import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
-import { Choice, OnOff, SettingRow, Stepper } from '@/components/setting-controls'
 import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { speak } from '@/lib/speech'
 import { homeService, restartTracking } from '@/services/home-service'
 import { settingsService } from '@/services/settings-service'
-import {
-  BLINK_STEPS,
-  DWELL_MS,
-  VOLUME,
-  type AccessibilitySettings,
-  type AccessibilityValues,
-} from '@/validators/settings-validator'
+import { type AccessibilitySettings, type AccessibilityValues } from '@/validators/settings-validator'
 
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; saved: AccessibilitySettings }
 type Notice = { kind: 'ok' | 'error'; title: string; text: string } | null
 type Restart = 'idle' | 'confirm' | 'busy' | 'failed'
 
-const BLINK_LABELS = ['Least sensitive', 'Less sensitive', 'Standard', 'More sensitive', 'Most sensitive']
 const KEYS: (keyof AccessibilityValues)[] = [
   'dwell_enabled', 'dwell_ms', 'smoothing', 'blink_to_click', 'blink_sensitivity', 'edge_scroll_enabled', 'voice_volume',
 ]
@@ -160,45 +152,7 @@ export function SettingsPage() {
         </Alert>
       )}
 
-      <SettingRow title="Dwell click" description="Click by keeping your eyes on one spot."
-        note={!draft.blink_to_click ? 'Stays on while wink-to-click is off, so you can always click.' : undefined}>
-        <OnOff label="Dwell click" value={draft.dwell_enabled} offDisabled={!draft.blink_to_click}
-          onChange={(v) => set('dwell_enabled', v)} />
-      </SettingRow>
-
-      <SettingRow title="Dwell time" description="How long to look before a dwell click.">
-        <Stepper label="dwell time" value={draft.dwell_ms} min={DWELL_MS.min} max={DWELL_MS.max} step={DWELL_MS.step}
-          format={(v) => `${(v / 1000).toFixed(1)} s`} onChange={(v) => set('dwell_ms', v)} />
-      </SettingRow>
-
-      <SettingRow title="Cursor smoothing" description="High is steadier but follows your eyes a little slower.">
-        <Choice label="Cursor smoothing" value={draft.smoothing} onChange={(v) => set('smoothing', v)}
-          options={[{ value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }]} />
-      </SettingRow>
-
-      <SettingRow title="Wink to click" description="A left-eye wink clicks."
-        note={!draft.dwell_enabled ? 'Turn on dwell click first to turn this off.' : undefined}>
-        <OnOff label="Wink to click" value={draft.blink_to_click} offDisabled={!draft.dwell_enabled}
-          onChange={(v) => set('blink_to_click', v)} />
-      </SettingRow>
-
-      <SettingRow title="Blink sensitivity" description="More sensitive: a smaller wink counts, but accidental winks happen more.">
-        <Stepper label="blink sensitivity" value={draft.blink_sensitivity} min={BLINK_STEPS.min} max={BLINK_STEPS.max}
-          format={(v) => BLINK_LABELS[v - 1]} onChange={(v) => set('blink_sensitivity', v)} />
-      </SettingRow>
-
-      <SettingRow title="Edge scroll" description="Look at the top or bottom edge of the screen to scroll.">
-        <OnOff label="Edge scroll" value={draft.edge_scroll_enabled} onChange={(v) => set('edge_scroll_enabled', v)} />
-      </SettingRow>
-
-      <SettingRow title="Voice volume" description="How loud Voice Communication speaks.">
-        <Stepper label="voice volume" value={draft.voice_volume} min={VOLUME.min} max={VOLUME.max} step={VOLUME.step}
-          format={(v) => `${v}%`} onChange={(v) => set('voice_volume', v)} />
-        <GazeButton variant="outline" onClick={() => speak('This is how loud I will speak.', draft.voice_volume)}>
-          <Volume2 aria-hidden />
-          Test
-        </GazeButton>
-      </SettingRow>
+      <AccessibilityFields draft={draft} set={set} />
 
       <footer className="bg-background sticky bottom-0 flex flex-wrap items-center justify-between gap-6 border-t-2 py-6">
         {confirming ? (

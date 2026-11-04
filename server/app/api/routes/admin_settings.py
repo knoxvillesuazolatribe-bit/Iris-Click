@@ -24,7 +24,7 @@ from app.schemas.admin import (
 )
 from app.services import accessibility_service, system_settings_service
 from app.services.accessibility_service import FriendlySettings, SettingsError
-from app.services.sos_delivery import SMS_NOT_SET_UP, DeliveryError, EmailSender
+from app.services.sos_delivery import DeliveryError, EmailSender
 from app.services.system_log_service import log_activity
 
 router = APIRouter(prefix="/admin/settings", tags=["admin"], route_class=DatabaseSafeRoute)
@@ -120,6 +120,10 @@ def test_email(body: TestEmailRequest, db: Session = Depends(get_db),
     return result
 
 
+SMS_TEST_NOT_SET_UP = ("No SMS was sent: SMS sending is not set up yet. A paid SMS gateway "
+                       "(for example Semaphore) has to be connected first.")
+
+
 @router.post("/system/test-sms", response_model=TestResult)
 def test_sms(_admin: User = Depends(require_admin)):
-    return TestResult(sent=False, detail=SMS_NOT_SET_UP)
+    return TestResult(sent=False, detail=SMS_TEST_NOT_SET_UP)

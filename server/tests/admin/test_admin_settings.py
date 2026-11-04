@@ -162,5 +162,7 @@ def test_test_email_when_not_set_up(admin):
 
 
 def test_sms_test_is_honest(admin):
+    from app.api.routes.admin_settings import SMS_TEST_NOT_SET_UP
+
     assert admin.post("/api/admin/settings/system/test-sms").json() == {
-        "sent": False, "detail": sos_delivery.SMS_NOT_SET_UP}
+        "sent": False, "detail": SMS_TEST_NOT_SET_UP}
