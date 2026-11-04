@@ -1,4 +1,4 @@
-r"""IrisClick entry point: starts the API server and opens the calibration page.
+r"""IrisClick entry point: starts the API server and opens the Login Selection page.
 
     cd server && .venv\Scripts\python main.py
 
@@ -21,9 +21,10 @@ BROWSER_DELAY_S = 1.5
 
 def main():
     settings = get_settings()
-    calibration_url = f"{settings.site_url.rstrip('/')}/calibration"
+    # Open Login Selection so admins and assistive users pick how to sign in.
+    start_url = f"{settings.site_url.rstrip('/')}/"
     threading.Thread(
-        target=lambda: (time.sleep(BROWSER_DELAY_S), webbrowser.open(calibration_url)),
+        target=lambda: (time.sleep(BROWSER_DELAY_S), webbrowser.open(start_url)),
         daemon=True,
     ).start()
     uvicorn.run("app.api.main:app", host=settings.host, port=settings.port, app_dir=str(SERVER_DIR))
