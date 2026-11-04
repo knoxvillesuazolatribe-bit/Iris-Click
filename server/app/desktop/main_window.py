@@ -69,16 +69,27 @@ class ControlBar:
         self._edge = self._button(frame, "Edge: medium", CYCLE_EDGE)
         self._recenter = self._button(frame, "Re-centre", RECENTER)
         self._button(frame, "Recalibrate", RECALIBRATE)
-        self._button(frame, "Home", HOME)  # H3: opens the site's Home Suite
-        self._button(frame, "Forward", FORWARD)  # H3 (Phase 6): Alt+Right
-        self._button(frame, "Next Tab", NEXT_TAB)  # H3 (Phase 6): Ctrl+Tab
+        # H3: buttons added after the original bar, kept together so they can
+        # move to a second row on screens too narrow for one (see below).
+        self._extra_row = tk.Frame(self.win, bg=BACKGROUND)
+        self._button(self._extra_row, "Home", HOME)  # opens the site's Home Suite
+        self._button(self._extra_row, "Forward", FORWARD)  # Phase 6: Alt+Right
+        self._button(self._extra_row, "Next Tab", NEXT_TAB)  # Phase 6: Ctrl+Tab
         self._quit = self._button(frame, "Quit", None, command=self._quit_pressed)
+        self._extra_row.pack(in_=frame, side="left", before=self._quit)
 
         for widget in (handle, self._dot, self._status):
             widget.bind("<ButtonPress-1>", self._start_drag)
             widget.bind("<B1-Motion>", self._drag)
 
         self.win.update_idletasks()
+        if self.win.winfo_reqwidth() > screen_w:
+            # H3: too wide (e.g. 1366 px screens): the added buttons go on a
+            # second row; the original row keeps its buttons, order and size.
+            self._extra_row.pack_forget()
+            self._extra_row.configure(padx=8, pady=4)
+            self._extra_row.pack(in_=self.win, side="top", fill="x", padx=2, pady=(0, 2))
+            self.win.update_idletasks()
         x = max(0, (screen_w - self.win.winfo_reqwidth()) // 2)
         self.win.geometry(f"+{x}+{TOP_MARGIN_PX}")
         make_tool_window(self.win)
