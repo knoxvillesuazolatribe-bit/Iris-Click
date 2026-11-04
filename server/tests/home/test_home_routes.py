@@ -58,6 +58,7 @@ def home_settings(profiles_dir, tmp_path, monkeypatch):
         "swap_blink_sides": False,
         "dwell_click_enabled": False,
         "dwell_ms": 700,
+        "edge_scroll_enabled": True,
     })
     monkeypatch.setattr("app.api.routes.home.get_settings", lambda: settings)
     return settings
@@ -108,7 +109,17 @@ def test_guide_lists_the_default_gestures(api, ana):
         {"gesture": "Look around the screen", "action": "Moves the cursor"},
         {"gesture": "Wink your left eye", "action": "Click"},
         {"gesture": "Wink your right eye", "action": "Go back"},
+        {"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"},
+        {"gesture": "Look at the top or bottom edge", "action": "Scrolls up or down"},
     ]
+
+
+def test_guide_leaves_out_edge_scroll_when_off(api, ana, home_settings, monkeypatch):
+    off = home_settings.model_copy(update={"edge_scroll_enabled": False})
+    monkeypatch.setattr("app.api.routes.home.get_settings", lambda: off)
+    gestures = [g["gesture"] for g in api.get("/api/me/home").json()["gestures"]]
+    assert "Look at the top or bottom edge" not in gestures
+    assert "Close both eyes for a moment" in gestures
 
 
 def test_guide_follows_the_real_settings(api, ana, home_settings, monkeypatch):

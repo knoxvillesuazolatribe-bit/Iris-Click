@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     recenter_path: Path = STORAGE_DIR / "recenter.json"
     worker_pid_path: Path = STORAGE_DIR / "tracking_worker.pid"
     worker_log_path: Path = STORAGE_DIR / "tracking_worker.log"
+    # Both-eye blink screenshots (team decision D2): <dir>/<user id>/<time>.png
+    screenshots_dir: Path = STORAGE_DIR / "screenshots"
     # Capture backend and pixel format (see core/camera/capture.py). "auto"
     # and an empty FOURCC keep OpenCV's defaults; compare alternatives with
     # scripts/benchmark_gaze.py camera before changing them.
@@ -90,6 +92,10 @@ class Settings(BaseSettings):
     # core/gaze/edge_reach.py). Default only: the control bar's choice is saved
     # in device_settings_path and wins.
     edge_sensitivity: Literal["off", "low", "medium", "high"] = "medium"
+    # Look at the top/bottom band for dwell_ms to scroll (app/workers/edge_scroll.py).
+    # Separate from edge_sensitivity above, which only affects left/right reach.
+    edge_scroll_enabled: bool = True
+    edge_scroll_band: float = Field(0.08, gt=0, le=0.25)
     # Snap gaze onto the nearest clickable control within this radius (physical
     # px); webcam gaze error (~90 px) is larger than small buttons.
     target_snap_enabled: bool = True

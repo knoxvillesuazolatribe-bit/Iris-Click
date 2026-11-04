@@ -41,7 +41,7 @@ from app.core.calibration.recenter import (
     save_recenter,
 )
 from app.core.gaze.screen_mapper import ScreenCorrection
-from app.core.detection.blink_detector import LEFT, RIGHT, BlinkDetector
+from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
 from app.core.detection.lighting import LIGHTING_GUIDANCE
 from app.core.gaze.estimator import GazeTracker
@@ -58,7 +58,9 @@ from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
     CYCLE_EDGE,
+    FORWARD,
     HOME,
+    NEXT_TAB,
     PAUSE,
     QUIT,
     RECALIBRATE,
@@ -80,6 +82,11 @@ try:  # Phase 3 hook: live status for the site's Gaze Tracking page (optional).
     from app.workers.worker_state import LiveState
 except Exception:  # noqa: BLE001
     LiveState = None
+try:  # Phase 6 hooks: screenshot, edge scroll, Forward / Next Tab (optional).
+    from app.workers import extra_keys
+    from app.workers.worker_extras import WorkerExtras
+except Exception:  # noqa: BLE001
+    extra_keys = WorkerExtras = None
 
 TICK_MS = 20
 STOP_CHECK_EVERY_TICKS = 25
@@ -242,6 +249,11 @@ class TrackingWorker:
         self._live = None
         with contextlib.suppress(Exception):
             self._live = LiveState(settings)
+        # Phase 6 hooks (H4a/H4c): screenshot and edge scroll. Tracking works without them.
+        self._extras = None
+        with contextlib.suppress(Exception):
+            self._extras = WorkerExtras(self.root, self.bar.win, settings, profile_id,
+                                        self.screen_w, self.screen_h, self.voice.announce)
 
     def run(self):
         self.tray.start()
@@ -358,6 +370,9 @@ class TrackingWorker:
             elif command == HOME:  # H3: open the Home Suite; tracking keeps running
                 with contextlib.suppress(Exception):
                     webbrowser.open(f"{self.settings.site_url.rstrip('/')}/home")
+            elif command in (FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
+                with contextlib.suppress(Exception):
+                    extra_keys.press(command)
 
     def _cycle_edge(self, now: float):
         level = next_edge_level(self.navigator.config.edge_sensitivity)
@@ -462,6 +477,8 @@ class TrackingWorker:
             return
 
         eye_closing = self.blink.classify(reading.left_ear, reading.right_ear) is not None
+        with contextlib.suppress(Exception):  # H4a: time closures (long = resting eyes)
+            self._extras.observe_closure(eye_closing, now_s)
         if eye_closing and not self._lid_down and not self.paused:
             self._lid_down = True
             # The lid dragged the cursor before the eye counted as closed; go
@@ -535,6 +552,8 @@ class TrackingWorker:
             self.glide.set_target(x, y, now)
             gx, gy = x, y
         self._draw(gx, gy, DISTANCE_TEXT.get(distance) or POSTURE_TEXT.get(self.posture.change))
+        with contextlib.suppress(Exception):  # H4c: edge-dwell scroll
+            self._extras.cursor_drawn(gx, gy, now_s)
         self.blink_anchor.record(now_s, gx, gy, reading.left_ear, reading.right_ear)
 
     def _record_cursor(self, reading, estimate, step, shown, started, nav_done, moved):
@@ -638,6 +657,10 @@ class TrackingWorker:
             else:
                 self.mouse.go_back()
             logger.info("Right wink: %s", self.settings.right_blink_action)
+        elif side == BOTH:  # H4a: deliberate both-eye blink takes a screenshot
+            with contextlib.suppress(Exception):
+                if self._extras.both_blink(time.monotonic()):
+                    logger.info("Both-eye blink: screenshot")
         self.dwell.reset()
 
     def _toggle_recenter(self, now: float):

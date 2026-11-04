@@ -38,6 +38,17 @@ def get_user_id() -> int | None:
         return _user_id
 
 
+def read_from_disk() -> int | None:
+    """The user saved in the file right now, for the worker process.
+
+    get_user_id() caches; the worker runs for hours while people sign in and
+    out on the server, so it must re-read the file each time.
+    """
+    with _lock:
+        path = _path
+    return _read(path)
+
+
 def set_user_id(user_id: int | None) -> None:
     global _loaded, _user_id
     with _lock:

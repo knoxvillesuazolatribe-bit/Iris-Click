@@ -32,10 +32,7 @@ class HomeError(Exception):
 
 
 def gesture_guide(settings: Settings) -> list[dict[str, str]]:
-    """Only gestures the tracking worker performs today, as configured.
-
-    Phase 6 adds both-eye screenshot and edge scroll here once they work.
-    """
+    """Only gestures the tracking worker performs today, as configured."""
     right_action = "Go back" if settings.right_blink_action == "go_back" else "Undo"
     left_eye, right_eye = ("Click", right_action)
     if settings.swap_blink_sides:
@@ -44,7 +41,11 @@ def gesture_guide(settings: Settings) -> list[dict[str, str]]:
         {"gesture": "Look around the screen", "action": "Moves the cursor"},
         {"gesture": "Wink your left eye", "action": left_eye},
         {"gesture": "Wink your right eye", "action": right_eye},
+        {"gesture": "Close both eyes for a moment", "action": "Takes a screenshot"},
     ]
+    if settings.edge_scroll_enabled:
+        guide.append({"gesture": "Look at the top or bottom edge",
+                      "action": "Scrolls up or down"})
     if settings.dwell_click_enabled:
         seconds = f"{settings.dwell_ms / 1000:g}"
         guide.append({"gesture": "Keep looking at one spot",
