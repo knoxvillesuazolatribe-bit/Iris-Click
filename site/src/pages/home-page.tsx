@@ -66,9 +66,8 @@ export function HomePage() {
         <HomeCard
           icon={Mic}
           title="Voice Communication"
-          description="Speak typed words aloud, or turn speech into text."
-          unavailable={LATER}
-          onSelect={() => undefined}
+          description="Type or pick a phrase to speak it aloud, or turn speech into text."
+          onSelect={() => void navigate('/voice')}
         />
         <HomeCard
           icon={Settings}

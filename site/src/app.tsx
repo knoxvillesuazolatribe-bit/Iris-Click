@@ -7,6 +7,7 @@ import { HomePage } from '@/pages/home-page'
 import { LoginSelectionPage } from '@/pages/login-selection-page'
 import { TrackingPage } from '@/pages/tracking-page'
 import { UserSelectPage } from '@/pages/user-select-page'
+import { VoicePage } from '@/pages/voice-page'
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
         <Route path="/user/select" element={<UserSelectPage />} />
         <Route path="/home" element={<RequireRole role="assistive_user"><HomePage /></RequireRole>} />
         <Route path="/tracking" element={<RequireRole role="assistive_user"><TrackingPage /></RequireRole>} />
+        <Route path="/voice" element={<RequireRole role="assistive_user"><VoicePage /></RequireRole>} />
         <Route path="/admin" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
         <Route path="/calibration" element={<CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
