@@ -15,6 +15,7 @@ only hand data to the Tk main thread, which owns every window and OS-input call.
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -57,6 +58,7 @@ from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
     CYCLE_EDGE,
+    HOME,
     PAUSE,
     QUIT,
     RECALIBRATE,
@@ -73,6 +75,11 @@ from app.services.camera_service import (
     update_device_settings,
 )
 from app.services.tracking_service import pid_alive, stop_request_path
+
+try:  # Phase 3 hook: live status for the site's Gaze Tracking page (optional).
+    from app.workers.worker_state import LiveState
+except Exception:  # noqa: BLE001
+    LiveState = None
 
 TICK_MS = 20
 STOP_CHECK_EVERY_TICKS = 25
@@ -231,6 +238,10 @@ class TrackingWorker:
         self._camera_restart: threading.Thread | None = None
         self._next_camera_retry = 0.0
         self._quitting = False
+        # Phase 3 hook: live status for the site. Tracking works without it.
+        self._live = None
+        with contextlib.suppress(Exception):
+            self._live = LiveState(settings)
 
     def run(self):
         self.tray.start()
@@ -258,6 +269,8 @@ class TrackingWorker:
         state = (kind, self.paused, self.voice.enabled)
         self.bar.set_state(text, *state)
         self.tray.set_state(f"IrisClick: {text}", *state)
+        with contextlib.suppress(Exception):  # Phase 3 hook: live status
+            self._live.note_status(text, kind, self.paused)
 
     def _pause(self, reason: str):
         self.paused = True
@@ -342,6 +355,9 @@ class TrackingWorker:
                 self.quit()
             elif command == QUIT:
                 self.quit()
+            elif command == HOME:  # H3: open the Home Suite; tracking keeps running
+                with contextlib.suppress(Exception):
+                    webbrowser.open(f"{self.settings.site_url.rstrip('/')}/home")
 
     def _cycle_edge(self, now: float):
         level = next_edge_level(self.navigator.config.edge_sensitivity)
@@ -589,6 +605,8 @@ class TrackingWorker:
                                  self._fine_aim)
         self._draw_link(x, y, new_frame=True)
         self._showing_cursor = True
+        with contextlib.suppress(Exception):  # Phase 3 hook: live gaze position
+            self._live.note_gaze(x, y, self.screen_w, self.screen_h)
         if warning:
             self._set_status(warning, "problem")
         elif self._target is not None:
@@ -604,6 +622,8 @@ class TrackingWorker:
         side = self.blink.update(reading.left_ear, reading.right_ear)
         if side is None or self.paused:
             return
+        with contextlib.suppress(Exception):  # Phase 3 hook: live wink counter
+            self._live.note_wink(side)
         if self.settings.swap_blink_sides:
             side = {LEFT: RIGHT, RIGHT: LEFT}.get(side, side)
         if side == LEFT:

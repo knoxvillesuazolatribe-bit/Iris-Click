@@ -11,6 +11,7 @@ import tkinter as tk
 from app.desktop.display import make_tool_window
 from app.desktop.system_tray import (
     CYCLE_EDGE,
+    HOME,
     PAUSE,
     QUIT,
     RECALIBRATE,
@@ -66,6 +67,7 @@ class ControlBar:
         self._edge = self._button(frame, "Edge: medium", CYCLE_EDGE)
         self._recenter = self._button(frame, "Re-centre", RECENTER)
         self._button(frame, "Recalibrate", RECALIBRATE)
+        self._button(frame, "Home", HOME)  # H3: opens the site's Home Suite
         self._quit = self._button(frame, "Quit", None, command=self._quit_pressed)
 
         for widget in (handle, self._dot, self._status):

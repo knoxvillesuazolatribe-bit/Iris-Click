@@ -25,8 +25,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const CONTROLS = [
   ['Look', 'moves the cursor (yellow ring)'],
-  ['Hold your gaze', 'left click'],
-  ['Wink left eye', 'right click'],
+  ['Wink left eye', 'click'],
   ['Wink right eye', 'go back'],
 ] as const
 

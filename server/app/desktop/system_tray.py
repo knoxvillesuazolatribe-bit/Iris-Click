@@ -23,6 +23,7 @@ CYCLE_EDGE = "cycle_edge"
 RECENTER = "recenter"
 RECALIBRATE = "recalibrate"
 QUIT = "quit"
+HOME = "home"  # Phase 3 (H3): open the site's Home Suite.
 
 
 def _eye_icon(iris_colour: str) -> Image.Image:
@@ -62,6 +63,7 @@ class SystemTray:
                 pystray.MenuItem(lambda _item: f"Edge sensitivity: {self._edge_level}",
                                  self._queue(CYCLE_EDGE)),
                 pystray.MenuItem("Recalibrate…", self._queue(RECALIBRATE)),
+                pystray.MenuItem("Home Suite", self._queue(HOME)),  # H3
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quit IrisClick", self._queue(QUIT)),
             ),
