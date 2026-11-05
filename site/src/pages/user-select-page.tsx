@@ -83,7 +83,7 @@ export function UserSelectPage() {
 
   return (
     <main className="bg-background text-foreground flex min-h-svh flex-col items-center gap-10 p-6">
-      <div className="flex w-full max-w-6xl justify-start">
+      <div className="top-band flex w-full max-w-6xl justify-start">
         <GazeButton variant="outline" onClick={() => (chosen ? choose(null) : void navigate('/'))}>
           <ArrowLeft aria-hidden />
           Back

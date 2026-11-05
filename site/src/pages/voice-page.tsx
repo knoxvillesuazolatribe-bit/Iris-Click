@@ -125,7 +125,7 @@ export function VoicePage() {
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-6xl flex-col gap-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+      <header className="top-band flex flex-wrap items-center justify-between gap-6">
         <h1 className="text-4xl font-bold">Voice Communication</h1>
         <GazeButton variant="outline" onClick={() => void navigate('/home')}>
           <ArrowLeft aria-hidden />

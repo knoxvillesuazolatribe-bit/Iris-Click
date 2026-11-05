@@ -63,12 +63,12 @@ export function AppShortcuts() {
               disabled={busy !== null}
               onClick={() => void open(app)}
               className={cn(
-                'bg-card flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 text-center',
+                'bg-card border-primary flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 text-center',
                 'outline-none disabled:opacity-60',
                 'hover:border-primary hover:ring-ring/70 focus-visible:ring-ring hover:ring-4 focus-visible:ring-4',
               )}
             >
-              {busy === app.app_id ? <LoaderCircle className="size-10 animate-spin" aria-hidden /> : <Icon className="size-10" aria-hidden />}
+              {busy === app.app_id ? <LoaderCircle className="text-primary size-10 animate-spin" aria-hidden /> : <Icon className="text-primary size-10" aria-hidden />}
               <span className="text-xl font-semibold">{app.label}</span>
               {app.note && <span className="text-muted-foreground text-sm">{app.note}</span>}
             </button>

@@ -31,7 +31,7 @@ export function SosContactsPage() {
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+      <header className="top-band flex flex-wrap items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-bold">Emergency contacts</h1>
           <p className="text-muted-foreground mt-2 text-xl">A caregiver can fill this in with a keyboard.</p>

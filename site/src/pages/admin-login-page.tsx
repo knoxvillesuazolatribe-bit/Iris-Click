@@ -46,7 +46,7 @@ export function AdminLoginPage() {
     <main className="bg-background text-foreground flex min-h-svh flex-col items-center justify-center gap-6 p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-3xl">Administrator sign-in</CardTitle>
+          <CardTitle className="text-3xl font-bold">Administrator sign-in</CardTitle>
           <CardDescription className="text-base">PDAO staff only.</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmit} noValidate>
@@ -81,7 +81,7 @@ export function AdminLoginPage() {
               )}
             />
           </CardContent>
-          <CardFooter className="mt-6 flex flex-col gap-3">
+          <CardFooter className="bg-card mt-6 flex flex-col gap-3">
             <Button type="submit" size="lg" className="h-12 w-full text-lg" disabled={form.formState.isSubmitting}>
               <LogIn aria-hidden />
               {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}

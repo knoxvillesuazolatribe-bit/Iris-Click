@@ -26,13 +26,13 @@ export function UserTile({ tile, onSelect, disabled }: UserTileProps) {
       onClick={() => onSelect(tile)}
       className={cn(
         'bg-card text-card-foreground flex min-h-40 min-w-50 flex-col items-center justify-center',
-        'gap-3 rounded-2xl border-2 p-6 text-center shadow-sm transition-shadow outline-none',
+        'border-primary gap-3 rounded-2xl border-2 p-6 text-center shadow-sm transition-shadow outline-none',
         'hover:border-primary hover:ring-ring/70 focus-visible:ring-ring hover:ring-4 focus-visible:ring-4',
         'disabled:opacity-50',
       )}
     >
-      <UserRound className="size-10" aria-hidden />
-      <span className="text-2xl font-semibold">{tile.full_name}</span>
+      <UserRound className="text-primary size-10" aria-hidden />
+      <span className="text-2xl font-bold">{tile.full_name}</span>
       <span className="text-muted-foreground text-base">{calibrationLine(tile)}</span>
     </button>
   )

@@ -37,7 +37,7 @@ export function GazeKeyboard({ onKey, disabled }: GazeKeyboardProps) {
       aria-label={aria}
       onClick={() => press(name)}
       className={cn(
-        'bg-card flex h-20 min-w-20 items-center justify-center gap-2 rounded-xl border-2 text-3xl font-bold',
+        'bg-card border-primary flex h-20 min-w-20 items-center justify-center gap-2 rounded-xl border-2 text-3xl font-bold',
         'transition-colors outline-none disabled:opacity-50',
         'hover:border-primary hover:ring-ring/70 focus-visible:ring-ring hover:ring-4 focus-visible:ring-4',
         flash === name && 'bg-primary text-primary-foreground border-primary',

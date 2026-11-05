@@ -49,7 +49,7 @@ export function SettingsPage() {
   }, [attempt])
 
   const header = (
-    <header className="flex flex-wrap items-center justify-between gap-6">
+    <header className="top-band flex flex-wrap items-center justify-between gap-6">
       <div>
         <h1 className="text-4xl font-bold">Accessibility Settings</h1>
         <p className="text-muted-foreground mt-2 text-xl">Change one thing at a time, then choose Save.</p>

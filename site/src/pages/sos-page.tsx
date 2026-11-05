@@ -29,7 +29,7 @@ export function SosPage() {
   }, [attempt])
 
   const header = (
-    <header className="flex flex-wrap items-center justify-between gap-6">
+    <header className="top-band flex flex-wrap items-center justify-between gap-6">
       <h1 className="text-destructive text-4xl font-black">Emergency SOS</h1>
       <GazeButton variant="outline" onClick={() => void navigate('/home')}>
         <ArrowLeft aria-hidden />

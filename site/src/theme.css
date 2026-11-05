@@ -1,0 +1,77 @@
+/*
+ * IrisClick colour theme (teal). Loaded after index.css (see main.tsx).
+ *
+ * Change the --brand-* colours below to retheme the whole site: every page and
+ * component reads the shared theme variables they feed. Visual only; the
+ * calibration dot screen keeps its own dark theme (.dark in index.css).
+ */
+
+:root {
+  /* --- Brand colours: edit these ------------------------------------------- */
+  --brand-primary: #0f766e;            /* filled buttons, icons, borders, focus rings */
+  --brand-primary-foreground: #ffffff; /* text and icons on filled buttons */
+  --brand-background: #f3f7fa;         /* page background */
+  --brand-circle-1: #e0f2f7;           /* decorative circle, top-left */
+  --brand-circle-2: #d5efec;           /* decorative circle, bottom-right */
+  --brand-heading: #0f172a;            /* headings and main text */
+  --brand-text: #475569;               /* helper and body text */
+  --brand-card: #ffffff;               /* cards, tiles, secondary buttons */
+  --brand-card-border: #dce3ea;        /* light gray card and divider lines */
+  --brand-input-border: #cbd5e1;       /* form field borders */
+  --brand-soft: #e6f4f2;               /* light teal tint: soft buttons, hovers */
+  --brand-muted: #eaf0f5;              /* subtle panels, tab backgrounds */
+  --brand-band: #e3f0f8;               /* top bar band on inner screens */
+  --brand-radius: 0.75rem;             /* ~12px rounded corners */
+
+  /* --- Theme variables used by the components (do not need editing) -------- */
+  --background: var(--brand-background);
+  --foreground: var(--brand-heading);
+  --card: var(--brand-card);
+  --card-foreground: var(--brand-heading);
+  --popover: var(--brand-card);
+  --popover-foreground: var(--brand-heading);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-primary-foreground);
+  --secondary: var(--brand-soft);
+  --secondary-foreground: var(--brand-heading);
+  --muted: var(--brand-muted);
+  --muted-foreground: var(--brand-text);
+  --accent: var(--brand-soft);
+  --accent-foreground: var(--brand-heading);
+  --border: var(--brand-card-border);
+  --input: var(--brand-input-border);
+  --ring: var(--brand-primary);
+  --radius: var(--brand-radius);
+}
+
+/* Page background with two large, soft circles cut off at the corners. */
+body {
+  background-color: var(--brand-background);
+  background-image:
+    radial-gradient(circle at -4% -14%, var(--brand-circle-1) 0 min(34vw, 460px),
+                    transparent calc(min(34vw, 460px) + 1px)),
+    radial-gradient(circle at 104% 112%, var(--brand-circle-2) 0 min(26vw, 360px),
+                    transparent calc(min(26vw, 360px) + 1px));
+  background-attachment: fixed;
+}
+
+/* Full-height page wrappers let the background above show through. */
+.min-h-svh.bg-background {
+  background-color: transparent;
+}
+
+/* Faint light-blue band behind the top bar of inner screens (class="top-band").
+   A shadow widens it to the screen edges: shadows never add sideways scrolling. */
+.top-band {
+  position: relative;
+}
+
+.top-band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1.5rem 0 -1rem 0;
+  background: var(--brand-band);
+  box-shadow: 0 0 0 100vmax var(--brand-band);
+  clip-path: inset(0 -100vmax);
+}

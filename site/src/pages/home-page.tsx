@@ -40,7 +40,7 @@ export function HomePage() {
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-6xl flex-col gap-10 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+      <header className="top-band flex flex-wrap items-center justify-between gap-6">
         <div>
           <h1 className="text-5xl font-bold">Hello, {user?.full_name}</h1>
           <p className="text-muted-foreground mt-2 text-xl">Look at a card and wink your left eye to open it.</p>

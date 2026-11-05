@@ -52,13 +52,13 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
             type="button"
             onClick={() => say(text)}
             className={cn(
-              'bg-card flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border-2 p-4 text-center',
+              'bg-card border-primary flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border-2 p-4 text-center',
               'text-2xl font-semibold transition-colors outline-none',
               'hover:border-primary hover:ring-ring/70 focus-visible:ring-ring hover:ring-4 focus-visible:ring-4',
               spoken === text && 'bg-primary text-primary-foreground border-primary',
             )}
           >
-            <Icon className="size-10" aria-hidden />
+            <Icon className={cn('size-10', spoken !== text && 'text-primary')} aria-hidden />
             {text}
           </button>
         ))}

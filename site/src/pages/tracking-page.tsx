@@ -90,7 +90,7 @@ export function TrackingPage() {
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+      <header className="top-band flex flex-wrap items-center justify-between gap-6">
         <h1 className="text-4xl font-bold">Gaze Tracking</h1>
         {backHome}
       </header>

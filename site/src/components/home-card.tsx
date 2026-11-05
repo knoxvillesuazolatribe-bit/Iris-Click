@@ -22,17 +22,17 @@ export function HomeCard({ icon: Icon, title, description, onSelect, unavailable
       disabled={Boolean(unavailable)}
       onClick={onSelect}
       className={cn(
-        'flex min-h-44 flex-col items-start justify-center gap-3 rounded-2xl border-4 p-6 text-left',
+        'flex min-h-44 flex-col items-start justify-center gap-3 rounded-2xl p-6 text-left',
         'shadow-sm transition-shadow outline-none',
         'hover:ring-ring/70 focus-visible:ring-ring hover:ring-4 focus-visible:ring-4',
         emergency
-          ? 'border-destructive bg-destructive text-white'
-          : 'bg-card text-card-foreground hover:border-primary',
+          ? 'border-destructive bg-destructive border-4 text-white'
+          : 'bg-card text-card-foreground border-primary border-2',
         unavailable && 'cursor-not-allowed hover:ring-0',
         unavailable && !emergency && 'opacity-60',
       )}
     >
-      <Icon className="size-12 shrink-0" aria-hidden />
+      <Icon className={cn('size-12 shrink-0', !emergency && 'text-primary')} aria-hidden />
       <span className="text-3xl font-bold">{title}</span>
       <span className={cn('text-lg', emergency ? 'text-white' : 'text-muted-foreground')}>
         {unavailable ?? description}
