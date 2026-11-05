@@ -1,5 +1,6 @@
 """Admin dashboard, logs and reports (Phase 8)."""
 
+import logging
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -10,7 +11,8 @@ from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.config import get_settings
 from app.models.user import User
 from app.schemas.admin import DashboardRead
-from app.services import admin_service, report_pdf, report_service, system_settings_service
+from app.services import (admin_service, report_pdf, report_service, report_summary,
+                          system_settings_service)
 from app.services.report_service import LOGS_PER_PAGE, ReportError
 from app.services.system_log_service import log_activity
 
@@ -33,6 +35,11 @@ class LogPage(BaseModel):
     pages: int
 
 
+class SummaryItemRead(BaseModel):
+    label: str
+    value: str
+
+
 class ReportRead(BaseModel):
     type: str
     title: str
@@ -42,6 +49,17 @@ class ReportRead(BaseModel):
     date_to: date
     user_name: str | None
     note: str | None
+    # Feature C: totals (counts and averages only, never message text).
+    summary: list[SummaryItemRead] = []
+
+
+def _summary(db, report, user_id) -> list:
+    """Totals for a report; an empty list if they cannot be built (the report still works)."""
+    try:
+        return report_summary.summarize(db, report, user_id)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("irisclick.reports").exception("Report summary failed")
+        return []
 
 
 def _fail(exc: ReportError):
@@ -81,22 +99,32 @@ def _report(db, report_type, date_from, date_to, user_id, include_text):
 @router.get("/reports/{report_type}", response_model=ReportRead)
 def preview(report_type: str, date_from: date | None = None, date_to: date | None = None,
             user_id: int | None = None, include_text: bool = False,
+            from_: date | None = Query(None, alias="from"), to: date | None = None,
             db: Session = Depends(get_db), admin: User = Depends(require_admin)):
-    report = _report(db, report_type, date_from, date_to, user_id, include_text)
+    # Feature C: ?from=&to= work as well as ?date_from=&date_to=.
+    report = _report(db, report_type, date_from or from_, date_to or to, user_id, include_text)
     if include_text and report_type == "communication":
         log_activity("report_viewed", f"{admin.full_name} viewed the Communication report "
                      "with message text", admin.user_id, session=db)
-        db.commit()
-    return ReportRead(**report.__dict__)
+    # Feature C: every generated report is logged (filters and row count, never content).
+    log_activity("report_generated",
+                 f"{admin.full_name} generated the {report.title} for {report.date_from} to "
+                 f"{report.date_to} ({report.user_name or 'everyone'}, {len(report.rows)} rows)",
+                 admin.user_id, session=db)
+    db.commit()
+    return ReportRead(**report.__dict__, summary=[
+        SummaryItemRead(label=s.label, value=s.value) for s in _summary(db, report, user_id)])
 
 
 @router.get("/reports/{report_type}/pdf")
 def export_pdf(report_type: str, date_from: date | None = None, date_to: date | None = None,
                user_id: int | None = None, include_text: bool = False,
+               from_: date | None = Query(None, alias="from"), to: date | None = None,
                db: Session = Depends(get_db), admin: User = Depends(require_admin)):
-    report = _report(db, report_type, date_from, date_to, user_id, include_text)
+    report = _report(db, report_type, date_from or from_, date_to or to, user_id, include_text)
     app_name = system_settings_service.app_name(db, get_settings())
-    pdf = report_pdf.render(report, app_name, admin.full_name)
+    summary = [(s.label, s.value) for s in _summary(db, report, user_id)]
+    pdf = report_pdf.render(report, app_name, admin.full_name, summary=summary)
     name = report_pdf.filename(report)
     detail = " with message text" if include_text and report_type == "communication" else ""
     log_activity("report_exported",

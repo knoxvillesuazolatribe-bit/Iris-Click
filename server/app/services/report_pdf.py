@@ -23,9 +23,10 @@ MARGIN = 14 * mm
 WIDTHS = {
     "Date": 1.4, "User": 1.6, "Profile": 1.3, "Accuracy": 0.9, "Status": 0.9,
     "Failure reason": 2.6, "Type": 0.8, "Message": 5.0, "Typed": 0.8, "Spoken": 0.8,
-    "Total messages": 1.1, "Last used": 1.4, "Contact": 1.4, "Channel": 0.8, "Sent to": 1.9,
-    "Problem": 2.4, "Location": 2.4,
+    "Total messages": 1.1, "Last used": 1.4, "Contact": 1.4, "Channel": 1.05, "Sent to": 1.9,
+    "Problem": 2.4, "Location": 2.4, "Alert message": 2.6,
 }
+NO_RECORDS = "No records found for these filters."
 
 
 def _fonts() -> tuple[str, str]:
@@ -65,7 +66,22 @@ class _NumberedCanvas(canvas.Canvas):
         super().save()
 
 
-def render(report: Report, app_name: str, exported_by: str, now: datetime | None = None) -> bytes:
+def _summary_table(summary: list[tuple[str, str]], regular: str, bold: str) -> Table:
+    """Feature C: totals as a small two-column table under the header."""
+    label = ParagraphStyle("sum-label", fontName=bold, fontSize=9, leading=11)
+    value = ParagraphStyle("sum-value", fontName=regular, fontSize=9, leading=11)
+    table = Table([[Paragraph(escape(k), label), Paragraph(escape(v), value)] for k, v in summary],
+                  colWidths=[60 * mm, 50 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), STRIPE),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D6E8")),
+        ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return table
+
+
+def render(report: Report, app_name: str, exported_by: str, now: datetime | None = None,
+           summary: list[tuple[str, str]] | None = None) -> bytes:
     regular, bold = _fonts()
     now = now or datetime.now().astimezone()
     title = ParagraphStyle("title", fontName=bold, fontSize=18, leading=22, textColor=NAVY)
@@ -83,28 +99,28 @@ def render(report: Report, app_name: str, exported_by: str, now: datetime | None
     ]
     if report.note:
         story.append(Paragraph(escape(report.note), meta))
+    if summary:
+        story += [Spacer(1, 4 * mm), _summary_table(summary, regular, bold)]
     story.append(Spacer(1, 6 * mm))
 
-    if not report.rows:
-        story.append(Paragraph("No records in this period.", meta))
-    else:
-        page_width = landscape(A4)[0] - 2 * MARGIN
-        weights = [WIDTHS.get(c, 1.2) for c in report.columns]
-        widths = [page_width * w / sum(weights) for w in weights]
-        data = [[Paragraph(escape(c), head) for c in report.columns]]
-        data += [[Paragraph(escape(value).replace("\n", "<br/>"), cell) for value in row]
-                 for row in report.rows]
-        table = Table(data, colWidths=widths, repeatRows=1)
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, STRIPE]),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D6E8")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ]))
-        story.append(table)
-        story.append(Spacer(1, 3 * mm))
-        story.append(Paragraph(f"{len(report.rows)} row(s).", meta))
+    # An empty result still exports: the table header, then a note.
+    page_width = landscape(A4)[0] - 2 * MARGIN
+    weights = [WIDTHS.get(c, 1.2) for c in report.columns]
+    widths = [page_width * w / sum(weights) for w in weights]
+    data = [[Paragraph(escape(c), head) for c in report.columns]]
+    data += [[Paragraph(escape(value).replace("\n", "<br/>"), cell) for value in row]
+             for row in report.rows]
+    table = Table(data, colWidths=widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, STRIPE]),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#C9D6E8")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(f"{len(report.rows)} row(s)." if report.rows else NO_RECORDS, meta))
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=MARGIN, rightMargin=MARGIN,

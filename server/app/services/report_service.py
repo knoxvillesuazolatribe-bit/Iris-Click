@@ -159,8 +159,12 @@ def _sos(db, start, end, user_id, _include_text):
              .where(*_window(SosHistory.date_sent, start, end),
                     *_user_filter(SosHistory.user_id, user_id))
              .order_by(SosHistory.date_sent.desc(), SosHistory.sos_id))
+    # Feature C: the alert's first line is added as a last column (existing columns keep
+    # their positions); SOS text is never filtered or shortened anywhere else.
     rows = [[local_text(s.date_sent), name, contact or "(removed contact)",
              "Email" if s.channel == "email" else "SMS", s.recipient or "",
-             s.status.capitalize(), s.error_detail or "", s.location_text or "No address on file"]
+             s.status.capitalize(), s.error_detail or "", s.location_text or "No address on file",
+             (s.message_sent or "").splitlines()[0] if s.message_sent else ""]
             for s, name, contact in db.execute(query).all()]
-    return ["Date", "User", "Contact", "Channel", "Sent to", "Status", "Problem", "Location"], rows, None
+    return (["Date", "User", "Contact", "Channel", "Sent to", "Status", "Problem", "Location",
+             "Alert message"], rows, None)

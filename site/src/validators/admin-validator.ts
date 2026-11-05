@@ -90,6 +90,8 @@ export const reportSchema = z.object({
   date_to: z.string(),
   user_name: z.string().nullable(),
   note: z.string().nullable(),
+  // Feature C: totals (counts and averages only).
+  summary: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
 })
 export type Report = z.infer<typeof reportSchema>
 

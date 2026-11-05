@@ -1,8 +1,9 @@
 import { Crosshair, Download, Eye, LoaderCircle, MessageSquare, Siren } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
+import { ExportSuccessDialog } from '@/components/export-success-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,9 +45,10 @@ export function AdminReportsPage() {
 
 type Export = { state: 'idle' } | { state: 'busy' } | { state: 'done'; fileName: string; bytes: number } | { state: 'error'; message: string }
 
-/** Screens 32–36: one report with Display (preview) and Export PDF. */
+/** Screens 34–36: one report with Display Report (preview) and Export Report (PDF). */
 export function AdminReportPage() {
   const type = useParams().type as ReportType
+  const navigate = useNavigate()
   const [dateFrom, setDateFrom] = useState(() => {
     const today = new Date()
     return iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
@@ -133,11 +135,11 @@ export function AdminReportPage() {
           <div className="ml-auto flex gap-2">
             <Button variant="outline" disabled={previewing || !dateFrom || !dateTo} onClick={() => void preview()}>
               {previewing ? <LoaderCircle className="animate-spin" aria-hidden /> : <Eye aria-hidden />}
-              Display
+              Display Report
             </Button>
             <Button disabled={exported.state === 'busy' || !dateFrom || !dateTo} onClick={() => void exportPdf()}>
               {exported.state === 'busy' ? <LoaderCircle className="animate-spin" aria-hidden /> : <Download aria-hidden />}
-              Export PDF
+              Export Report
             </Button>
           </div>
         </CardContent>
@@ -150,13 +152,8 @@ export function AdminReportPage() {
         </Alert>
       )}
       {exported.state === 'done' && (
-        <Alert role="status">
-          <AlertTitle>Export Successful</AlertTitle>
-          <AlertDescription>
-            {exported.fileName} ({Math.max(1, Math.round(exported.bytes / 1024))} KB) was created and handed to your browser.
-            Check your browser’s downloads.
-          </AlertDescription>
-        </Alert>
+        <ExportSuccessDialog fileName={exported.fileName} bytes={exported.bytes}
+          onClose={() => void navigate('/admin/reports')} />
       )}
       {exported.state === 'error' && (
         <Alert variant="destructive" role="alert">
@@ -177,9 +174,19 @@ export function AdminReportPage() {
               {report.note && <> · {report.note}</>}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {report.summary.length > 0 && (
+              <dl aria-label="Summary" className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+                {report.summary.map((item) => (
+                  <div key={item.label} className="bg-muted rounded-lg px-3 py-2">
+                    <dt className="text-muted-foreground text-xs">{item.label}</dt>
+                    <dd className="text-lg font-semibold">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {report.rows.length === 0 ? (
-              <p className="text-muted-foreground">No records in this period.</p>
+              <p className="text-muted-foreground">No records found for these filters. You can still export the report.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
