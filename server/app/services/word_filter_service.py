@@ -63,8 +63,9 @@ class CheckResult:
 class _Lists:
     enabled: bool = True
     tts_mode: str = TTS_BEEP
-    blocked: set[str] = field(default_factory=set)
-    phrases: list[tuple[str, ...]] = field(default_factory=list)
+    # Collapsed form -> the plain spellings on the list (see _is_stretch).
+    blocked: dict[str, list[str]] = field(default_factory=dict)
+    phrases: list[tuple[str, ...]] = field(default_factory=list)  # plain spellings
     allowed: set[str] = field(default_factory=set)
 
 
@@ -76,10 +77,34 @@ def normalize(text: str) -> str:
     return " ".join(w for w in words if w)
 
 
-def _normalize_word(word: str) -> str:
+def _plain(word: str) -> str:
+    """Lowercase, no accents, leetspeak undone; repeated letters kept."""
     plain = "".join(c for c in unicodedata.normalize("NFKD", word) if not unicodedata.combining(c))
-    letters = re.sub(r"[^a-z0-9]", "", plain.lower().translate(LEET))
-    return re.sub(r"(.)\1+", r"\1", letters)
+    return re.sub(r"[^a-z0-9]", "", plain.lower().translate(LEET))
+
+
+def _collapse(plain: str) -> str:
+    return re.sub(r"(.)\1+", r"\1", plain)
+
+
+def _normalize_word(word: str) -> str:
+    return _collapse(_plain(word))
+
+
+def _runs(plain: str) -> list[tuple[str, int]]:
+    return [(m.group(1), len(m.group(0))) for m in re.finditer(r"(.)\1*", plain)]
+
+
+def _is_stretch(written: str, listed: str) -> bool:
+    """True when ``written`` is ``listed`` with some letters repeated ("baaad" for
+    "bad"), never with letters missing: a short real word must not match a listed
+    word that merely collapses to it (a listed "badd" never masks "bad")."""
+    a, b = _runs(written), _runs(listed)
+    return len(a) == len(b) and all(x == y and n >= m for (x, n), (y, m) in zip(a, b))
+
+
+def _matches(written: str, lists: "_Lists") -> bool:
+    return any(_is_stretch(written, listed) for listed in lists.blocked.get(_collapse(written), ()))
 
 
 def _light(word: str) -> str:
@@ -106,9 +131,9 @@ def _light_forms(token: str) -> set[str]:
 
 
 def _forms(token: str) -> set[str]:
-    """A token as written, and without end punctuation ("bad!" is also "bad")."""
+    """A token as written, and without end punctuation ("bad!" is also "bad"), in plain form."""
     core = token.strip("!")
-    return {f for f in (_normalize_word(token), _normalize_word(core)) if f}
+    return {f for f in (_plain(token), _plain(core)) if f}
 
 
 # --- The cached list ------------------------------------------------------------------------
@@ -138,14 +163,16 @@ def _lists(db: Session) -> _Lists:
     settings = _settings_row(db)
     if settings is not None:
         lists.enabled, lists.tts_mode = settings.enabled, settings.tts_mode
-    for word, kind in db.execute(select(FilteredWord.normalized_word, FilteredWord.type)
-                                 .where(FilteredWord.is_active.is_(True))):
+    for normalized, word, kind in db.execute(
+            select(FilteredWord.normalized_word, FilteredWord.word, FilteredWord.type)
+            .where(FilteredWord.is_active.is_(True))):
+        plain = [p for p in (_plain(t) for t in TOKEN.findall(word)) if p]
         if kind == TYPE_ALLOWED:
-            lists.allowed.add(word)
-        elif " " in word:
-            lists.phrases.append(tuple(word.split(" ")))
-        else:
-            lists.blocked.add(word)
+            lists.allowed.add(normalized)
+        elif len(plain) > 1:
+            lists.phrases.append(tuple(plain))
+        elif plain:
+            lists.blocked.setdefault(_collapse(plain[0]), []).append(plain[0])
     with _lock:
         _cache = lists
     return lists
@@ -173,17 +200,17 @@ def _spans(text: str, lists: _Lists) -> list[tuple[int, int, bool]]:
     forms = [_forms(t) for _s, _e, t in tokens]
     allowed = [bool(_light_forms(t) & lists.allowed) for _s, _e, t in tokens]
     for (start, end, _t), f, ok in zip(tokens, forms, allowed):
-        if f & lists.blocked and not ok:
+        if not ok and any(_matches(w, lists) for w in f):
             found.append((start, end, False))
     for phrase in lists.phrases:
         n = len(phrase)
         for i in range(len(tokens) - n + 1):
-            if all(phrase[k] in forms[i + k] for k in range(n)) and not any(allowed[i:i + n]):
+            if all(any(_is_stretch(w, phrase[k]) for w in forms[i + k]) for k in range(n)) \
+                    and not any(allowed[i:i + n]):
                 found.append((tokens[i][0], tokens[i + n - 1][1], True))
     for m in SPLIT.finditer(text):
         raw = re.sub(r"[.\-_*\s]", "", m.group())
-        joined = _normalize_word(raw)
-        if joined in lists.blocked and _light(raw) not in lists.allowed:
+        if _matches(_plain(raw), lists) and _light(raw) not in lists.allowed:
             found.append((m.start(), m.end(), False))
     merged: list[tuple[int, int, bool]] = []
     for start, end, phrase in sorted(found):

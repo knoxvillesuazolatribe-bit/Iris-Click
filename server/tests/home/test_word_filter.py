@@ -100,6 +100,21 @@ def test_allowed_word_wins(test_database):
     assert check(test_database, "badword").was_filtered
 
 
+def test_a_shorter_real_word_never_matches_a_listed_word_with_double_letters(test_database):
+    # A listed word with a double letter must not mask the shorter word it collapses to.
+    add(test_database, "badd")
+    assert not check(test_database, "bad").was_filtered
+    assert not check(test_database, "so bad, b4d").was_filtered
+    assert check(test_database, "badd").masked_text == "b***"
+    assert check(test_database, "baaaddd").was_filtered
+    assert check(test_database, "B@DD!").was_filtered
+
+
+def test_phrases_with_stretched_words(words):
+    assert check(words, "a duuummy phraaase").masked_text == "a d****** p*******"
+    assert not check(words, "a dumy phrase").was_filtered
+
+
 def test_removed_words_are_not_used(test_database):
     add(test_database, "badword1", active=False)
     assert not check(test_database, "badword1").was_filtered
