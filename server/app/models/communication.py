@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -26,3 +26,5 @@ class CommunicationHistory(Base):
     message: Mapped[str] = mapped_column(Text)
     date_created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now,
                                                    index=True)
+    # Extension (word filter): True when words were masked before saving.
+    was_filtered: Mapped[bool] = mapped_column(default=False, server_default=false())

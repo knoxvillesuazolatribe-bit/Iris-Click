@@ -130,6 +130,15 @@ def _calibration(db, start, end, user_id, _include_text):
     return ["Date", "User", "Profile", "Accuracy", "Status", "Failure reason"], rows, None
 
 
+def _masked(db, text: str) -> str:
+    """Extension hook (word filter): older messages are masked too; unchanged if unavailable."""
+    try:
+        from app.services.word_filter_service import mask_for_display
+    except Exception:  # noqa: BLE001 - the report must keep working without the extension
+        return text
+    return mask_for_display(db, text)
+
+
 def _communication(db, start, end, user_id, include_text):
     filters = [*_window(CommunicationHistory.date_created, start, end),
                *_user_filter(CommunicationHistory.user_id, user_id)]
@@ -138,7 +147,7 @@ def _communication(db, start, end, user_id, include_text):
                  .join(User, User.user_id == CommunicationHistory.user_id)
                  .where(*filters).order_by(CommunicationHistory.date_created.desc()))
         rows = [[local_text(m.date_created), name,
-                 "Typed" if m.mode == MODE_TEXT_TO_SPEECH else "Spoken", m.message]
+                 "Typed" if m.mode == MODE_TEXT_TO_SPEECH else "Spoken", _masked(db, m.message)]
                 for m, name in db.execute(query).all()]
         return (["Date", "User", "Type", "Message"], rows,
                 "Includes message text, which may be private.")

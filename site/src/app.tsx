@@ -6,6 +6,7 @@ import { AdminLogsPage } from '@/pages/admin-logs-page'
 import { AdminPage } from '@/pages/admin-page'
 import { AdminReportPage, AdminReportsPage } from '@/pages/admin-reports-pages'
 import { AdminAccessibilityPage, AdminSettingsPage, AdminSystemPage } from '@/pages/admin-settings-pages'
+import { AdminWordFilterPage } from '@/pages/admin-word-filter-page'
 import { AdminUserPage } from '@/pages/admin-user-page'
 import { AdminUsersPage } from '@/pages/admin-users-page'
 import { CalibrationPage } from '@/pages/calibration-page'
@@ -42,6 +43,7 @@ export function App() {
         <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
         <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><AdminAccessibilityPage /></RequireRole>} />
         <Route path="/admin/settings/system" element={<RequireRole role="admin"><AdminSystemPage /></RequireRole>} />
+        <Route path="/admin/settings/word-filter" element={<RequireRole role="admin"><AdminWordFilterPage /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
         <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
         <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />

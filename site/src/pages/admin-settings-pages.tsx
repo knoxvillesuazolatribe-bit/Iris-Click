@@ -1,4 +1,4 @@
-import { Accessibility, Mail, MessageSquare, Save, Server } from 'lucide-react'
+import { Accessibility, Mail, MessageSquare, Save, Server, ShieldBan } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
@@ -20,6 +20,7 @@ export function AdminSettingsPage() {
   const items = [
     { to: '/admin/settings/accessibility', title: 'Accessibility', text: 'Global defaults, and any user’s own settings.', icon: Accessibility },
     { to: '/admin/settings/system', title: 'System', text: 'Email and SMS status and tests, app name, default dwell time.', icon: Server },
+    { to: '/admin/settings/word-filter', title: 'Word Filter', text: 'Blocked and allowed words for Voice Communication (extension).', icon: ShieldBan },
   ]
   return (
     <AdminLayout title="Settings">

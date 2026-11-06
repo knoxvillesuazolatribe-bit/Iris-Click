@@ -4,6 +4,7 @@ import { GazeButton } from '@/components/gaze-button'
 import { BOARD } from '@/lib/aac-board'
 import { speak } from '@/lib/speech'
 import { cn } from '@/lib/utils'
+import { filterText } from '@/lib/word-filter'
 
 const FLASH_MS = 600
 
@@ -21,8 +22,9 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
   useEffect(() => () => window.clearTimeout(timer.current), [])
   const category = BOARD.find((c) => c.id === categoryId) ?? BOARD[0]
 
-  const say = (text: string) => {
-    if (!speak(text, volume)) {
+  const say = async (text: string) => {
+    const { speak: words } = await filterText(text) // extension: word filter
+    if (!speak(words, volume)) {
       onError('This browser cannot read text aloud.')
       return
     }
@@ -50,7 +52,7 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
           <button
             key={text}
             type="button"
-            onClick={() => say(text)}
+            onClick={() => void say(text)}
             className={cn(
               'bg-card border-primary flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border-2 p-4 text-center',
               'text-2xl font-semibold transition-colors outline-none',

@@ -1,0 +1,10 @@
+# IrisClick word filter: starting list (extension).
+#
+# One entry per line:   word,language
+#   language is en (English), fil (Filipino/Tagalog) or other (e.g. Cebuano).
+#   A phrase of several words is allowed (e.g. two words separated by a space).
+# Lines starting with # and empty lines are ignored.
+#
+# These are added as BLOCKED words the first time the server uses the filter,
+# and again whenever new lines appear. A word an admin removed is never added
+# back from this file. Admins manage the list in Settings > Word Filter.

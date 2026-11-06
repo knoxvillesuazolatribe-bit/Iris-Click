@@ -4,6 +4,7 @@ import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { listen, recognitionUnavailableReason, type SpeechLanguage } from '@/lib/speech'
 import { cn } from '@/lib/utils'
+import { filterText } from '@/lib/word-filter'
 
 const LANGUAGES: { lang: SpeechLanguage; label: string }[] = [
   { lang: 'en-PH', label: 'English' },
@@ -23,6 +24,8 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const stop = useRef<(() => void) | null>(null)
+  const heardSeq = useRef(0)
+  const heardRaw = useRef<{ shown: string; original: string } | null>(null)
   useEffect(() => () => stop.current?.(), [])
 
   const unavailable = recognitionUnavailableReason()
@@ -32,7 +35,15 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
     setText('')
     setListening(true)
     stop.current = listen(lang, {
-      onText: (heard) => setText(heard),
+      // Extension (word filter): recognised text is shown masked; the newest result wins.
+      onText: (heard) => {
+        const n = ++heardSeq.current
+        void filterText(heard).then((f) => {
+          if (n !== heardSeq.current) return
+          heardRaw.current = { shown: f.display, original: heard }
+          setText(f.display)
+        })
+      },
       onError: setError,
       onEnd: () => {
         setListening(false)
@@ -42,7 +53,9 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
   }
 
   const send = async () => {
-    if (await onSend(text)) setText('')
+    // Extension (word filter): send what was heard, so the server masks it and records that it did.
+    const original = heardRaw.current?.shown === text ? heardRaw.current.original : text
+    if (await onSend(original)) setText('')
   }
 
   return (

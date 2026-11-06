@@ -1,5 +1,5 @@
 import { ArrowLeft, Eraser, Keyboard, LayoutGrid, LoaderCircle, Mic, Send, Volume2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { GazeButton } from '@/components/gaze-button'
@@ -12,6 +12,7 @@ import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { speak } from '@/lib/speech'
 import { typeKey } from '@/lib/typing'
+import { filterText } from '@/lib/word-filter'
 import { voiceService } from '@/services/voice-service'
 import {
   MAX_MESSAGE_CHARS,
@@ -47,6 +48,7 @@ export function VoicePage() {
   const [notice, setNotice] = useState<Notice>(null)
   const [sending, setSending] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const unmasked = useRef<{ shown: string; original: string } | null>(null) // extension: word filter
 
   useEffect(() => {
     let current = true
@@ -69,7 +71,15 @@ export function VoicePage() {
       setNotice({ kind: 'error', text: 'Type a message first.' })
       return
     }
-    setNotice(speak(text, volume) ? null : { kind: 'error', text: 'This browser cannot read text aloud.' })
+    // Extension (word filter): blocked words are masked on screen and not spoken.
+    void filterText(text).then((f) => {
+      if (f.filtered) {
+        unmasked.current = { shown: f.display, original: text }
+        setMessage(f.display)
+      }
+      if (!f.speak.trim()) return setNotice({ kind: 'error', text: 'Nothing was spoken: the word filter removed every word.' })
+      setNotice(speak(f.speak, volume) ? null : { kind: 'error', text: 'This browser cannot read text aloud.' })
+    })
   }
 
   const send = async (mode: CommunicationMode, text: string): Promise<boolean> => {
@@ -81,7 +91,9 @@ export function VoicePage() {
     setSending(true)
     setNotice(null)
     try {
-      const saved = await voiceService.send(mode, trimmed)
+      // Extension (word filter): send what was typed, so the server masks it and records that it did.
+      const original = unmasked.current?.shown.trim() === trimmed ? unmasked.current.original.trim() : trimmed
+      const saved = await voiceService.send(mode, original)
       setMessages((list) => [saved, ...list].slice(0, HISTORY_SIZE))
       setNotice({ kind: 'ok', text: 'Saved to your recent messages.' })
       return true

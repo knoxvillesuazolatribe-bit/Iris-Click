@@ -46,8 +46,18 @@ def _kind(mode: str) -> str:
     return MODE_LABELS.get(mode, "speech-to-text")
 
 
+def _word_filter(db: Session, message: str) -> tuple[str, bool]:
+    """Extension hook (word filter): masked text; unchanged if the filter is unavailable."""
+    try:
+        from app.services.word_filter_service import filter_for_storage
+    except Exception:  # noqa: BLE001 - saving must keep working without the extension
+        return message, False
+    return filter_for_storage(db, message)
+
+
 def save_message(db: Session, user: User, mode: str, message: str) -> CommunicationHistory:
-    row = CommunicationHistory(user_id=user.user_id, mode=mode, message=message)
+    message, was_filtered = _word_filter(db, message)
+    row = CommunicationHistory(user_id=user.user_id, mode=mode, message=message, was_filtered=was_filtered)
     db.add(row)
     db.flush()
     log_activity("communication_sent",
