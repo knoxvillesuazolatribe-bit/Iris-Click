@@ -14,6 +14,24 @@ logger = logging.getLogger("irisclick.voice")
 WORDS_PER_MINUTE = 150
 
 
+def _natural_voice(line: str) -> bool:
+    """Clearer TTS hook: True if the saved natural voice said ``line``. Any problem
+    returns False, and pyttsx3 speaks the line exactly as before."""
+    try:
+        from app.services.guidance_voice import play_cached
+        return play_cached(line)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _prepare_natural_voice() -> None:
+    try:
+        from app.services.guidance_voice import prepare_known_lines
+        prepare_known_lines()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class Speaker:
     def __init__(self):
         self._lines: queue.Queue[str | None] = queue.Queue()
@@ -22,6 +40,7 @@ class Speaker:
 
     def start(self):
         self._thread.start()
+        _prepare_natural_voice()  # clearer TTS hook: prepares guidance lines in the background
 
     def say(self, text: str):
         # Only the newest instruction matters; drop anything not yet spoken.
@@ -45,6 +64,8 @@ class Speaker:
             logger.warning("Voice guidance unavailable: %s", exc)
             return
         while (line := self._lines.get()) is not None:
+            if _natural_voice(line):  # clearer TTS hook: saved natural voice, else pyttsx3 below
+                continue
             try:
                 engine.say(line)
                 engine.runAndWait()
