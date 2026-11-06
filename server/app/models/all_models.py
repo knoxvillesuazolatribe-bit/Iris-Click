@@ -8,6 +8,7 @@ from app.models.sos import SosContact, SosHistory
 from app.models.system_log import SystemLog
 from app.models.system_settings import SystemSettings
 from app.models.user import User
+from app.models.user_app_shortcut import UserAppShortcut  # extension: custom Apps
 from app.models.user_session import UserSession
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "SystemLog",
     "SystemSettings",
     "User",
+    "UserAppShortcut",
     "UserSession",
 ]

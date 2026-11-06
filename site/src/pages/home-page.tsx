@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { GazeButton } from '@/components/gaze-button'
 import { AppShortcuts } from '@/components/app-shortcuts'
+import { UserAppTiles } from '@/components/user-app-tiles'
+import { myTiles } from '@/services/user-apps-service'
 import { GestureGuide } from '@/components/gesture-guide'
 import { HomeCard } from '@/components/home-card'
 import { ServerDown } from '@/components/server-down'
@@ -76,7 +78,7 @@ export function HomePage() {
         />
       </nav>
 
-      <AppShortcuts />
+      <UserAppTiles api={myTiles} fallback={<AppShortcuts />} />
 
       {load.state === 'loading' && (
         <LoaderCircle className="text-muted-foreground mx-auto size-12 animate-spin" aria-label="Loading gestures" />

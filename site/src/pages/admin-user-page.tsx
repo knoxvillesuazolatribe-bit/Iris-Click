@@ -5,7 +5,9 @@ import { Controller, useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
+import { AdminUserAppsCard } from '@/components/admin-user-apps-card'
 import { ContactsManager } from '@/components/contacts-manager'
+import { SilentBoundary } from '@/components/silent-boundary'
 import { ServerDown } from '@/components/server-down'
 import { SettingsEditor } from '@/components/settings-editor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -122,6 +124,7 @@ export function AdminUserPage() {
           />
         </CardContent>
       </Card>
+      <SilentBoundary><AdminUserAppsCard userId={userId} name={user.full_name} /></SilentBoundary>
     </AdminLayout>
   )
 }
