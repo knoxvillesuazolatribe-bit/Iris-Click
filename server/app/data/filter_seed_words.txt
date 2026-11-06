@@ -8,3 +8,156 @@
 # These are added as BLOCKED words the first time the server uses the filter,
 # and again whenever new lines appear. A word an admin removed is never added
 # back from this file. Admins manage the list in Settings > Word Filter.
+#
+# Starter list (2026-11-06). Left out on purpose, because a user may need them:
+# medical and body words used to report pain or illness, words used to report
+# abuse, and everyday words with a second meaning (e.g. "leche flan", "hayop" =
+# animal, "buang"). Mild words (damn, hell, crap, bwisit, lintik) are not blocked;
+# add them in Admin > Settings > Word Filter if wanted.
+
+# --- English: profanity ---
+fuck,en
+fucks,en
+fucked,en
+fucker,en
+fuckers,en
+fucking,en
+fuckin,en
+fck,en
+fuk,en
+fuq,en
+fvck,en
+phuck,en
+fuckface,en
+fuckhead,en
+motherfucker,en
+motherfuckers,en
+motherfucking,en
+shit,en
+shits,en
+shitty,en
+shithead,en
+shitface,en
+bullshit,en
+horseshit,en
+dipshit,en
+ass,en
+asshole,en
+assholes,en
+jackass,en
+dumbass,en
+arse,en
+arsehole,en
+bitch,en
+bitches,en
+bitchy,en
+biatch,en
+bastard,en
+bastards,en
+dick,en
+dicks,en
+dickhead,en
+cock,en
+cocks,en
+cocksucker,en
+pussy,en
+pussies,en
+cunt,en
+cunts,en
+twat,en
+wanker,en
+wank,en
+slut,en
+sluts,en
+slutty,en
+whore,en
+whores,en
+skank,en
+douche,en
+douchebag,en
+bollocks,en
+jizz,en
+dildo,en
+porn,en
+porno,en
+blowjob,en
+handjob,en
+tits,en
+titties,en
+boobs,en
+stfu,en
+wtf,en
+gtfo,en
+kys,en
+kill yourself,en
+
+# --- English: slurs ---
+retard,en
+retards,en
+retarded,en
+spaz,en
+nigger,en
+niggers,en
+nigga,en
+niggas,en
+faggot,en
+faggots,en
+tranny,en
+kike,en
+spic,en
+wetback,en
+
+# --- Filipino / Tagalog ---
+putangina,fil
+putang ina,fil
+putanginamo,fil
+tangina,fil
+tang ina,fil
+tanginamo,fil
+puta,fil
+putragis,fil
+putaragis,fil
+punyeta,fil
+inamo,fil
+inamoka,fil
+pakyu,fil
+pakshet,fil
+gago,fil
+gaga,fil
+gagu,fil
+ulol,fil
+ulul,fil
+olol,fil
+tarantado,fil
+tarantada,fil
+hinayupak,fil
+hayop ka,fil
+bobo,fil
+boba,fil
+tanga,fil
+kupal,fil
+pokpok,fil
+kantot,fil
+kantutan,fil
+jakol,fil
+salsal,fil
+tite,fil
+titi,fil
+burat,fil
+pekpek,fil
+puki,fil
+betlog,fil
+
+# --- Cebuano / Bisaya (Lapu-Lapu City) ---
+yawa,other
+yawaa,other
+piste,other
+pisti,other
+giatay,other
+bogo,other
+animal ka,other
+bilat,other
+oten,other
+iyot,other
+libog,other
+lubot,other
