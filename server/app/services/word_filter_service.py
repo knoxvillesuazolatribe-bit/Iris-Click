@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -275,11 +276,28 @@ def _parse_line(line: str) -> tuple[str, str, str] | None:
     return word, language if language in LANGUAGES else "other", kind if kind in (TYPE_BLOCKED, TYPE_ALLOWED) else TYPE_BLOCKED
 
 
+_seed_lock = threading.Lock()
+
+
 def seed_from_file(db: Session, path: Path | None = None) -> int:
-    """Adds new lines of the seed file once per server start; never re-adds a removed word."""
+    """Adds new lines of the seed file once per server start; never re-adds a removed word.
+    One request at a time: the first requests after a start often arrive together."""
     global _seeded
     if _seeded and path is None:
         return 0
+    with _seed_lock:
+        if _seeded and path is None:
+            return 0
+        try:
+            return _seed(db, path)
+        except IntegrityError:  # another server process added the same words first
+            db.rollback()
+            _seeded = True
+            return 0
+
+
+def _seed(db: Session, path: Path | None) -> int:
+    global _seeded
     path = path or SEED_FILE
     try:
         lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []

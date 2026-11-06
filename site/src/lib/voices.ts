@@ -18,6 +18,12 @@ export type SpeakResult = { ok: true; notice?: string } | { ok: false; error: st
 const VOICES_WAIT_MS = 1000
 let playing: HTMLAudioElement | null = null
 
+/** Stops whatever these voices are saying (used by the Stop button). */
+export function stopSpeaking() {
+  playing?.pause()
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+}
+
 /** Browsers load their voice list late; wait briefly for it. */
 function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   const now = window.speechSynthesis.getVoices()

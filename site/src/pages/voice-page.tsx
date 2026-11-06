@@ -11,7 +11,9 @@ import { AacBoard } from '@/components/aac-board'
 import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { QUICK_PHRASES } from '@/lib/quick-phrases'
-import { RECOGNITION_LANG, speakIn, type SpeechLang } from '@/lib/voices'
+import { RECOGNITION_LANG, type SpeechLang } from '@/lib/voices'
+import { player, warmPhrases } from '@/lib/natural-voice'
+import { NowSpeaking, SpeechButtons } from '@/components/speech-controls'
 import { LanguageToggle } from '@/components/language-toggle'
 import { languageService } from '@/services/language-service'
 import { typeKey } from '@/lib/typing'
@@ -47,6 +49,10 @@ export function VoicePage() {
 
   useEffect(() => {
     languageService.mine().then(setLang).catch(() => undefined) // English if it cannot load
+    // Clearer TTS: Quick Phrases in both languages are made ahead, so they play at once (and offline).
+    warmPhrases(QUICK_PHRASES.en, 'en')
+    warmPhrases(QUICK_PHRASES.fil, 'fil')
+    return () => player.stop()
   }, [])
 
   const changeLang = (next: SpeechLang) => {
@@ -84,7 +90,8 @@ export function VoicePage() {
         setMessage(f.display)
       }
       if (!f.speak.trim()) return setNotice({ kind: 'error', text: 'Nothing was spoken: the word filter removed every word.' })
-      void speakIn(f.speak, volume, lang).then((r) => // extension: Filipino voice
+      // Clearer TTS: natural voice first; the voices above are its fallback (inside player.speak).
+      void player.speak(f.speak, lang, volume).then((r) =>
         setNotice(r.ok ? (r.notice ? { kind: 'ok', text: r.notice } : null) : { kind: 'error', text: r.error }))
     })
   }
@@ -225,6 +232,7 @@ export function VoicePage() {
                   <Volume2 aria-hidden />
                   Speak
                 </GazeButton>
+                <SpeechButtons onError={(text) => setNotice({ kind: 'error', text })} />
                 <GazeButton
                   variant="outline"
                   disabled={sending}
@@ -243,6 +251,7 @@ export function VoicePage() {
                 />
               </div>
 
+              <NowSpeaking />
               <GazeKeyboard onKey={(key) => setMessage((text) => typeKey(text, key, MAX_MESSAGE_CHARS))} />
             </section>
           ) : tab === 'speech' ? (

@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AccessibilityFields } from '@/components/accessibility-fields'
+import { SilentBoundary } from '@/components/silent-boundary'
+import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
+import { myVoiceSettings } from '@/services/voice-settings-service'
 import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
 import { TwoPressButton } from '@/components/two-press-button'
@@ -153,6 +156,7 @@ export function SettingsPage() {
       )}
 
       <AccessibilityFields draft={draft} set={set} />
+      <SilentBoundary><VoiceSettingsPanel api={myVoiceSettings} volume={draft.voice_volume} /></SilentBoundary>
 
       <footer className="bg-background sticky bottom-0 flex flex-wrap items-center justify-between gap-6 border-t-2 py-6">
         {confirming ? (

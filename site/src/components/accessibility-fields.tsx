@@ -1,7 +1,7 @@
 import { Volume2 } from 'lucide-react'
 import { GazeButton } from '@/components/gaze-button'
 import { Choice, OnOff, SettingRow, Stepper } from '@/components/setting-controls'
-import { speak } from '@/lib/speech'
+import { player } from '@/lib/natural-voice'
 import { BLINK_STEPS, DWELL_MS, VOLUME, type AccessibilityValues } from '@/validators/settings-validator'
 
 const BLINK_LABELS = ['Least sensitive', 'Less sensitive', 'Standard', 'More sensitive', 'Most sensitive']
@@ -49,7 +49,7 @@ export function AccessibilityFields({ draft, set }: AccessibilityFieldsProps) {
       <SettingRow title="Voice volume" description="How loud Voice Communication speaks.">
         <Stepper label="voice volume" value={draft.voice_volume} min={VOLUME.min} max={VOLUME.max} step={VOLUME.step}
           format={(v) => `${v}%`} onChange={(v) => set('voice_volume', v)} />
-        <GazeButton variant="outline" onClick={() => speak('This is how loud I will speak.', draft.voice_volume)}>
+        <GazeButton variant="outline" onClick={() => void player.speak('This is how loud I will speak.', 'en', draft.voice_volume)}>
           <Volume2 aria-hidden />
           Test
         </GazeButton>

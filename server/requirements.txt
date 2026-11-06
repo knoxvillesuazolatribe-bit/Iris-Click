@@ -24,6 +24,11 @@ reportlab==4.4.4
 #   .venv\Scripts\python -m pip install --no-deps gTTS==2.5.4
 requests==2.34.2
 
+# Clearer text to speech: Microsoft neural voices (en-PH Rosa/James, fil-PH Blessica/Angelo),
+# free, needs the internet on first play; audio is cached in app/storage/tts_cache/.
+# Unofficial client of Microsoft's online voice service; Azure Speech is the official option.
+edge-tts==7.3.1
+
 # Eye tracking engine (Windows, CPython 3.12)
 # MediaPipe already requires the contrib wheel. Installing both OpenCV wheel
 # variants makes them overwrite the same cv2 files, so only contrib is pinned.

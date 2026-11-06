@@ -1,7 +1,7 @@
 """Word filter (extension): matching, masking, storage, SOS bypass. Dummy words only."""
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.communication import CommunicationHistory
 from app.models.sos import SosHistory
@@ -155,6 +155,47 @@ def test_seed_file_adds_new_lines_once_and_never_re_adds_removed(test_database, 
     assert check(test_database, "badword1").was_filtered is False
     seeded = logs(test_database, "word_filter_seeded")
     assert len(seeded) == 1 and "badword1" not in seeded[0].activity_description
+
+
+def test_first_uses_at_the_same_time_seed_once(test_database, tmp_path, monkeypatch):
+    """Several requests right after a start used to insert the seed words together and fail."""
+    import threading
+    seed = tmp_path / "seed.txt"
+    words = [f"badwordx{a}{b}" for a in "abc" for b in "efghijklmnopqrstuvw"]  # 57, none alike
+    seed.write_text("".join(f"{w},en\n" for w in words), encoding="utf-8")
+    monkeypatch.setattr(wf, "SEED_FILE", seed)
+    wf.reset_process_state()
+    errors, start = [], threading.Barrier(4)
+
+    def first_use():
+        start.wait()
+        try:
+            with test_database() as db:
+                assert wf.check(db, "badwordxbk").was_filtered
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=first_use) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    with test_database() as db:
+        assert db.scalar(select(func.count()).select_from(FilteredWord)) == len(words)
+
+
+def test_another_process_seeding_first_is_not_an_error(test_database, monkeypatch):
+    from sqlalchemy.exc import IntegrityError
+
+    def raced(*_args):
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+
+    monkeypatch.setattr(wf, "_seed", raced)
+    wf.reset_process_state()
+    with test_database() as db:
+        assert wf.seed_from_file(db) == 0
+        assert wf.check(db, "hello").masked_text == "hello"
 
 
 # --- Saving and speaking ------------------------------------------------------------------------

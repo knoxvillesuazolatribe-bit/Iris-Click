@@ -2,7 +2,7 @@ import { Volume2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { GazeButton } from '@/components/gaze-button'
 import { BOARD } from '@/lib/aac-board'
-import { speak } from '@/lib/speech'
+import { player } from '@/lib/natural-voice'
 import { cn } from '@/lib/utils'
 import { filterText } from '@/lib/word-filter'
 
@@ -24,8 +24,9 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
 
   const say = async (text: string) => {
     const { speak: words } = await filterText(text) // extension: word filter
-    if (!speak(words, volume)) {
-      onError('This browser cannot read text aloud.')
+    const result = await player.speak(words, 'en', volume) // clearer TTS; falls back to the old voice
+    if (!result.ok) {
+      onError(result.error)
       return
     }
     setSpoken(text)
