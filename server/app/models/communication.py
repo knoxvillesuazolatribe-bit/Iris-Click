@@ -28,3 +28,5 @@ class CommunicationHistory(Base):
                                                    index=True)
     # Extension (word filter): True when words were masked before saving.
     was_filtered: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # Extension (bilingual speech): "en" or "fil"; empty for messages sent before it existed.
+    language: Mapped[str | None] = mapped_column(String(5))

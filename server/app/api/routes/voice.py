@@ -27,7 +27,7 @@ def voice(user: User = Depends(require_assistive), db: Session = Depends(get_db)
 @router.post("/communications", response_model=CommunicationRead, status_code=201)
 def send_message(body: CommunicationCreate, user: User = Depends(require_assistive),
                  db: Session = Depends(get_db)) -> CommunicationRead:
-    return _read(voice_service.save_message(db, user, body.mode, body.message))
+    return _read(voice_service.save_message(db, user, body.mode, body.message, body.language))
 
 
 @router.delete("/communications/{communication_id}", status_code=204)

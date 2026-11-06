@@ -13,6 +13,7 @@ Message = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1,
 class CommunicationCreate(BaseModel):
     mode: Mode
     message: Message
+    language: Literal["en", "fil"] = "en"  # extension: bilingual speech
 
 
 class CommunicationRead(BaseModel):
@@ -22,6 +23,7 @@ class CommunicationRead(BaseModel):
     mode: Mode
     message: str
     date_created: datetime
+    language: str | None = None  # extension: bilingual speech
 
 
 class VoiceRead(BaseModel):

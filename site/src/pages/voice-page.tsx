@@ -10,7 +10,10 @@ import { SpeechPanel } from '@/components/speech-panel'
 import { AacBoard } from '@/components/aac-board'
 import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { speak } from '@/lib/speech'
+import { QUICK_PHRASES } from '@/lib/quick-phrases'
+import { RECOGNITION_LANG, speakIn, type SpeechLang } from '@/lib/voices'
+import { LanguageToggle } from '@/components/language-toggle'
+import { languageService } from '@/services/language-service'
 import { typeKey } from '@/lib/typing'
 import { filterText } from '@/lib/word-filter'
 import { voiceService } from '@/services/voice-service'
@@ -20,15 +23,6 @@ import {
   type CommunicationMode,
 } from '@/validators/voice-validator'
 
-const QUICK_PHRASES = [
-  'I need help',
-  'Yes',
-  'No',
-  'Thank you',
-  "I'm hungry",
-  'I need water',
-  'Please call my caregiver',
-]
 const HISTORY_SIZE = 10
 const DEFAULT_VOLUME = 100
 
@@ -49,6 +43,18 @@ export function VoicePage() {
   const [sending, setSending] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const unmasked = useRef<{ shown: string; original: string } | null>(null) // extension: word filter
+  const [lang, setLang] = useState<SpeechLang>('en') // extension: bilingual speech
+
+  useEffect(() => {
+    languageService.mine().then(setLang).catch(() => undefined) // English if it cannot load
+  }, [])
+
+  const changeLang = (next: SpeechLang) => {
+    setLang(next)
+    languageService.saveMine(next)
+      .then(() => setNotice(null))
+      .catch(() => setNotice({ kind: 'error', text: 'The language was changed for now but not saved.' }))
+  }
 
   useEffect(() => {
     let current = true
@@ -78,7 +84,8 @@ export function VoicePage() {
         setMessage(f.display)
       }
       if (!f.speak.trim()) return setNotice({ kind: 'error', text: 'Nothing was spoken: the word filter removed every word.' })
-      setNotice(speak(f.speak, volume) ? null : { kind: 'error', text: 'This browser cannot read text aloud.' })
+      void speakIn(f.speak, volume, lang).then((r) => // extension: Filipino voice
+        setNotice(r.ok ? (r.notice ? { kind: 'ok', text: r.notice } : null) : { kind: 'error', text: r.error }))
     })
   }
 
@@ -93,7 +100,7 @@ export function VoicePage() {
     try {
       // Extension (word filter): send what was typed, so the server masks it and records that it did.
       const original = unmasked.current?.shown.trim() === trimmed ? unmasked.current.original.trim() : trimmed
-      const saved = await voiceService.send(mode, original)
+      const saved = await voiceService.send(mode, original, lang)
       setMessages((list) => [saved, ...list].slice(0, HISTORY_SIZE))
       setNotice({ kind: 'ok', text: 'Saved to your recent messages.' })
       return true
@@ -144,6 +151,7 @@ export function VoicePage() {
           Home
         </GazeButton>
       </header>
+      {load.state === 'ready' && <LanguageToggle value={lang} onChange={changeLang} />}
 
       {load.state === 'loading' && (
         <LoaderCircle className="text-muted-foreground mx-auto size-12 animate-spin" aria-label="Loading" />
@@ -179,7 +187,7 @@ export function VoicePage() {
               <div>
                 <h2 className="mb-4 text-2xl font-bold">Quick Phrases</h2>
                 <div className="flex flex-wrap gap-6">
-                  {QUICK_PHRASES.map((phrase) => (
+                  {QUICK_PHRASES[lang].map((phrase) => (
                     <GazeButton
                       key={phrase}
                       variant="secondary"
@@ -239,7 +247,7 @@ export function VoicePage() {
             </section>
           ) : tab === 'speech' ? (
             <section role="tabpanel" aria-label="Speech">
-              <SpeechPanel sending={sending} onSend={(text) => send('speech_to_text', text)} />
+              <SpeechPanel sending={sending} language={RECOGNITION_LANG[lang]} onSend={(text) => send('speech_to_text', text)} />
             </section>
           ) : (
             <section role="tabpanel" aria-label="Board">

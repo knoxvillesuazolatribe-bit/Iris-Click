@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { AdminUserAppsCard } from '@/components/admin-user-apps-card'
+import { AdminUserLanguageCard } from '@/components/admin-user-language-card'
 import { ContactsManager } from '@/components/contacts-manager'
 import { SilentBoundary } from '@/components/silent-boundary'
 import { ServerDown } from '@/components/server-down'
@@ -125,6 +126,7 @@ export function AdminUserPage() {
         </CardContent>
       </Card>
       <SilentBoundary><AdminUserAppsCard userId={userId} name={user.full_name} /></SilentBoundary>
+      <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>
     </AdminLayout>
   )
 }

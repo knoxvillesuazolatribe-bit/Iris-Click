@@ -18,6 +18,12 @@ argon2-cffi==25.1.0
 # Admin PDF reports (team decision D10)
 reportlab==4.4.4
 
+# Filipino text-to-speech fallback when the browser has no Filipino voice (extension,
+# needs the internet). gTTS declares click<8.2 only for its command-line tool, which
+# IrisClick does not use; install it WITHOUT its dependencies so uvicorn's click stays:
+#   .venv\Scripts\python -m pip install --no-deps gTTS==2.5.4
+requests==2.34.2
+
 # Eye tracking engine (Windows, CPython 3.12)
 # MediaPipe already requires the contrib wheel. Installing both OpenCV wheel
 # variants makes them overwrite the same cv2 files, so only contrib is pinned.

@@ -10,6 +10,7 @@ export const communicationSchema = z.object({
   mode: communicationModeSchema,
   message: z.string(),
   date_created: z.string(),
+  language: z.string().nullable().optional(), // extension: bilingual speech
 })
 export type Communication = z.infer<typeof communicationSchema>
 

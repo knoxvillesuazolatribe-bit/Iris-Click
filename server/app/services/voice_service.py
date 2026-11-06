@@ -16,6 +16,7 @@ from app.services.system_log_service import log_activity
 RECENT_LIMIT = 10
 MAX_MESSAGE_CHARS = 1000
 MODE_LABELS = {MODE_TEXT_TO_SPEECH: "text-to-speech"}
+LANGUAGE_NAMES = {"en": " in English", "fil": " in Filipino"}  # extension: bilingual speech
 
 
 class VoiceError(Exception):
@@ -55,13 +56,16 @@ def _word_filter(db: Session, message: str) -> tuple[str, bool]:
     return filter_for_storage(db, message)
 
 
-def save_message(db: Session, user: User, mode: str, message: str) -> CommunicationHistory:
+def save_message(db: Session, user: User, mode: str, message: str,
+                 language: str = "en") -> CommunicationHistory:
     message, was_filtered = _word_filter(db, message)
-    row = CommunicationHistory(user_id=user.user_id, mode=mode, message=message, was_filtered=was_filtered)
+    row = CommunicationHistory(user_id=user.user_id, mode=mode, message=message, was_filtered=was_filtered,
+                               language=language)
     db.add(row)
     db.flush()
     log_activity("communication_sent",
-                 f"{user.full_name} sent a {_kind(mode)} message ({len(message)} characters)",
+                 f"{user.full_name} sent a {_kind(mode)} message ({len(message)} characters)"
+                 f"{LANGUAGE_NAMES.get(language, '')}",
                  user.user_id, session=db)
     db.commit()
     db.refresh(row)

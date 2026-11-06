@@ -52,7 +52,8 @@ def _calibration(report: Report) -> list[SummaryItem]:
 def _communication(report: Report) -> list[SummaryItem]:
     if "Type" in report.columns:  # one row per message (message text included)
         types = _column(report, "Type")
-        typed, spoken = _count(types, "Typed"), _count(types, "Spoken")
+        typed = sum(1 for t in types if t.startswith("Typed"))  # may end in "(Filipino)"
+        spoken = sum(1 for t in types if t.startswith("Spoken"))
         people = len(set(_column(report, "User")))
     else:  # counts per person (default)
         typed = _int_total(_column(report, "Typed"))
@@ -63,7 +64,24 @@ def _communication(report: Report) -> list[SummaryItem]:
         SummaryItem("Typed (text to speech)", str(typed)),
         SummaryItem("Spoken (speech to text)", str(spoken)),
         SummaryItem("People", str(people)),
+        *_languages(report),
     ]
+
+
+def _languages(report: Report) -> list[SummaryItem]:
+    """Extension (bilingual speech): English/Filipino totals, shown only when the
+    period has messages with a recorded language (older messages have none)."""
+    if "English" in report.columns:
+        english, filipino = _int_total(_column(report, "English")), _int_total(_column(report, "Filipino"))
+    elif "Type" in report.columns:  # one row per message: "Typed (Filipino)"
+        types = _column(report, "Type")
+        english = sum(1 for t in types if t.endswith("(English)"))
+        filipino = sum(1 for t in types if t.endswith("(Filipino)"))
+    else:
+        return []
+    if english + filipino == 0:
+        return []
+    return [SummaryItem("In English", str(english)), SummaryItem("In Filipino", str(filipino))]
 
 
 def _sos(db: Session, report: Report, user_id: int | None) -> list[SummaryItem]:

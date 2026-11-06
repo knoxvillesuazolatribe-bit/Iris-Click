@@ -39,9 +39,10 @@ def create_app() -> FastAPI:
         logging.getLogger("irisclick.api").exception("Account routes not loaded")
     # Extensions, loaded on their own so a failure here never takes down the routes above.
     try:
-        from app.api.routes import admin_user_apps, admin_word_filter, user_apps, word_filter
+        from app.api.routes import (admin_speech, admin_user_apps, admin_word_filter, speech,
+                                    user_apps, word_filter)
         for router in (user_apps.router, admin_user_apps.router, word_filter.router,
-                       admin_word_filter.router):
+                       admin_word_filter.router, speech.router, admin_speech.router):
             app.include_router(router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")

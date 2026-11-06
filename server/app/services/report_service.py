@@ -130,6 +130,14 @@ def _calibration(db, start, end, user_id, _include_text):
     return ["Date", "User", "Profile", "Accuracy", "Status", "Failure reason"], rows, None
 
 
+LANGUAGE_LABELS = {"en": "English", "fil": "Filipino"}  # extension: bilingual speech
+
+
+def _language_note(language: str | None) -> str:
+    """Extension (bilingual speech): "Typed (Filipino)"; nothing for older messages."""
+    return f" ({LANGUAGE_LABELS[language]})" if language in LANGUAGE_LABELS else ""
+
+
 def _masked(db, text: str) -> str:
     """Extension hook (word filter): older messages are masked too; unchanged if unavailable."""
     try:
@@ -147,17 +155,22 @@ def _communication(db, start, end, user_id, include_text):
                  .join(User, User.user_id == CommunicationHistory.user_id)
                  .where(*filters).order_by(CommunicationHistory.date_created.desc()))
         rows = [[local_text(m.date_created), name,
-                 "Typed" if m.mode == MODE_TEXT_TO_SPEECH else "Spoken", _masked(db, m.message)]
+                 ("Typed" if m.mode == MODE_TEXT_TO_SPEECH else "Spoken") + _language_note(m.language),
+                 _masked(db, m.message)]
                 for m, name in db.execute(query).all()]
         return (["Date", "User", "Type", "Message"], rows,
                 "Includes message text, which may be private.")
     typed = func.sum(case((CommunicationHistory.mode == MODE_TEXT_TO_SPEECH, 1), else_=0))
-    query = (select(User.full_name, typed, func.count(), func.max(CommunicationHistory.date_created))
+    english = func.sum(case((CommunicationHistory.language == "en", 1), else_=0))  # extension
+    filipino = func.sum(case((CommunicationHistory.language == "fil", 1), else_=0))  # extension
+    query = (select(User.full_name, typed, func.count(), func.max(CommunicationHistory.date_created),
+                    english, filipino)
              .join(User, User.user_id == CommunicationHistory.user_id)
              .where(*filters).group_by(User.user_id, User.full_name).order_by(User.full_name))
     rows = [[name, str(int(typed_count or 0)), str(total - int(typed_count or 0)), str(total),
-             local_text(last)] for name, typed_count, total, last in db.execute(query).all()]
-    return (["User", "Typed", "Spoken", "Total messages", "Last used"], rows,
+             local_text(last), str(int(en or 0)), str(int(fil or 0))]
+            for name, typed_count, total, last, en, fil in db.execute(query).all()]
+    return (["User", "Typed", "Spoken", "Total messages", "Last used", "English", "Filipino"], rows,
             "Counts only. Message text is left out because it may be private.")
 
 

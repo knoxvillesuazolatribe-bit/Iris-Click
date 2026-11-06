@@ -15,11 +15,18 @@ interface SpeechPanelProps {
   /** Saves the text; resolves true when it was saved. */
   onSend: (text: string) => Promise<boolean>
   sending: boolean
+  /** Extension (bilingual speech): the page's saved language; hides this panel's own switch. */
+  language?: SpeechLanguage
 }
 
 /** Speech tab: Tap to Speak → recognised text → Speak Again / Send. */
-export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
+export function SpeechPanel({ onSend, sending, language }: SpeechPanelProps) {
   const [lang, setLang] = useState<SpeechLanguage>('en-PH')
+  const activeLang = useRef<SpeechLanguage>(lang)
+  useEffect(() => {
+    activeLang.current = language ?? lang
+  }, [language, lang])
+  const restart = useRef(false)
   const [listening, setListening] = useState(false)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +41,7 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
     setError(null)
     setText('')
     setListening(true)
-    stop.current = listen(lang, {
+    stop.current = listen(activeLang.current, {
       // Extension (word filter): recognised text is shown masked; the newest result wins.
       onText: (heard) => {
         const n = ++heardSeq.current
@@ -48,9 +55,20 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
       onEnd: () => {
         setListening(false)
         stop.current = null
+        if (restart.current) {
+          restart.current = false
+          start()
+        }
       },
     })
   }
+
+  // Extension (bilingual speech): switching language while listening stops and starts again.
+  useEffect(() => {
+    if (!stop.current) return
+    restart.current = true
+    stop.current()
+  }, [language])
 
   const send = async () => {
     // Extension (word filter): send what was heard, so the server masks it and records that it did.
@@ -60,6 +78,7 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
 
   return (
     <div className="flex flex-col gap-8">
+      {!language && (
       <div className="flex flex-wrap items-center gap-6" role="group" aria-label="Language">
         <span className="text-xl font-semibold">Language:</span>
         {LANGUAGES.map((option) => (
@@ -74,6 +93,7 @@ export function SpeechPanel({ onSend, sending }: SpeechPanelProps) {
           </GazeButton>
         ))}
       </div>
+      )}
 
       {unavailable ? (
         <Alert variant="destructive" role="alert">
