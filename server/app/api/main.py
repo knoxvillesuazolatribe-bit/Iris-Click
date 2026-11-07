@@ -23,6 +23,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Hybrid: only IrisClick's own websites (CORS_ORIGINS) may use this desktop app from a browser.
+    from app.api.origin_guard import OriginGuard
+    app.add_middleware(OriginGuard, allowed=settings.cors_origins)
 
     for router in (health.router, calibration.router, cameras.router, tracking.router,
                    calibration_ws.router):
@@ -40,10 +43,10 @@ def create_app() -> FastAPI:
     # Extensions, loaded on their own so a failure here never takes down the routes above.
     try:
         from app.api.routes import (admin_speech, admin_user_apps, admin_voice_settings, admin_word_filter,
-                                    neural_tts, speech, user_apps, word_filter)
+                                    desktop_link, neural_tts, speech, user_apps, word_filter)
         for router in (user_apps.router, admin_user_apps.router, word_filter.router,
                        admin_word_filter.router, speech.router, admin_speech.router,
-                       neural_tts.router, admin_voice_settings.router):
+                       neural_tts.router, admin_voice_settings.router, desktop_link.router):
             app.include_router(router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")
