@@ -6,6 +6,7 @@ import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { UserTile } from '@/components/user-tile'
+import { linkDesktop } from '@/lib/desktop-link'
 import { ONLINE_COPY } from '@/lib/online-copy'
 import { assistiveService } from '@/services/auth-service'
 import { trackingService } from '@/services/tracking-service'
@@ -51,9 +52,13 @@ export function UserSelectPage() {
 
   const signIn = async (tile: AssistiveTile) => {
     const current = useSessionStore.getState().user
-    if (current?.role === 'assistive_user' && current.user_id === tile.user_id) return true
+    if (current?.role === 'assistive_user' && current.user_id === tile.user_id) {
+      if (ONLINE_COPY) void linkDesktop() // hybrid hook: tell IrisClick Desktop who is signed in
+      return true
+    }
     const message = await selectUser(tile.user_id)
     if (message) setError(message)
+    if (message === null && ONLINE_COPY) void linkDesktop() // hybrid hook
     return message === null
   }
 

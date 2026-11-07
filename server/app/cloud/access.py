@@ -130,7 +130,8 @@ def enter_code(body: AccessRequest, request: Request, response: Response) -> Acc
 
 def gate(api_prefix: str):
     """Middleware: every API request needs the access cookie, except these."""
-    open_paths = {f"{api_prefix}/cloud/status", f"{api_prefix}/cloud/access", f"{api_prefix}/health"}
+    open_paths = {f"{api_prefix}/cloud/status", f"{api_prefix}/cloud/access", f"{api_prefix}/health",
+                  f"{api_prefix}/desktop/session"}  # protected by the signed link token (app/cloud/desktop.py)
 
     async def middleware(request: Request, call_next):
         path = request.url.path.rstrip("/") or "/"
