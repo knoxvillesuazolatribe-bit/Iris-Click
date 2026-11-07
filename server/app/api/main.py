@@ -43,11 +43,12 @@ def create_app() -> FastAPI:
     # Extensions, loaded on their own so a failure here never takes down the routes above.
     try:
         from app.api.routes import (admin_speech, admin_user_apps, admin_voice_settings, admin_word_filter,
-                                    desktop_link, desktop_version, neural_tts, speech, user_apps, word_filter)
+                                    desktop_link, desktop_tracking, desktop_version, neural_tts, speech,
+                                    user_apps, word_filter)
         for router in (user_apps.router, admin_user_apps.router, word_filter.router,
                        admin_word_filter.router, speech.router, admin_speech.router,
                        neural_tts.router, admin_voice_settings.router, desktop_link.router,
-                       desktop_version.router):
+                       desktop_version.router, desktop_tracking.router):
             app.include_router(router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")
