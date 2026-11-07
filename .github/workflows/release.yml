@@ -1,0 +1,63 @@
+# Builds IrisClick-Desktop-Setup.exe on Windows.
+#   - Push a version tag (git tag v1.0.0 && git push origin v1.0.0): builds the installer and
+#     attaches it to a GitHub Release, so the website's "Download IrisClick Desktop" link works.
+#   - Run it by hand (Actions > Release > Run workflow): builds the installer as a downloadable
+#     artifact only (a dry run; nothing is published).
+# The tag must match server/app/version.py and site/public/desktop-latest.json.
+# The installer holds only the public website address (no secrets): set the repository
+# variable IRISCLICK_CLOUD_URL, or https://iris-click.vercel.app is used.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    name: Build IrisClick Desktop installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the version numbers agree
+        shell: pwsh
+        run: |
+          $version = (python -c "import sys; sys.path.insert(0, 'server'); from app.version import VERSION; print(VERSION)").Trim()
+          $latest = (Get-Content site/public/desktop-latest.json -Raw | ConvertFrom-Json).version
+          if ($version -ne $latest) { throw "server/app/version.py says $version but desktop-latest.json says $latest" }
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne "v$version") {
+            throw "Tag ${{ github.ref_name }} does not match version $version (expected v$version)"
+          }
+          "VERSION=$version" >> $env:GITHUB_ENV
+      - name: App packages (server/.venv, as the build script expects)
+        working-directory: server
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install --upgrade pip
+          .venv\Scripts\python -m pip install -r requirements.txt
+          .venv\Scripts\python -m pip install --no-deps gTTS==2.5.4 gazefollower==1.1.0
+      - name: Install Inno Setup 6
+        run: choco install innosetup --no-progress -y
+      - name: Build
+        shell: pwsh
+        run: |
+          $url = "${{ vars.IRISCLICK_CLOUD_URL }}"
+          if (-not $url) { $url = "https://iris-click.vercel.app" }
+          ./packaging/build.ps1 -CloudUrl $url
+      - name: Keep the installer (dry runs and tags)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IrisClick-Desktop-Setup-${{ env.VERSION }}
+          path: packaging/out/IrisClick-Desktop-Setup.exe
+          if-no-files-found: error
+      - name: Publish the GitHub Release (tags only)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" packaging/out/IrisClick-Desktop-Setup.exe --title "IrisClick Desktop ${{ env.VERSION }}" --generate-notes

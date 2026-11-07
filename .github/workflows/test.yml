@@ -1,0 +1,58 @@
+# Runs on every push and pull request: the full server test suite (Windows, like the
+# IrisClick PC) and the website's type check, lint and both builds (PC and hosted).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server tests (Windows, Python 3.12)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements*.txt
+      - name: Install packages (same steps as the README)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install --no-deps gTTS==2.5.4 gazefollower==1.1.0
+      - name: Run all tests
+        env:
+          DB_HOST: ""   # tests use their own SQLite files; never a real database
+        run: python -m pytest -q -p no:cacheprovider
+
+  site:
+    name: Website (type check, lint, builds)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install packages (pnpm 9.15.9, as on Vercel)
+        run: npx --yes pnpm@9.15.9 install --frozen-lockfile
+      - name: Lint
+        run: npx --yes pnpm@9.15.9 run lint
+      - name: PC build (type check + build)
+        run: npx --yes pnpm@9.15.9 run build
+      - name: Hosted build (online copy)
+        run: VITE_IRISCLICK_ONLINE=1 npx --yes pnpm@9.15.9 run build
