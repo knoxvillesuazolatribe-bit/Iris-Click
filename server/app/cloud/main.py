@@ -166,9 +166,21 @@ def cloud_engine() -> Engine:
     return engine.execution_options(schema_translate_map={None: settings.db_schema})
 
 
+def assume_pc_apps() -> None:
+    """The user's apps are on their IrisClick PC, not on this Linux server, so the
+    online copy shows every default app (Calculator, Word, Excel, PowerPoint)
+    instead of hiding the ones the server lacks. Opening one answers PC_ONLY_APPS."""
+    from app.services import apps_service
+
+    apps_service.finder["calculator"] = lambda: "calc.exe"
+    apps_service.finder["app_path"] = lambda exe: exe
+
+
 def configure_runtime(storage_dir: Path) -> None:
     from app.services import active_user, neural_tts_service
     from app.services.sos_dispatcher import dispatcher
+
+    assume_pc_apps()
 
     for name, leaf in STORAGE_SETTINGS.items():
         os.environ.setdefault(name, str(storage_dir / leaf))

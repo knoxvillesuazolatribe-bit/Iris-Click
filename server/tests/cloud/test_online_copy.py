@@ -16,7 +16,7 @@ from app.cloud import access
 from app.cloud import main as cloud
 from app.config import get_settings
 from app.models import database
-from app.services import neural_tts_service
+from app.services import apps_service, neural_tts_service
 from app.services.sos_dispatcher import dispatcher
 
 from tests.auth.conftest import fresh_throttle, make_user  # noqa: F401  (fixtures)
@@ -228,6 +228,8 @@ def restore_runtime(monkeypatch):
     monkeypatch.setattr(neural_tts_service, "cache_dir", neural_tts_service.cache_dir)
     monkeypatch.setattr(dispatcher, "inline", dispatcher.inline)
     monkeypatch.setattr(dispatcher, "delays", dispatcher.delays)
+    for key in ("calculator", "app_path"):
+        monkeypatch.setitem(apps_service.finder, key, apps_service.finder[key])
     yield
     get_settings.cache_clear()
     cloud.cloud_engine.cache_clear()
@@ -242,6 +244,24 @@ def test_runtime_writes_only_to_the_temp_folder_and_sends_sos_inline(tmp_path, r
     assert database.get_engine is cloud.cloud_engine
     assert dispatcher.inline is True and dispatcher.delays == cloud.SOS_RETRY_DELAYS_S
     assert sum(cloud.SOS_RETRY_DELAYS_S) < 60  # well inside the function's 120 s limit
+
+
+def test_online_home_shows_every_default_app_even_on_a_linux_server(ana, restore_runtime, monkeypatch):
+    # Vercel's server has none of the user's PC apps.
+    monkeypatch.setitem(apps_service.finder, "calculator", lambda: None)
+    monkeypatch.setitem(apps_service.finder, "app_path", lambda exe: None)
+    monkeypatch.setitem(apps_service.finder, "has_protocol", lambda name: False)
+    cloud.assume_pc_apps()
+    labels = [t["label"] for t in ana.get("/api/me/apps/tiles").json()["tiles"]]
+    assert {"Browser", "Calculator", "Word", "Excel", "PowerPoint"} <= set(labels)
+
+    word = next(t for t in ana.get("/api/me/apps/tiles").json()["tiles"] if t["label"] == "Word")
+    assert ana.delete(f"/api/me/apps/tiles/{word['tile_id']}").status_code == 204
+    hidden = ana.get("/api/me/apps/tiles").json()["hidden_defaults"]
+    assert [h["label"] for h in hidden] == ["Word"]  # offered again under "Default apps"
+    excel = next(t for t in ana.get("/api/me/apps/tiles").json()["tiles"] if t["label"] == "Excel")
+    response = ana.post(f"/api/me/apps/tiles/{excel['tile_id']}/launch")
+    assert response.status_code == 409 and response.json()["detail"] == cloud.PC_ONLY_APPS
 
 
 def test_cloud_database_keeps_no_connections_open(monkeypatch):
