@@ -1,5 +1,6 @@
-import { Eye } from 'lucide-react'
+import { ArrowLeft, Eye } from 'lucide-react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
+import { useNavigate } from 'react-router'
 import { CameraPicker } from '@/components/camera-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ interface CalibrationStartCardProps {
 }
 
 export function CalibrationStartCard({ form, onSubmit, error, cameraOptions }: CalibrationStartCardProps) {
+  const navigate = useNavigate()
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
@@ -99,9 +101,16 @@ export function CalibrationStartCard({ form, onSubmit, error, cameraOptions }: C
           </ul>
         </CardContent>
         <CardFooter className="pt-6">
-          <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={form.formState.isSubmitting}>
-            Start calibration
-          </Button>
+          <div className="flex w-full flex-col gap-3">
+            <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={form.formState.isSubmitting}>
+              Start calibration
+            </Button>
+            <Button type="button" variant="outline" size="lg" className="h-14 w-full text-lg"
+              onClick={() => void navigate('/home')}>
+              <ArrowLeft aria-hidden />
+              Back
+            </Button>
+          </div>
         </CardFooter>
       </form>
     </Card>
