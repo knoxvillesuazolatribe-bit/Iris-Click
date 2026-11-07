@@ -1,4 +1,4 @@
-import { ArrowLeft, Crosshair, LoaderCircle, Play } from 'lucide-react'
+import { ArrowLeft, Crosshair, House, LoaderCircle, Play } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
@@ -6,6 +6,7 @@ import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { UserTile } from '@/components/user-tile'
+import { ONLINE_COPY } from '@/lib/online-copy'
 import { assistiveService } from '@/services/auth-service'
 import { trackingService } from '@/services/tracking-service'
 import { useSessionStore } from '@/store/session-store'
@@ -81,6 +82,17 @@ export function UserSelectPage() {
     }
   }
 
+  // Online copy hook: no eye tracking there, so signing in goes straight to Home.
+  const goHome = async (tile: AssistiveTile) => {
+    setBusy('continue')
+    setError(null)
+    try {
+      if (await signIn(tile)) void navigate('/home')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <main className="bg-background text-foreground flex min-h-svh flex-col items-center gap-10 p-6">
       <div className="top-band flex w-full max-w-6xl justify-start">
@@ -99,6 +111,12 @@ export function UserSelectPage() {
               <AlertDescription className="text-base">{error}</AlertDescription>
             </Alert>
           )}
+          {ONLINE_COPY ? (
+            <GazeButton className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void goHome(chosen)}>
+              {busy ? <LoaderCircle className="animate-spin" aria-hidden /> : <House aria-hidden />}
+              Go to Home
+            </GazeButton>
+          ) : (
           <div className="flex w-full flex-col gap-6">
             <GazeButton
               className="min-h-28 w-full text-2xl"
@@ -121,6 +139,7 @@ export function UserSelectPage() {
               Calibrate
             </GazeButton>
           </div>
+          )}
         </section>
       ) : (
         <section className="flex w-full max-w-6xl flex-col items-center gap-8">

@@ -1,0 +1,17 @@
+# Never uploaded to Vercel (secrets, local data, build leftovers).
+.env
+**/.env
+.venv/
+server/.venv/
+server/*.db
+server/app/storage/
+server/tests/
+server/scripts/
+site/node_modules/
+site/dist/
+site/package-lock.json
+.vscode/
+.claude/
+.pytest_cache/
+**/__pycache__/
+*.jsonl

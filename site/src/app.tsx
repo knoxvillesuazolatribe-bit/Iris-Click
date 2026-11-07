@@ -1,5 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { OnlineAccessGate } from '@/components/online-access-gate'
+import { PcOnlyNotice } from '@/components/pc-only-notice'
 import { RequireRole } from '@/components/require-role'
+import { ONLINE_COPY } from '@/lib/online-copy'
 import { useAppName } from '@/lib/use-app-name'
 import { AdminLoginPage } from '@/pages/admin-login-page'
 import { AdminLogsPage } from '@/pages/admin-logs-page'
@@ -21,7 +24,16 @@ import { TrackingPage } from '@/pages/tracking-page'
 import { UserSelectPage } from '@/pages/user-select-page'
 import { VoicePage } from '@/pages/voice-page'
 
+// Online copy hook: the access code comes first (on the PC build the gate renders App as before).
 export function App() {
+  return (
+    <OnlineAccessGate>
+      <Pages />
+    </OnlineAccessGate>
+  )
+}
+
+function Pages() {
   useAppName() // browser tab title = the app name the admin set, on every page
   return (
     <BrowserRouter>
@@ -47,7 +59,8 @@ export function App() {
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
         <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
         <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />
-        <Route path="/calibration" element={<CalibrationPage />} />
+        {/* Online copy hook: calibration needs the PC's camera. */}
+        <Route path="/calibration" element={ONLINE_COPY ? <PcOnlyNotice /> : <CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

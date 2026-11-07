@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "cd site && pnpm install --frozen-lockfile",
+  "buildCommand": "cd site && VITE_IRISCLICK_ONLINE=1 pnpm run build",
+  "outputDirectory": "site/dist",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 120,
+      "excludeFiles": "{site/**,docs/**,server/tests/**,server/scripts/**,server/migrations/**,server/app/storage/**,server/.venv/**,.venv/**,**/__pycache__/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index?__irisclick_path=$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
