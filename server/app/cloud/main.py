@@ -82,9 +82,37 @@ def tracking_change(_user: User = Depends(require_assistive)):
 
 
 @pc_only.post("/apps/{app_id}/launch")
-@pc_only.post("/apps/tiles/{tile_id}/launch")
 def launch(_user: User = Depends(require_assistive)):
     raise HTTPException(status_code=409, detail=PC_ONLY_APPS)
+
+
+@pc_only.post("/apps/tiles/{tile_id}/launch")
+def launch_tile(tile_id: int, user: User = Depends(require_assistive), db: Session = Depends(get_db)) -> dict:
+    """Websites need no PC: their address goes back to the page, which opens it in a
+    new tab on the user's own device. Programs (Word, Calculator, ...) stay PC-only."""
+    from app.models.user_app_shortcut import KIND_BUILTIN, KIND_WEBSITE, UserAppShortcut
+    from app.services import apps_service
+    from app.services.system_log_service import log_activity
+    from app.services.user_apps_service import UserAppsError, clean_url
+
+    row = db.get(UserAppShortcut, tile_id)
+    if row is None or row.user_id != user.user_id or not row.is_visible:
+        raise HTTPException(status_code=404, detail="That app is not in your apps.")
+    url = None
+    if row.type == KIND_WEBSITE:
+        try:
+            url = clean_url(row.target or "")
+        except UserAppsError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    elif row.type == KIND_BUILTIN:
+        app = next((a for a in apps_service.available() if a.app_id == row.builtin_key), None)
+        if app is not None and app.target.startswith(("https://", "http://")):
+            url = app.target  # Browser (Google) and Calendar (website)
+    if url is None:
+        raise HTTPException(status_code=409, detail=PC_ONLY_APPS)
+    log_activity("app_launched", f"{user.full_name} opened {row.label} (online)", user.user_id, session=db)
+    db.commit()
+    return {"launched": True, "label": row.label, "url": url}
 
 
 CHECKED_SETTINGS = ("IRISCLICK_ACCESS_CODE", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER",

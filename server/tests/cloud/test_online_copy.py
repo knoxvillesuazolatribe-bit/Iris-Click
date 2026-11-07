@@ -144,10 +144,29 @@ def test_starting_tracking_says_pc_only(ana, path):
     assert response.status_code == 409 and response.json()["detail"] == cloud.PC_ONLY_TRACKING
 
 
-@pytest.mark.parametrize("path", ["/api/me/apps/notepad/launch", "/api/me/apps/tiles/1/launch"])
-def test_opening_pc_apps_says_pc_only(ana, path):
-    response = ana.post(path)
+def test_opening_pc_apps_says_pc_only(ana):
+    response = ana.post("/api/me/apps/notepad/launch")  # the Phase 9 app list
     assert response.status_code == 409 and response.json()["detail"] == cloud.PC_ONLY_APPS
+
+
+def test_website_tiles_open_on_this_device_programs_stay_pc_only(ana, restore_runtime, monkeypatch):
+    monkeypatch.setitem(apps_service.finder, "has_protocol", lambda name: False)
+    cloud.assume_pc_apps()
+    added = ana.post("/api/me/apps/tiles", json={"kind": "website", "label": "YouTube",
+                                                "url": "https://www.youtube.com"})
+    assert added.status_code == 201
+    tiles = {t["label"]: t["tile_id"] for t in ana.get("/api/me/apps/tiles").json()["tiles"]}
+
+    youtube = ana.post(f"/api/me/apps/tiles/{tiles['YouTube']}/launch")
+    assert youtube.status_code == 200
+    assert youtube.json() == {"launched": True, "label": "YouTube", "url": "https://www.youtube.com"}
+    calendar = ana.post(f"/api/me/apps/tiles/{tiles['Calendar (website)']}/launch").json()
+    assert calendar["url"] == apps_service.GOOGLE_CALENDAR
+    assert ana.post(f"/api/me/apps/tiles/{tiles['Browser']}/launch").json()["url"] == apps_service.BROWSER_START
+    word = ana.post(f"/api/me/apps/tiles/{tiles['Word']}/launch")
+    assert word.status_code == 409 and word.json()["detail"] == cloud.PC_ONLY_APPS
+
+    assert ana.post("/api/me/apps/tiles/999999/launch").status_code == 404  # not one of Ana's tiles
 
 
 def test_pc_only_answers_still_need_a_signed_in_user(unlocked):

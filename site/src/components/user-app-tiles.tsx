@@ -6,11 +6,16 @@ import { tileIcon } from '@/components/app-tile-icon'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ONLINE_COPY } from '@/lib/online-copy'
 import { cn } from '@/lib/utils'
 import type { AppTile, AppTiles, TilesApi } from '@/services/user-apps-service'
 
 const FLASH_MS = 2000
 const LONG_NAME = 18
+
+/** Online copy: tiles the server answers with a web address (websites, Browser, Calendar website). */
+const mayBeWebsite = (tile: AppTile) =>
+  tile.kind === 'website' || (tile.kind === 'builtin' && (tile.icon === 'browser' || tile.icon === 'calendar'))
 
 type Flash = { tileId: number; kind: 'ok' | 'error'; text: string }
 type Ask = { kind: 'remove'; tile: AppTile } | { kind: 'reset' } | null
@@ -85,10 +90,23 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
     window.clearTimeout(timer.current)
     setFlash({ tileId: tile.tile_id, kind: 'ok', text: `Opening ${tile.label}…` })
     setNotice(null)
+    // Online copy hook: websites open in a new tab on this device. The tab is opened
+    // during the click (pop-up blockers allow that) and filled once the address arrives.
+    const tab = ONLINE_COPY && mayBeWebsite(tile) ? window.open('', '_blank') : null
     try {
-      await api.launch(tile.tile_id)
+      const result = await api.launch(tile.tile_id)
+      if (tab) {
+        if (result.url) {
+          tab.opener = null
+          tab.location.href = result.url
+        } else tab.close()
+      } else if (ONLINE_COPY && result.url) {
+        // The browser blocked the new tab: open it here; Back returns to IrisClick.
+        window.location.assign(result.url)
+      }
       timer.current = window.setTimeout(() => setFlash(null), FLASH_MS)
     } catch (err) {
+      tab?.close()
       setFlash({ tileId: tile.tile_id, kind: 'error', text: errorMessage(err, `${tile.label} could not be opened.`) })
     }
   }

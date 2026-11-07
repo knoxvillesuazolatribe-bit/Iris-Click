@@ -34,7 +34,8 @@ export interface TilesApi {
   remove: (tileId: number) => Promise<void>
   reset: () => Promise<AppTiles>
   available: () => Promise<InstalledApp[]>
-  launch?: (tileId: number) => Promise<{ launched: boolean; label: string }>
+  /** ``url``: online copy only, a website for this device to open in a new tab. */
+  launch?: (tileId: number) => Promise<{ launched: boolean; label: string; url?: string }>
 }
 
 function tilesApi(base: string, availablePath: string): TilesApi {
@@ -56,7 +57,7 @@ export const myTiles: TilesApi = {
   launch: (tileId) =>
     appClient
       .post(`/me/apps/tiles/${tileId}/launch`)
-      .then((r) => z.object({ launched: z.boolean(), label: z.string() }).parse(r.data)),
+      .then((r) => z.object({ launched: z.boolean(), label: z.string(), url: z.url({ protocol: /^https?$/ }).optional() }).parse(r.data)),
 }
 
 /** One user's tiles, edited by the admin (no launching from the admin pages). */
