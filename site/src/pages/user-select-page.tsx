@@ -1,6 +1,6 @@
 import { ArrowLeft, Crosshair, LoaderCircle, Play } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
@@ -22,6 +22,9 @@ type Load = { state: 'loading' } | { state: 'error'; message: string } | { state
  */
 export function UserSelectPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Coming back (calibration Back or the browser's ←): reopen the name chosen on this visit.
+  const remembered = useRef((location.state as { chosen?: number | null } | null)?.chosen)
   const selectUser = useSessionStore((s) => s.selectUser)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [chosen, setChosen] = useState<AssistiveTile | null>(null)
@@ -34,7 +37,12 @@ export function UserSelectPage() {
     let current = true
     assistiveService
       .getTiles()
-      .then((tiles) => current && setLoad({ state: 'ready', tiles }))
+      .then((tiles) => {
+        if (!current) return
+        setLoad({ state: 'ready', tiles })
+        const back = tiles.find((t) => t.user_id === remembered.current)
+        if (back) setChosen(back)
+      })
       .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load the names.') }))
     return () => {
       current = false
@@ -48,6 +56,7 @@ export function UserSelectPage() {
 
   const choose = (tile: AssistiveTile | null) => {
     setChosen(tile)
+    void navigate('.', { replace: true, state: { chosen: tile?.user_id ?? null } })
     setError(null)
   }
 
