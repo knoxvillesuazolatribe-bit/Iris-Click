@@ -1,12 +1,13 @@
 """Admin logs and reports (Phase 8): the rows behind both the preview and the PDF.
 
-Dates are whole local days; times are shown in this computer's time zone.
+Dates are whole Philippine days; times are shown in Philippine time
+(app/services/local_time.py), on the PC and on Vercel alike.
 The Communication report gives counts per person unless the admin asks for
 the message text, which may be private (that request is logged).
 """
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.models.sos import SosContact, SosHistory
 from app.models.system_log import SystemLog
 from app.models.timestamps import as_utc
 from app.models.user import User
+from app.services.local_time import day_start, to_local
 
 LOG_TABS = ("all", "calibration", "sos", "communication", "screenshot")
 LOGS_PER_PAGE = 50
@@ -35,15 +37,14 @@ def day_bounds(date_from: date | None, date_to: date | None) -> tuple[datetime |
     """UTC instants for the start of ``date_from`` and the end of ``date_to`` (local days)."""
     if date_from and date_to and date_to < date_from:
         raise ReportError(422, "The end date is before the start date.")
-    start = (datetime.combine(date_from, time.min).astimezone().astimezone(UTC)
-             if date_from else None)
-    end = (datetime.combine(date_to + timedelta(days=1), time.min).astimezone().astimezone(UTC)
-           if date_to else None)
+    # Days are Philippine days (local_time), not the server's: Vercel runs on UTC.
+    start = day_start(date_from).astimezone(UTC) if date_from else None
+    end = day_start(date_to + timedelta(days=1)).astimezone(UTC) if date_to else None
     return start, end
 
 
 def local_text(value: datetime | None) -> str:
-    return as_utc(value).astimezone().strftime("%Y-%m-%d %H:%M") if value else ""
+    return to_local(value).strftime("%Y-%m-%d %H:%M") if value else ""
 
 
 # --- Logs ------------------------------------------------------------------------------------

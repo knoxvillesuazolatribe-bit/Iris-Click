@@ -14,6 +14,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from xml.sax.saxutils import escape
 
+from app.services.local_time import now_local
 from app.services.report_service import Report
 
 NAVY = colors.HexColor("#0F1B2D")
@@ -83,7 +84,7 @@ def _summary_table(summary: list[tuple[str, str]], regular: str, bold: str) -> T
 def render(report: Report, app_name: str, exported_by: str, now: datetime | None = None,
            summary: list[tuple[str, str]] | None = None) -> bytes:
     regular, bold = _fonts()
-    now = now or datetime.now().astimezone()
+    now = now or now_local()  # Philippine time, also on Vercel's UTC servers
     title = ParagraphStyle("title", fontName=bold, fontSize=18, leading=22, textColor=NAVY)
     meta = ParagraphStyle("meta", fontName=regular, fontSize=9.5, leading=13)
     cell = ParagraphStyle("cell", fontName=regular, fontSize=8.5, leading=10.5)
@@ -132,5 +133,5 @@ def render(report: Report, app_name: str, exported_by: str, now: datetime | None
 
 
 def filename(report: Report, today: datetime | None = None) -> str:
-    today = today or datetime.now().astimezone()
+    today = today or now_local()
     return f"{report.title.replace(' ', '_')}_{today:%Y-%m-%d}.pdf"

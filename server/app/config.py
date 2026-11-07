@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
     smtp_timeout_s: float = Field(15.0, gt=0)
 
+    # Time zone for dates and times people read (report PDFs, SOS messages). Servers
+    # such as Vercel run on UTC, so this is set here rather than taken from the server.
+    display_timezone: str = "Asia/Manila"
+
     # Site page the worker's tray opens for "Recalibrate".
     site_url: str = "http://localhost:5173"
 

@@ -17,6 +17,7 @@ from app.models.user import User
 from app.services import system_settings_service
 from app.services.sos_delivery import EmailSender
 from app.services.sos_dispatcher import CHANNEL_EMAIL, CHANNEL_SMS, dispatcher
+from app.services.local_time import to_local
 from app.services.system_log_service import log_activity
 
 MAX_CONTACTS = 10
@@ -102,7 +103,7 @@ def location_text(user: User) -> str | None:
 
 
 def build_message(user: User, location: str | None, when: datetime, app_name: str = "IrisClick") -> str:
-    time_text = when.astimezone().strftime("%B %d, %Y at %I:%M %p")
+    time_text = to_local(when).strftime("%B %d, %Y at %I:%M %p")  # Philippine time, also on Vercel
     return "\n".join([
         f"EMERGENCY SOS: {user.full_name} needs help.",
         "",

@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.admin import DashboardRead
 from app.services import (admin_service, report_pdf, report_service, report_summary,
                           system_settings_service)
+from app.services.local_time import today_local
 from app.services.report_service import LOGS_PER_PAGE, ReportError
 from app.services.system_log_service import log_activity
 
@@ -86,7 +87,7 @@ def logs(tab: str = "all", date_from: date | None = None, date_to: date | None =
 
 
 def _report(db, report_type, date_from, date_to, user_id, include_text):
-    today = date.today()
+    today = today_local()  # the Philippine date, also on Vercel's UTC servers
     date_to = date_to or today
     date_from = date_from or date_to - timedelta(days=DEFAULT_REPORT_DAYS - 1)
     try:
