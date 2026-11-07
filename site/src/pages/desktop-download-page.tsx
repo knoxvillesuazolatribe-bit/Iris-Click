@@ -48,8 +48,9 @@ export function DesktopDownloadPage({ onRetry }: Props) {
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-4xl flex-col gap-8 p-6">
       <header className="top-band flex flex-wrap items-center justify-between gap-6">
         <h1 className="flex items-center gap-3 text-4xl font-bold"><Monitor className="text-primary size-10" aria-hidden /> IrisClick Desktop</h1>
-        <GazeButton variant="outline" onClick={() => void navigate('/home')}>
-          <ArrowLeft aria-hidden /> Home
+        <GazeButton variant="outline"
+          onClick={() => (window.history.state?.idx > 0 ? void navigate(-1) : void navigate('/home'))}>
+          <ArrowLeft aria-hidden /> Back
         </GazeButton>
       </header>
 
