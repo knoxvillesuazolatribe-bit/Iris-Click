@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "cd site && pnpm install --frozen-lockfile",
-  "buildCommand": "cd site && VITE_IRISCLICK_ONLINE=1 pnpm run build",
+  "installCommand": "cd site && npx --yes pnpm@9.15.9 install --frozen-lockfile",
+  "buildCommand": "cd site && VITE_IRISCLICK_ONLINE=1 npx --yes pnpm@9.15.9 run build",
   "outputDirectory": "site/dist",
   "functions": {
     "api/index.py": {
