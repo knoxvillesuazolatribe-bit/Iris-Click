@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
-import { PcOnlyNotice } from '@/components/pc-only-notice'
+import { DesktopGate } from '@/components/desktop-gate'
+import { DesktopDownloadPage } from '@/pages/desktop-download-page'
+import { DesktopTrackingPage } from '@/pages/desktop-tracking-page'
 import { RequireRole } from '@/components/require-role'
 import { ONLINE_COPY } from '@/lib/online-copy'
 import { useAppName } from '@/lib/use-app-name'
@@ -42,7 +44,9 @@ function Pages() {
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/user/select" element={<UserSelectPage />} />
         <Route path="/home" element={<RequireRole role="assistive_user"><HomePage /></RequireRole>} />
-        <Route path="/tracking" element={<RequireRole role="assistive_user"><TrackingPage /></RequireRole>} />
+        <Route path="/tracking" element={<RequireRole role="assistive_user">{ONLINE_COPY
+          ? <DesktopGate><DesktopTrackingPage /></DesktopGate> : <TrackingPage />}</RequireRole>} />
+        {ONLINE_COPY && <Route path="/desktop" element={<DesktopDownloadPage />} />}
         <Route path="/voice" element={<RequireRole role="assistive_user"><VoicePage /></RequireRole>} />
         <Route path="/sos" element={<RequireRole role="assistive_user"><SosPage /></RequireRole>} />
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />
@@ -59,8 +63,8 @@ function Pages() {
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
         <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
         <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />
-        {/* Online copy hook: calibration needs the PC's camera. */}
-        <Route path="/calibration" element={ONLINE_COPY ? <PcOnlyNotice /> : <CalibrationPage />} />
+        {/* Hybrid hook: the hosted site uses the EXISTING calibration page, through IrisClick Desktop. */}
+        <Route path="/calibration" element={ONLINE_COPY ? <DesktopGate><CalibrationPage /></DesktopGate> : <CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

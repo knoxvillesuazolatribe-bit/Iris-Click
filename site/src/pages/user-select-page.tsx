@@ -1,7 +1,8 @@
-import { ArrowLeft, Crosshair, House, LoaderCircle, Play } from 'lucide-react'
+import { ArrowLeft, Crosshair, LoaderCircle, Play } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
+import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -87,17 +88,6 @@ export function UserSelectPage() {
     }
   }
 
-  // Online copy hook: no eye tracking there, so signing in goes straight to Home.
-  const goHome = async (tile: AssistiveTile) => {
-    setBusy('continue')
-    setError(null)
-    try {
-      if (await signIn(tile)) void navigate('/home')
-    } finally {
-      setBusy(null)
-    }
-  }
-
   return (
     <main className="bg-background text-foreground flex min-h-svh flex-col items-center gap-10 p-6">
       <div className="top-band flex w-full max-w-6xl justify-start">
@@ -117,10 +107,7 @@ export function UserSelectPage() {
             </Alert>
           )}
           {ONLINE_COPY ? (
-            <GazeButton className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void goHome(chosen)}>
-              {busy ? <LoaderCircle className="animate-spin" aria-hidden /> : <House aria-hidden />}
-              Go to Home
-            </GazeButton>
+            <DesktopStartButtons signIn={() => signIn(chosen)} onError={setError} />
           ) : (
           <div className="flex w-full flex-col gap-6">
             <GazeButton
