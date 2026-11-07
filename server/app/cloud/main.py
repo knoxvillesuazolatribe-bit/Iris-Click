@@ -87,13 +87,47 @@ def launch(_user: User = Depends(require_assistive)):
     raise HTTPException(status_code=409, detail=PC_ONLY_APPS)
 
 
+CHECKED_SETTINGS = ("IRISCLICK_ACCESS_CODE", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER",
+                    "DB_PASSWORD", "DB_SSLMODE", "SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD",
+                    "SMTP_FROM")
+
+setup_check = APIRouter(prefix="/cloud", tags=["online copy"])
+
+
+@setup_check.get("/check")
+def check_setup() -> dict:
+    """Which settings this deployment has (set/missing, never values) and whether the
+    database answers, with the driver's reason when it does not. Behind the access code."""
+    settings = get_settings()
+    report = {
+        "build": {"environment": os.environ.get("VERCEL_ENV", "local"),
+                  "branch": os.environ.get("VERCEL_GIT_COMMIT_REF", ""),
+                  "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA", "")[:7]},
+        "settings": {name: "set" if os.environ.get(name, "").strip() else "missing"
+                     for name in CHECKED_SETTINGS},
+        "db_port": settings.db_port,
+        "database": "ok",
+        "error": None,
+    }
+    try:
+        database.check_connection()
+    except Exception as exc:  # noqa: BLE001 - reported to the admin, never raised
+        reason = str(getattr(exc, "orig", None) or exc).strip().splitlines()
+        text = f"{type(getattr(exc, 'orig', None) or exc).__name__}: {reason[0] if reason else ''}"
+        for secret in (settings.db_password.get_secret_value(), settings.smtp_password.get_secret_value()):
+            if secret:
+                text = text.replace(secret, "***")
+        report.update(database="error", error=text[:300])
+    return report
+
+
 def _routers() -> list[APIRouter]:
     from app.api.routes import (accessibility, admin_reports, admin_settings, admin_speech,
                                 admin_user_apps, admin_users, admin_voice_settings,
                                 admin_word_filter, apps, assistive, auth, health, neural_tts,
                                 sos, speech, user_apps, voice, word_filter)
     # pc_only first: its paths win over the PC versions in apps/user_apps.
-    return [access.router, pc_only, health.router, auth.router, assistive.router,
+    return [access.router, setup_check, pc_only, health.router, auth.router, assistive.router,
             admin_users.router, voice.router, sos.router, accessibility.router,
             admin_settings.router, admin_settings.public, admin_reports.router, apps.router,
             user_apps.router, admin_user_apps.router, word_filter.router,

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy.pool import NullPool
 
 from app.cloud import access
@@ -165,6 +166,33 @@ def test_voice_and_sos_work_online(ana):
     assert ana.get("/api/me/voice").status_code == 200
     assert ana.get("/api/me/language").status_code == 200
     assert ana.get("/api/app-info").status_code == 200
+
+
+def test_setup_check_needs_the_code_and_never_shows_values(web, monkeypatch):
+    assert web.get("/api/cloud/check").status_code == 401
+    assert web.post("/api/cloud/access", json={"code": CODE}).status_code == 200
+    monkeypatch.setenv("DB_USER", "dummy-user")
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    report = web.get("/api/cloud/check").json()
+    assert report["settings"]["IRISCLICK_ACCESS_CODE"] == "set"
+    assert report["settings"]["DB_USER"] == "set" and report["settings"]["DB_PASSWORD"] == "missing"
+    assert report["database"] == "ok" and report["error"] is None  # the test's SQLite database
+    assert CODE not in str(report) and "dummy-user" not in str(report)
+
+
+def test_setup_check_reports_the_database_reason_without_the_password(unlocked, monkeypatch):
+    secret = "dummy-secret-123"
+    with_password = get_settings().model_copy(update={"db_password": SecretStr(secret)})
+    monkeypatch.setattr(cloud, "get_settings", lambda: with_password)
+
+    def refuse():
+        raise RuntimeError(f"password authentication failed (tried {secret})")
+
+    monkeypatch.setattr(database, "check_connection", refuse)
+    report = unlocked.get("/api/cloud/check").json()
+    assert report["database"] == "error"
+    assert report["error"].startswith("RuntimeError: password authentication failed")
+    assert secret not in report["error"]
 
 
 # --- Vercel runtime --------------------------------------------------------------------------
