@@ -103,7 +103,7 @@ function CodeForm({ onOpen }: { onOpen: () => void }) {
         <Globe className="text-primary size-12" aria-hidden />
         <CardTitle className="text-3xl font-bold">IrisClick online</CardTitle>
         <CardDescription className="text-lg">
-          This is the online backup of IrisClick. Enter the access code from the PDAO office.
+          This is IrisClick online. Enter the access code from the PDAO office.
           This device remembers it.
         </CardDescription>
       </CardHeader>
@@ -133,7 +133,7 @@ function OnlineBanner() {
   return (
     <div role="note" className="bg-muted text-muted-foreground flex items-center justify-center gap-2 px-4 py-1.5 text-center text-sm">
       <Globe className="size-4 shrink-0" aria-hidden />
-      Online backup: eye tracking and calibration work only on the IrisClick PC.
+      IrisClick online: eye tracking runs on this computer with IrisClick Desktop.
     </div>
   )
 }

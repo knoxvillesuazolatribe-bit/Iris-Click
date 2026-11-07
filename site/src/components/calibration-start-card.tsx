@@ -106,7 +106,7 @@ export function CalibrationStartCard({ form, onSubmit, error, cameraOptions }: C
               Start calibration
             </Button>
             <Button type="button" variant="outline" size="lg" className="h-14 w-full text-lg"
-              onClick={() => void navigate('/home')}>
+              onClick={() => (window.history.state?.idx > 0 ? void navigate(-1) : void navigate('/home'))}>
               <ArrowLeft aria-hidden />
               Back
             </Button>
