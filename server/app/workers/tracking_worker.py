@@ -15,6 +15,7 @@ only hand data to the Tk main thread, which owns every window and OS-input call.
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -40,7 +41,7 @@ from app.core.calibration.recenter import (
     save_recenter,
 )
 from app.core.gaze.screen_mapper import ScreenCorrection
-from app.core.detection.blink_detector import LEFT, RIGHT, BlinkDetector
+from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
 from app.core.detection.lighting import LIGHTING_GUIDANCE
 from app.core.gaze.estimator import GazeTracker
@@ -57,6 +58,10 @@ from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
     CYCLE_EDGE,
+    FORWARD,
+    HOME,
+    KEYBOARD,
+    NEXT_TAB,
     PAUSE,
     QUIT,
     RECALIBRATE,
@@ -73,6 +78,20 @@ from app.services.camera_service import (
     update_device_settings,
 )
 from app.services.tracking_service import pid_alive, stop_request_path
+
+try:  # Phase 3 hook: live status for the site's Gaze Tracking page (optional).
+    from app.workers.worker_state import LiveState
+except Exception:  # noqa: BLE001
+    LiveState = None
+try:  # Phase 6 hooks: screenshot, edge scroll, Forward / Next Tab (optional).
+    from app.workers import extra_keys
+    from app.workers.worker_extras import WorkerExtras
+except Exception:  # noqa: BLE001
+    extra_keys = WorkerExtras = None
+try:  # Phase 7 hook (H4d): the signed-in user's accessibility settings (optional).
+    from app.workers import user_settings
+except Exception:  # noqa: BLE001
+    user_settings = None
 
 TICK_MS = 20
 STOP_CHECK_EVERY_TICKS = 25
@@ -231,6 +250,15 @@ class TrackingWorker:
         self._camera_restart: threading.Thread | None = None
         self._next_camera_retry = 0.0
         self._quitting = False
+        # Phase 3 hook: live status for the site. Tracking works without it.
+        self._live = None
+        with contextlib.suppress(Exception):
+            self._live = LiveState(settings)
+        # Phase 6 hooks (H4a/H4c): screenshot and edge scroll. Tracking works without them.
+        self._extras = None
+        with contextlib.suppress(Exception):
+            self._extras = WorkerExtras(self.root, self.bar.win, settings, profile_id,
+                                        self.screen_w, self.screen_h, self.voice.announce)
 
     def run(self):
         self.tray.start()
@@ -258,6 +286,8 @@ class TrackingWorker:
         state = (kind, self.paused, self.voice.enabled)
         self.bar.set_state(text, *state)
         self.tray.set_state(f"IrisClick: {text}", *state)
+        with contextlib.suppress(Exception):  # Phase 3 hook: live status
+            self._live.note_status(text, kind, self.paused)
 
     def _pause(self, reason: str):
         self.paused = True
@@ -342,6 +372,15 @@ class TrackingWorker:
                 self.quit()
             elif command == QUIT:
                 self.quit()
+            elif command == HOME:  # H3: open the Home Suite; tracking keeps running
+                with contextlib.suppress(Exception):
+                    webbrowser.open(f"{self.settings.site_url.rstrip('/')}/home")
+            elif command in (FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
+                with contextlib.suppress(Exception):
+                    extra_keys.press(command)
+            elif command == KEYBOARD:  # H3 (Phase 9): open/close the on-screen keyboard
+                with contextlib.suppress(Exception):
+                    self._extras.toggle_keyboard()
 
     def _cycle_edge(self, now: float):
         level = next_edge_level(self.navigator.config.edge_sensitivity)
@@ -387,7 +426,10 @@ class TrackingWorker:
             self.bar.keep_on_top()
             self.preview.keep_on_top()
         if self._tick_count % LOCAL_TARGETS_EVERY_TICKS == 1:
-            self.targets.set_local_targets(tk_button_targets(self.bar.win))
+            local_targets = tk_button_targets(self.bar.win)
+            with contextlib.suppress(Exception):  # Phase 9: on-screen keyboard keys snap too
+                local_targets = local_targets + self._extras.keyboard_targets()
+            self.targets.set_local_targets(local_targets)
         now_s = time.monotonic()
 
         # A re-centre needs no cursor, and clicking its button with the real
@@ -446,6 +488,8 @@ class TrackingWorker:
             return
 
         eye_closing = self.blink.classify(reading.left_ear, reading.right_ear) is not None
+        with contextlib.suppress(Exception):  # H4a: time closures (long = resting eyes)
+            self._extras.observe_closure(eye_closing, now_s)
         if eye_closing and not self._lid_down and not self.paused:
             self._lid_down = True
             # The lid dragged the cursor before the eye counted as closed; go
@@ -519,6 +563,8 @@ class TrackingWorker:
             self.glide.set_target(x, y, now)
             gx, gy = x, y
         self._draw(gx, gy, DISTANCE_TEXT.get(distance) or POSTURE_TEXT.get(self.posture.change))
+        with contextlib.suppress(Exception):  # H4c: edge-dwell scroll
+            self._extras.cursor_drawn(gx, gy, now_s)
         self.blink_anchor.record(now_s, gx, gy, reading.left_ear, reading.right_ear)
 
     def _record_cursor(self, reading, estimate, step, shown, started, nav_done, moved):
@@ -589,6 +635,8 @@ class TrackingWorker:
                                  self._fine_aim)
         self._draw_link(x, y, new_frame=True)
         self._showing_cursor = True
+        with contextlib.suppress(Exception):  # Phase 3 hook: live gaze position
+            self._live.note_gaze(x, y, self.screen_w, self.screen_h)
         if warning:
             self._set_status(warning, "problem")
         elif self._target is not None:
@@ -604,8 +652,12 @@ class TrackingWorker:
         side = self.blink.update(reading.left_ear, reading.right_ear)
         if side is None or self.paused:
             return
+        with contextlib.suppress(Exception):  # Phase 3 hook: live wink counter
+            self._live.note_wink(side)
         if self.settings.swap_blink_sides:
             side = {LEFT: RIGHT, RIGHT: LEFT}.get(side, side)
+        if side == LEFT and not getattr(self.settings, "blink_click_enabled", True):
+            side = None  # H4d: the user turned wink-to-click off (dwell click is on)
         if side == LEFT:
             if self._wink_point is not None:
                 self.mouse.left_click(*self._wink_point)
@@ -618,6 +670,9 @@ class TrackingWorker:
             else:
                 self.mouse.go_back()
             logger.info("Right wink: %s", self.settings.right_blink_action)
+        elif side == BOTH:  # H4a/H4b: once = screenshot, twice = on-screen keyboard
+            with contextlib.suppress(Exception):
+                logger.info("Both-eye blink: %s", self._extras.both_blink(time.monotonic()))
         self.dwell.reset()
 
     def _toggle_recenter(self, now: float):
@@ -734,6 +789,8 @@ def main(argv=None) -> int:
     settings = get_settings()
     configure_logging(settings)
     enable_dpi_awareness()
+    with contextlib.suppress(Exception):  # H4d: per-user settings, .env on any failure
+        settings = user_settings.for_active_user(settings)
 
     profile, model = load_profile(settings.profiles_dir, args.profile_id)
     if model is None:

@@ -27,6 +27,26 @@ def create_app() -> FastAPI:
     for router in (health.router, calibration.router, cameras.router, tracking.router,
                    calibration_ws.router):
         app.include_router(router, prefix=settings.api_prefix)
+    # Account routes (sign-in, users). If they fail to load, the routes above still serve.
+    try:
+        from app.api.routes import (accessibility, admin_reports, admin_settings, admin_users,
+                                    apps, assistive, auth, home, sos, voice)
+        for router in (auth.router, assistive.router, admin_users.router, home.router,
+                       voice.router, sos.router, accessibility.router, admin_settings.router,
+                       admin_settings.public, admin_reports.router, apps.router):
+            app.include_router(router, prefix=settings.api_prefix)
+    except Exception:
+        logging.getLogger("irisclick.api").exception("Account routes not loaded")
+    # Extensions, loaded on their own so a failure here never takes down the routes above.
+    try:
+        from app.api.routes import (admin_speech, admin_user_apps, admin_voice_settings, admin_word_filter,
+                                    neural_tts, speech, user_apps, word_filter)
+        for router in (user_apps.router, admin_user_apps.router, word_filter.router,
+                       admin_word_filter.router, speech.router, admin_speech.router,
+                       neural_tts.router, admin_voice_settings.router):
+            app.include_router(router, prefix=settings.api_prefix)
+    except Exception:
+        logging.getLogger("irisclick.api").exception("Extension routes not loaded")
     return app
 
 

@@ -39,6 +39,7 @@ from app.schemas.calibration import (
 )
 from app.services.camera_service import CameraService
 from app.services.tracking_service import TrackingService
+from app.services import calibration_records
 
 logger = logging.getLogger("irisclick.calibration_service")
 
@@ -178,6 +179,8 @@ class CalibrationSession:
             await self._send(PointResultMessage(
                 index=index, status="failed", sample_count=sample_count,
                 message="Not enough clear eye images at this dot."))
+            with contextlib.suppress(Exception):
+                calibration_records.record_failure(self._profile_name, "dot_not_clear", self._camera_index)
             await self._fail("Not enough clear eye images at a calibration dot. "
                              "Check the lighting and try again.")
             return
@@ -192,11 +195,16 @@ class CalibrationSession:
                 fit_hybrid, self._collector.samples, self._collector.point_counts, geometry)
         except ValueError as exc:
             logger.warning("Calibration fit failed: %s", exc)
+            with contextlib.suppress(Exception):
+                calibration_records.record_failure(self._profile_name, "fit_failed", self._camera_index)
             await self._fail("Calibration did not fit. Please try again.")
             return
         if not outcome.accepted:
             logger.warning("Calibration rejected: per-dot error=%.4f (limit %.2f), source=%s",
                            outcome.accuracy, MAX_LOW_ACCURACY_FRACTION, outcome.model.feature_source)
+            with contextlib.suppress(Exception):
+                calibration_records.record_failure(self._profile_name, "not_accurate_enough", self._camera_index,
+                                                   outcome.accuracy, outcome.model.feature_source)
             await self._fail("Calibration was not accurate enough. Sit at a comfortable "
                              "distance with soft front light, then try again.")
             return
@@ -206,6 +214,8 @@ class CalibrationSession:
             save_profile, self._settings.profiles_dir, outcome, self._profile_name,
             self._collector.sample_count, self._screen, deep_available, self._camera_index,
             self._collector.posture)
+        with contextlib.suppress(Exception):
+            calibration_records.record_success(profile)
         # The worker needs the camera this session still holds.
         await self._release_camera()
 

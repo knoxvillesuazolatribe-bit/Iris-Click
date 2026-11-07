@@ -31,6 +31,23 @@ class Settings(BaseSettings):
     db_password: SecretStr = SecretStr("")
     db_sslmode: str = "require"
     sqlite_path: Path = SERVER_DIR / "irisclick.db"
+    # Postgres schema holding the IrisClick tables. Supabase's public schema
+    # keeps the legacy tables, two of which share names with ours.
+    db_schema: str = Field("irisclick", pattern=r"^[a-z_][a-z0-9_]*$")
+
+    # Email for Emergency SOS (team decision D8). Empty host: SOS alerts fail
+    # with "email is not set up" instead of pretending to send.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_timeout_s: float = Field(15.0, gt=0)
+
+    # Time zone for dates and times people read (report PDFs, SOS messages). Servers
+    # such as Vercel run on UTC, so this is set here rather than taken from the server.
+    display_timezone: str = "Asia/Manila"
 
     # Site page the worker's tray opens for "Recalibrate".
     site_url: str = "http://localhost:5173"
@@ -51,6 +68,8 @@ class Settings(BaseSettings):
     recenter_path: Path = STORAGE_DIR / "recenter.json"
     worker_pid_path: Path = STORAGE_DIR / "tracking_worker.pid"
     worker_log_path: Path = STORAGE_DIR / "tracking_worker.log"
+    # Both-eye blink screenshots (team decision D2): <dir>/<user id>/<time>.png
+    screenshots_dir: Path = STORAGE_DIR / "screenshots"
     # Capture backend and pixel format (see core/camera/capture.py). "auto"
     # and an empty FOURCC keep OpenCV's defaults; compare alternatives with
     # scripts/benchmark_gaze.py camera before changing them.
@@ -68,6 +87,9 @@ class Settings(BaseSettings):
     cursor_smoothing: float = 0.25
     # Off by default: clicks come only from a deliberate left wink.
     dwell_click_enabled: bool = False
+    # A left wink clicks. A user may turn it off only while dwell click is on
+    # (Accessibility Settings, Phase 7); otherwise they could not click at all.
+    blink_click_enabled: bool = True
     voice_guidance_enabled: bool = True
     dwell_ms: int = 700
     dwell_radius_px: int = 45
@@ -77,6 +99,10 @@ class Settings(BaseSettings):
     # core/gaze/edge_reach.py). Default only: the control bar's choice is saved
     # in device_settings_path and wins.
     edge_sensitivity: Literal["off", "low", "medium", "high"] = "medium"
+    # Look at the top/bottom band for dwell_ms to scroll (app/workers/edge_scroll.py).
+    # Separate from edge_sensitivity above, which only affects left/right reach.
+    edge_scroll_enabled: bool = True
+    edge_scroll_band: float = Field(0.08, gt=0, le=0.25)
     # Snap gaze onto the nearest clickable control within this radius (physical
     # px); webcam gaze error (~90 px) is larger than small buttons.
     target_snap_enabled: bool = True

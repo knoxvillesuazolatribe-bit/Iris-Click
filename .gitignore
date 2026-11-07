@@ -15,6 +15,8 @@ server/app/storage/calibration_profiles/*
 server/app/storage/tracking_worker.pid
 server/app/storage/tracking_worker.stop
 server/app/storage/tracking_worker.log*
+server/app/storage/tracking_worker_state.json
+server/app/storage/tracking_worker_state.tmp
 
 # Site
 site/.env
@@ -22,6 +24,9 @@ site/.env
 .pytest_cache/
 server/app/storage/device_settings.json
 server/app/storage/recenter.json
+server/app/storage/active_user.json
+server/app/storage/screenshots/
 
 # Gaze benchmark recordings and diagnostics traces (local baselines, never committed)
 *.jsonl
+server/app/storage/tts_cache/

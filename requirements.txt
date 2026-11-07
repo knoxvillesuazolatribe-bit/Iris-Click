@@ -1,0 +1,15 @@
+# Python packages for the IrisClick ONLINE COPY on Vercel only (api/index.py).
+# The PC server uses server/requirements.txt. Versions match it; the camera,
+# eye-tracking and Windows packages (MediaPipe, OpenCV, MNN, pyautogui,
+# pyttsx3, pystray) are left out on purpose: they do not run on Vercel.
+fastapi==0.162.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-dotenv==1.2.4
+sqlalchemy==2.1.6
+psycopg[binary]==3.3.6
+argon2-cffi==25.1.0
+reportlab==4.4.4
+requests==2.34.2
+gTTS==2.5.4
+edge-tts==7.3.1
