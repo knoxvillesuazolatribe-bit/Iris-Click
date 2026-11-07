@@ -25,6 +25,7 @@ from sqlalchemy.pool import NullPool
 from app.api.deps import DatabaseSafeRoute, get_db, require_assistive
 from app.cloud import access
 from app.cloud import desktop as cloud_desktop
+from app.cloud import desktop_api as cloud_desktop_api
 from app.config import get_settings
 from app.models import database
 from app.models.user import User
@@ -161,7 +162,8 @@ def _routers() -> list[APIRouter]:
             admin_settings.router, admin_settings.public, admin_reports.router, apps.router,
             user_apps.router, admin_user_apps.router, word_filter.router,
             admin_word_filter.router, speech.router, admin_speech.router, neural_tts.router,
-            admin_voice_settings.router, cloud_desktop.me_router, cloud_desktop.desktop_router]
+            admin_voice_settings.router, cloud_desktop.me_router, cloud_desktop.desktop_router,
+            cloud_desktop_api.router]
 
 
 def create_app() -> FastAPI:
