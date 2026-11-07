@@ -6,10 +6,19 @@ contacts and reports are the same in both.
 
 | Works online | Only on the IrisClick PC |
 |---|---|
-| Sign-in (admin password, user name tiles) | Calibration and eye tracking |
-| Home, Voice Communication (natural voice), SOS email | Opening PC apps from the Apps tiles |
-| Settings, Edit Apps, word filter | Camera choice, tray, control bar, keyboard |
+| Sign-in (admin password, user name tiles) | Controlling other apps and websites with the eyes |
+| **Eye tracking inside the IrisClick website** (browser webcam) | Opening PC apps from the Apps tiles |
+| Home, Voice Communication (natural voice), SOS email | Camera choice, tray, PC control bar, on-screen Windows keyboard |
+| Settings, Edit Apps, word filter | |
 | Admin: users, settings, logs, reports (PDF) | |
+
+**Online eye tracking** (`site/src/online-gaze/`): the browser runs Google MediaPipe
+(tasks-vision 1.1.1, loaded from jsDelivr) on the webcam; camera pictures stay on the device.
+Same rules as the PC: 13-dot calibration, the eye-midpoint gaze formula, left wink = click,
+right wink = back, dwell click, edge scroll and button snapping follow the user's Accessibility
+Settings. Calibrations are saved as "Online (browser)" rows in `calibration_profiles` (counted in
+reports; the PC ignores them). Browsers only let it control the IrisClick tab itself, and the tab
+must stay open and visible. Math tests: `cd site && node --test tests/`.
 
 **Access code.** On the PC, users sign in by choosing their name with no password. Online,
 anyone could do that, so the online copy first asks for an **access code** (kept only in

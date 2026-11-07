@@ -127,7 +127,8 @@ def _routers() -> list[APIRouter]:
                                 admin_word_filter, apps, assistive, auth, health, neural_tts,
                                 sos, speech, user_apps, voice, word_filter)
     # pc_only first: its paths win over the PC versions in apps/user_apps.
-    return [access.router, setup_check, pc_only, health.router, auth.router, assistive.router,
+    from app.cloud import calibration as online_calibration
+    return [access.router, setup_check, online_calibration.router, pc_only, health.router, auth.router, assistive.router,
             admin_users.router, voice.router, sos.router, accessibility.router,
             admin_settings.router, admin_settings.public, admin_reports.router, apps.router,
             user_apps.router, admin_user_apps.router, word_filter.router,

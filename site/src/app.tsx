@@ -1,6 +1,6 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
-import { PcOnlyNotice } from '@/components/pc-only-notice'
 import { RequireRole } from '@/components/require-role'
 import { ONLINE_COPY } from '@/lib/online-copy'
 import { useAppName } from '@/lib/use-app-name'
@@ -24,6 +24,13 @@ import { TrackingPage } from '@/pages/tracking-page'
 import { UserSelectPage } from '@/pages/user-select-page'
 import { VoicePage } from '@/pages/voice-page'
 
+// Online copy only: browser eye tracking, loaded on demand so the PC build never includes it.
+const GazeLayer = lazy(() => import('@/online-gaze/gaze-layer').then((m) => ({ default: m.GazeLayer })))
+const OnlineCalibrationPage = lazy(() =>
+  import('@/online-gaze/online-calibration-page').then((m) => ({ default: m.OnlineCalibrationPage })))
+const OnlineTrackingPage = lazy(() =>
+  import('@/online-gaze/online-tracking-page').then((m) => ({ default: m.OnlineTrackingPage })))
+
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
 export function App() {
   return (
@@ -42,7 +49,8 @@ function Pages() {
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/user/select" element={<UserSelectPage />} />
         <Route path="/home" element={<RequireRole role="assistive_user"><HomePage /></RequireRole>} />
-        <Route path="/tracking" element={<RequireRole role="assistive_user"><TrackingPage /></RequireRole>} />
+        {/* Online copy hook: eye tracking runs in the browser there. */}
+        <Route path="/tracking" element={<RequireRole role="assistive_user">{ONLINE_COPY ? <Suspense fallback={null}><OnlineTrackingPage /></Suspense> : <TrackingPage />}</RequireRole>} />
         <Route path="/voice" element={<RequireRole role="assistive_user"><VoicePage /></RequireRole>} />
         <Route path="/sos" element={<RequireRole role="assistive_user"><SosPage /></RequireRole>} />
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />
@@ -59,10 +67,13 @@ function Pages() {
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
         <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
         <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />
-        {/* Online copy hook: calibration needs the PC's camera. */}
-        <Route path="/calibration" element={ONLINE_COPY ? <PcOnlyNotice /> : <CalibrationPage />} />
+        {/* Online copy hook: the browser's own calibration instead of the PC's. */}
+        <Route path="/calibration" element={ONLINE_COPY
+          ? <RequireRole role="assistive_user"><Suspense fallback={null}><OnlineCalibrationPage /></Suspense></RequireRole>
+          : <CalibrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {ONLINE_COPY && <Suspense fallback={null}><GazeLayer /></Suspense>}
     </BrowserRouter>
   )
 }

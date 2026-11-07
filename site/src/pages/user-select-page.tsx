@@ -82,12 +82,28 @@ export function UserSelectPage() {
     }
   }
 
-  // Online copy hook: no eye tracking there, so signing in goes straight to Home.
+  // Online copy hooks: eye tracking runs in the browser there (src/online-gaze).
   const goHome = async (tile: AssistiveTile) => {
-    setBusy('continue')
+    setBusy('calibrate')
     setError(null)
     try {
       if (await signIn(tile)) void navigate('/home')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const startOnline = async (tile: AssistiveTile) => {
+    setBusy('continue')
+    setError(null)
+    // Loaded on demand: the PC build never includes the browser tracker.
+    const [{ gaze }, { startSavedTracking }] = await Promise.all([
+      import('@/online-gaze/engine'), import('@/online-gaze/start')])
+    try {
+      if (!(await signIn(tile))) return
+      void navigate((await startSavedTracking()) === 'no_calibration' ? '/calibration' : '/home')
+    } catch (err) {
+      setError(gaze.getSnapshot().error ?? errorMessage(err, 'Eye tracking could not start.'))
     } finally {
       setBusy(null)
     }
@@ -112,10 +128,22 @@ export function UserSelectPage() {
             </Alert>
           )}
           {ONLINE_COPY ? (
-            <GazeButton className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void goHome(chosen)}>
-              {busy ? <LoaderCircle className="animate-spin" aria-hidden /> : <House aria-hidden />}
-              Go to Home
-            </GazeButton>
+            <div className="flex w-full flex-col gap-6">
+              <GazeButton className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void startOnline(chosen)}>
+                {busy === 'continue' ? <LoaderCircle className="animate-spin" aria-hidden /> : <Play aria-hidden />}
+                Start eye tracking
+              </GazeButton>
+              <GazeButton variant="outline" className="min-h-28 w-full text-2xl" disabled={busy !== null}
+                onClick={() => void calibrate(chosen)}>
+                <Crosshair aria-hidden />
+                Calibrate
+              </GazeButton>
+              <GazeButton variant="outline" className="min-h-20 w-full text-xl" disabled={busy !== null}
+                onClick={() => void goHome(chosen)}>
+                {busy === 'calibrate' ? <LoaderCircle className="animate-spin" aria-hidden /> : <House aria-hidden />}
+                Continue without eye tracking
+              </GazeButton>
+            </div>
           ) : (
           <div className="flex w-full flex-col gap-6">
             <GazeButton

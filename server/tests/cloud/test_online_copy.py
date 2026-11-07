@@ -287,3 +287,56 @@ def test_vercel_entry_loads_without_windows_or_camera_packages(tmp_path):
                             capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr[-2000:]
     assert "loaded" in result.stdout
+
+
+# --- Online (browser) calibration -------------------------------------------------------------
+
+def _model(**change):
+    model = {"source": "web_eye_midpoint_v1", "version": 1, "mean": [0.0] * 5, "scale": [0.1] * 5,
+             "coefX": [0.5, 0.2, 0, 0, 0, 0], "coefY": [0.5, 0, 0.2, 0, 0, 0], "stretch": [0, 1, 0, 1]}
+    return {**model, **change}
+
+
+def test_online_calibration_is_saved_loaded_and_logged(ana, test_database):
+    from app.cloud.calibration import ONLINE_SOURCE
+    from app.models.calibration_record import CalibrationRecord
+    from tests.auth.conftest import logs
+
+    assert ana.get("/api/me/online-calibration").json() is None
+    response = ana.post("/api/me/online-calibration", json={
+        "status": "Successful", "error_fraction": 0.045, "sample_count": 240,
+        "model": _model(), "viewport": {"w": 1366, "h": 657}})
+    assert response.status_code == 201
+    saved = response.json()
+    assert saved["accuracy_score"] == 95.5 and saved["low_accuracy"] is False
+    loaded = ana.get("/api/me/online-calibration").json()
+    assert loaded["model"] == _model() and loaded["viewport"] == {"w": 1366, "h": 657}
+    with test_database() as session:
+        row = session.query(CalibrationRecord).one()
+        assert row.feature_source == ONLINE_SOURCE and row.profile_file_id is None
+        assert row.profile_name == "Online (browser)" and row.status == "Successful"
+    assert "Online calibration saved: accuracy 95.50% (browser)" in logs(test_database, "calibration")[-1].activity_description
+
+
+def test_online_calibration_failures_are_recorded_but_never_loaded(ana, test_database):
+    from tests.auth.conftest import logs
+
+    assert ana.post("/api/me/online-calibration", json={
+        "status": "Failed", "reason": "dot_not_clear", "sample_count": 30}).status_code == 201
+    # too inaccurate to be accepted, even if the page says Successful
+    assert ana.post("/api/me/online-calibration", json={
+        "status": "Successful", "error_fraction": 0.2, "model": _model()}).json() is None
+    assert ana.get("/api/me/online-calibration").json() is None
+    failed = logs(test_database, "calibration_failed")
+    assert len(failed) == 2 and "Not enough clear eye images" in failed[0].activity_description
+
+
+def test_online_calibration_rejects_a_damaged_model(ana):
+    for bad in (_model(coefX=[1, 2]), _model(source="other"), _model(stretch=[0, 1, 0, None])):
+        response = ana.post("/api/me/online-calibration", json={
+            "status": "Successful", "error_fraction": 0.03, "model": bad})
+        assert response.status_code == 422
+
+
+def test_online_calibration_needs_a_signed_in_user(unlocked):
+    assert unlocked.get("/api/me/online-calibration").status_code == 401
