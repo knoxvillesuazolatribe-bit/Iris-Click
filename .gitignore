@@ -30,3 +30,9 @@ server/app/storage/screenshots/
 # Gaze benchmark recordings and diagnostics traces (local baselines, never committed)
 *.jsonl
 server/app/storage/tts_cache/
+
+# IrisClick Desktop: logs, process IDs, link and sync state (local to each PC)
+server/app/storage/irisclick_*.log
+server/app/storage/irisclick_*.pid
+server/app/storage/desktop_session.json
+server/app/storage/desktop_sync_state.json
