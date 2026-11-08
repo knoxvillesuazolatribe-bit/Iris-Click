@@ -131,6 +131,7 @@ def enter_code(body: AccessRequest, request: Request, response: Response) -> Acc
 def gate(api_prefix: str):
     """Middleware: every API request needs the access cookie, except these."""
     open_paths = {f"{api_prefix}/cloud/status", f"{api_prefix}/cloud/access", f"{api_prefix}/health",
+                  f"{api_prefix}/cloud/computers/claim",
                   *(f"{api_prefix}/desktop/{p}" for p in ("session", "profile", "calibrations", "logs"))}
     # The desktop routes are protected by signed tokens instead (app/cloud/desktop.py, desktop_api.py).
 

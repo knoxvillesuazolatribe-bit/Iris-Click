@@ -2,6 +2,7 @@ import { ArrowLeft, Crosshair, LoaderCircle, Play } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { errorMessage } from '@/api/app-client'
+import { ComputerNotApproved } from '@/components/computer-not-approved'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
 import { ServerDown } from '@/components/server-down'
@@ -10,11 +11,12 @@ import { UserTile } from '@/components/user-tile'
 import { linkDesktop } from '@/lib/desktop-link'
 import { ONLINE_COPY } from '@/lib/online-copy'
 import { assistiveService } from '@/services/auth-service'
+import { isNotApproved } from '@/services/computers-service'
 import { trackingService } from '@/services/tracking-service'
 import { useSessionStore } from '@/store/session-store'
 import type { AssistiveTile } from '@/validators/auth-validator'
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; tiles: AssistiveTile[] }
+type Load = { state: 'loading' } | { state: 'error' | 'not-approved'; message: string } | { state: 'ready'; tiles: AssistiveTile[] }
 
 /**
  * Assistive-user sign-in: pick your name tile, then continue with your saved
@@ -43,7 +45,8 @@ export function UserSelectPage() {
         const back = tiles.find((t) => t.user_id === remembered.current)
         if (back) setChosen(back)
       })
-      .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load the names.') }))
+      .catch((err) => current && setLoad({ state: isNotApproved(err) ? 'not-approved' : 'error',
+        message: errorMessage(err, 'Could not load the names.') }))
     return () => {
       current = false
     }
@@ -149,6 +152,7 @@ export function UserSelectPage() {
             <LoaderCircle className="text-muted-foreground size-12 animate-spin" aria-label="Loading names" />
           )}
           {load.state === 'error' && <ServerDown message={load.message} onRetry={retry} />}
+          {load.state === 'not-approved' && <ComputerNotApproved message={load.message} onRetry={retry} />}
           {load.state === 'ready' && load.tiles.length === 0 && (
             <p className="text-muted-foreground max-w-xl text-center text-2xl">
               No accounts yet. Ask your administrator to create your account.
