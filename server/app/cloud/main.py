@@ -26,6 +26,7 @@ from app.api.deps import DatabaseSafeRoute, get_db, require_assistive
 from app.cloud import access
 from app.cloud import desktop as cloud_desktop
 from app.cloud import desktop_api as cloud_desktop_api
+from app.cloud import computers as cloud_computers
 from app.config import get_settings
 from app.models import database
 from app.models.user import User
@@ -125,7 +126,7 @@ setup_check = APIRouter(prefix="/cloud", tags=["online copy"])
 
 
 @setup_check.get("/check")
-def check_setup() -> dict:
+def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked)) -> dict:
     """Which settings this deployment has (set/missing, never values) and whether the
     database answers, with the driver's reason when it does not. Behind the access code."""
     settings = get_settings()
@@ -157,7 +158,9 @@ def _routers() -> list[APIRouter]:
                                 admin_word_filter, apps, assistive, auth, health, neural_tts,
                                 sos, speech, user_apps, voice, word_filter)
     # pc_only first: its paths win over the PC versions in apps/user_apps.
-    return [access.router, setup_check, pc_only, health.router, auth.router, assistive.router,
+    return [access.router, setup_check, pc_only, health.router, auth.router,
+            cloud_computers.sign_in_router, cloud_computers.claim_router,
+            cloud_computers.admin_router, assistive.router,
             admin_users.router, voice.router, sos.router, accessibility.router,
             admin_settings.router, admin_settings.public, admin_reports.router, apps.router,
             user_apps.router, admin_user_apps.router, word_filter.router,

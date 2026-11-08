@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
+import { AdminApprovedComputersCard } from '@/components/admin-approved-computers-card'
 import { AdminUserAppsCard } from '@/components/admin-user-apps-card'
 import { AdminUserLanguageCard } from '@/components/admin-user-language-card'
 import { AdminUserVoiceCard } from '@/components/admin-user-voice-card'
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { ONLINE_COPY } from '@/lib/online-copy'
 import { pickValues } from '@/lib/settings'
 import { adminService } from '@/services/admin-service'
 import { profileFormSchema, type AdminUserDetail, type ProfileForm } from '@/validators/admin-validator'
@@ -129,6 +131,7 @@ export function AdminUserPage() {
       <SilentBoundary><AdminUserAppsCard userId={userId} name={user.full_name} /></SilentBoundary>
       <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>
       <SilentBoundary><AdminUserVoiceCard userId={userId} name={user.full_name} /></SilentBoundary>
+      {ONLINE_COPY && <SilentBoundary><AdminApprovedComputersCard userId={userId} name={user.full_name} /></SilentBoundary>}
     </AdminLayout>
   )
 }

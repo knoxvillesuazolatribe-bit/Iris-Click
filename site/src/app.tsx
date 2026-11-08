@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
 import { DesktopGate } from '@/components/desktop-gate'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
+import { ApproveComputerPage } from '@/pages/approve-computer-page'
 import { DesktopTrackingPage } from '@/pages/desktop-tracking-page'
 import { RequireRole } from '@/components/require-role'
 import { ONLINE_COPY } from '@/lib/online-copy'
@@ -47,6 +48,7 @@ function Pages() {
         <Route path="/tracking" element={<RequireRole role="assistive_user">{ONLINE_COPY
           ? <DesktopGate><DesktopTrackingPage /></DesktopGate> : <TrackingPage />}</RequireRole>} />
         {ONLINE_COPY && <Route path="/desktop" element={<DesktopDownloadPage />} />}
+        {ONLINE_COPY && <Route path="/approve" element={<ApproveComputerPage />} />}
         <Route path="/voice" element={<RequireRole role="assistive_user"><VoicePage /></RequireRole>} />
         <Route path="/sos" element={<RequireRole role="assistive_user"><SosPage /></RequireRole>} />
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />

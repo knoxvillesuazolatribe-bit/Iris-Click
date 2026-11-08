@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.user_app_shortcut import UserAppShortcut  # extension: custom Apps
 from app.models.word_filter import FilteredWord, WordFilterSettings  # extension: word filter
 from app.models.user_speech_settings import UserSpeechSettings  # extension: speech language
+from app.models.approved_computer import ApprovedComputer  # extension: computer lock
 from app.models.user_session import UserSession
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "FilteredWord",
     "WordFilterSettings",
     "UserSpeechSettings",
+    "ApprovedComputer",
 ]
