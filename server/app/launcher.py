@@ -328,6 +328,25 @@ def tray_image(size: int = 64):
     return img
 
 
+def first_run_calibration(port: int) -> bool:
+    """Desktop calibration hook: on a first run (no calibration yet) opens the calibration
+    window, only in desktop mode with someone linked (app/desktop_calibration/hooks.py)."""
+    try:
+        from app.desktop_calibration.hooks import first_run_calibration as hook
+        return hook(port)
+    except Exception:  # noqa: BLE001 - never stops the launcher
+        return False
+
+
+def open_calibration_window() -> None:
+    """Desktop calibration hook: tray "Calibrate here"."""
+    try:
+        from app.desktop_calibration.hooks import open_window
+        open_window("tray")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def run_tray(open_site: Callable[[], None], quit_all: Callable[[], None]) -> None:
     """Blocks until Quit; without pystray (not Windows) it just waits for Ctrl+C."""
     try:
@@ -345,6 +364,7 @@ def run_tray(open_site: Callable[[], None], quit_all: Callable[[], None]) -> Non
 
     menu = pystray.Menu(
         pystray.MenuItem("Open IrisClick", lambda icon, item: open_site(), default=True),
+        pystray.MenuItem("Calibrate here", lambda icon, item: open_calibration_window()),
         pystray.MenuItem("Start with Windows", toggle_startup, checked=lambda item: starts_with_windows()),
         pystray.MenuItem("Quit IrisClick", quit_clicked),
     )
@@ -381,6 +401,8 @@ def run(port: int, *, window: bool = True, voice: bool = True, tracking: bool = 
         if not retry(START_FAILED):
             return 1
     running = track(port) if tracking else False
+    if tracking and not running:
+        first_run_calibration(port)  # desktop calibration: desktop mode + someone linked only
     if window:
         show(website, edge)
     if voice:

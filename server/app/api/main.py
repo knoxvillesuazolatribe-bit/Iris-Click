@@ -50,6 +50,8 @@ def create_app() -> FastAPI:
                        neural_tts.router, admin_voice_settings.router, desktop_link.router,
                        desktop_version.router, desktop_tracking.router):
             app.include_router(router, prefix=settings.api_prefix)
+        from app.api.routes import desktop_calibration  # extension: desktop calibration
+        app.include_router(desktop_calibration.router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")
     return app

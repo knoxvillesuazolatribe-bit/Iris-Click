@@ -57,6 +57,7 @@ from app.desktop.display import enable_dpi_awareness
 from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
+    CALIBRATE_HERE,
     CYCLE_EDGE,
     FORWARD,
     HOME,
@@ -72,6 +73,7 @@ from app.desktop.system_tray import (
 )
 from app.desktop.target_assist import TargetFinder, tk_button_targets
 from app.desktop.voice import Speaker, VoiceGuide
+from app.desktop_calibration import hooks as desktop_calibration_hooks  # desktop calibration window
 from app.services.camera_service import (
     get_camera_service,
     read_device_settings,
@@ -368,8 +370,15 @@ class TrackingWorker:
             elif command == CYCLE_EDGE:
                 self._cycle_edge(now)
             elif command == RECALIBRATE:
-                webbrowser.open(f"{self.settings.site_url.rstrip('/')}/calibration")
-                self.quit()
+                if desktop_calibration_hooks.surface() == "desktop":
+                    threading.Thread(target=desktop_calibration_hooks.open_window, args=("recalibrate",),
+                                     daemon=True).start()
+                else:
+                    webbrowser.open(f"{self.settings.site_url.rstrip('/')}/calibration")
+                    self.quit()
+            elif command == CALIBRATE_HERE:  # desktop calibration window
+                threading.Thread(target=desktop_calibration_hooks.open_window, args=("tray",),
+                                 daemon=True).start()
             elif command == QUIT:
                 self.quit()
             elif command == HOME:  # H3: open the Home Suite; tracking keeps running

@@ -27,6 +27,7 @@ HOME = "home"  # Phase 3 (H3): open the site's Home Suite.
 FORWARD = "forward"  # Phase 6 (H3): Alt+Right
 NEXT_TAB = "next_tab"  # Phase 6 (H3): Ctrl+Tab
 KEYBOARD = "keyboard"  # Phase 9 (H3): open/close the on-screen keyboard
+CALIBRATE_HERE = "calibrate_here"  # desktop calibration window
 
 
 def _eye_icon(iris_colour: str) -> Image.Image:
@@ -66,6 +67,7 @@ class SystemTray:
                 pystray.MenuItem(lambda _item: f"Edge sensitivity: {self._edge_level}",
                                  self._queue(CYCLE_EDGE)),
                 pystray.MenuItem("Recalibrate…", self._queue(RECALIBRATE)),
+                pystray.MenuItem("Calibrate here", self._queue(CALIBRATE_HERE)),
                 pystray.MenuItem("Home Suite", self._queue(HOME)),  # H3
                 pystray.MenuItem("Forward", self._queue(FORWARD)),  # H3 (Phase 6)
                 pystray.MenuItem("Next Tab", self._queue(NEXT_TAB)),  # H3 (Phase 6)

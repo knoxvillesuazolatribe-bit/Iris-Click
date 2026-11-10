@@ -10,6 +10,7 @@ import tkinter as tk
 
 from app.desktop.display import make_tool_window
 from app.desktop.system_tray import (
+    CALIBRATE_HERE,
     CYCLE_EDGE,
     FORWARD,
     HOME,
@@ -70,6 +71,7 @@ class ControlBar:
         self._edge = self._button(frame, "Edge: medium", CYCLE_EDGE)
         self._recenter = self._button(frame, "Re-centre", RECENTER)
         self._button(frame, "Recalibrate", RECALIBRATE)
+        self._button(frame, "Calibrate", CALIBRATE_HERE)  # desktop calibration window
         # H3: buttons added after the original bar, kept together so they can
         # move to a second row on screens too narrow for one (see below).
         self._extra_row = tk.Frame(self.win, bg=BACKGROUND)
