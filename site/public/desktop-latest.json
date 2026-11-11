@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "download_url": "https://github.com/knoxvillesuazolatribe-bit/Iris-Click/releases/latest/download/IrisClick-Desktop-Setup.exe",
-  "notes": "First release of IrisClick Desktop."
+  "notes": "Eye tracking now re-centres itself once each time it starts, for better accuracy after you sit down."
 }
