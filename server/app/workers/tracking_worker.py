@@ -40,6 +40,7 @@ from app.core.calibration.recenter import (
     load_recenter_record,
     save_recenter,
 )
+from app.workers.start_recentre import StartRecentre  # quick re-centre once per start
 from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
@@ -195,6 +196,7 @@ class TrackingWorker:
         self.profile_id = profile_id
         self.posture = PostureMonitor(posture)
         self.recenter: RecenterSession | None = None
+        self._start_recentre = StartRecentre.from_env(profile_id)  # quick re-centre once per start
         self._correction_before_recenter = None
         self.mouse = MouseController()
         self.screen_w, self.screen_h = self.mouse.screen_size()
@@ -464,6 +466,8 @@ class TrackingWorker:
                 and not self.paused):
             logger.info("Posture changed (%s) since the mapping was fitted", self.posture.change)
             self.voice.announce(POSTURE_SPEECH, now_s)
+        if self.recenter is None and not self.paused and self._start_recentre.due(now_s, reading):
+            self._toggle_recenter(now_s)  # quick re-centre once per start
 
         if self.recenter is not None:
             self._step_recenter(estimate, reason, now_s)
