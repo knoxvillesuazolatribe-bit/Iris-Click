@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
 import { DesktopGate } from '@/components/desktop-gate'
+import { CalibrationSurfaceSwitch } from '@/components/calibration-surface-switch'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { ApproveComputerPage } from '@/pages/approve-computer-page'
 import { DesktopTrackingPage } from '@/pages/desktop-tracking-page'
@@ -66,7 +67,10 @@ function Pages() {
         <Route path="/admin/reports" element={<RequireRole role="admin"><AdminReportsPage /></RequireRole>} />
         <Route path="/admin/reports/:type" element={<RequireRole role="admin"><AdminReportPage /></RequireRole>} />
         {/* Hybrid hook: the hosted site uses the EXISTING calibration page, through IrisClick Desktop. */}
-        <Route path="/calibration" element={ONLINE_COPY ? <DesktopGate><CalibrationPage /></DesktopGate> : <CalibrationPage />} />
+        {/* Desktop calibration hook: IrisClick Desktop chooses web (default: the page above) or its own window. */}
+        <Route path="/calibration" element={ONLINE_COPY
+          ? <DesktopGate><CalibrationSurfaceSwitch web={<CalibrationPage />} /></DesktopGate>
+          : <CalibrationSurfaceSwitch web={<CalibrationPage />} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
