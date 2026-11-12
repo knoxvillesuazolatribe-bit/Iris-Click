@@ -20,6 +20,8 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
+from app.accounts import open_site
+
 logger = logging.getLogger("irisclick.cloud.access")
 
 CODE_ENV = "IRISCLICK_ACCESS_CODE"
@@ -104,6 +106,8 @@ class AccessRequest(BaseModel):
 
 @router.get("/status", response_model=AccessStatus)
 def status(request: Request) -> AccessStatus:
+    if open_site.open_without_code():  # D1: accounts with PINs, no access code set
+        return AccessStatus(ready=True, access=True)
     return AccessStatus(ready=configured_code() is not None, access=has_access(request))
 
 
@@ -141,6 +145,8 @@ def gate(api_prefix: str):
         if request.method == "OPTIONS" or not path.startswith(api_prefix) or path in open_paths:
             return await call_next(request)
         if configured_code() is None:
+            if open_site.open_without_code():  # D1
+                return await call_next(request)
             return JSONResponse({"detail": NOT_SET_UP, "code": "not_set_up"}, status_code=503)
         if not has_access(request):
             return JSONResponse({"detail": ACCESS_REQUIRED, "code": "access_required"},
