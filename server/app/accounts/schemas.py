@@ -89,3 +89,14 @@ class SetupCompleteRequest(BaseModel):
     consent: bool = False
     username: str | None = Field(default=None, max_length=64)
     mobile_number: str | None = Field(default=None, max_length=32)
+
+
+class AddressRequest(BaseModel):
+    """The person's own address for Emergency SOS (step 12). Blank barangay is allowed."""
+    address: str = Field(min_length=1, max_length=255)
+    barangay: str = Field(default="", max_length=100)
+
+
+class AddressRead(BaseModel):
+    location_text: str | None
+

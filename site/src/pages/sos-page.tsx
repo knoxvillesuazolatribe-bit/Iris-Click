@@ -8,6 +8,7 @@ import { SosDwellButton } from '@/components/sos-dwell-button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { sosService } from '@/services/sos-service'
 import type { SosOverview } from '@/validators/sos-validator'
+import { AddAddressPrompt } from '@/components/add-address-prompt'
 
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; overview: SosOverview }
 
@@ -131,9 +132,7 @@ export function SosPage() {
         {location ? (
           <p className="text-xl">{location}</p>
         ) : (
-          <p className="text-destructive text-xl">
-            No address on file. Contacts will be asked to call you. Ask your administrator to add your address and barangay.
-          </p>
+          <AddAddressPrompt />
         )}
       </section>
     </main>

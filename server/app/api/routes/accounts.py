@@ -9,6 +9,7 @@ POST /accounts/signin         a tile, or username + PIN -> signed in, added to t
 POST /accounts/remove         forget an account on this computer
 POST /accounts/signout        sign out; this computer asks for the PIN next time
 POST /accounts/setup-code     PDAO's 8-digit setup code -> a short setup ticket
+PUT  /accounts/me/address     the signed-in person adds their own address for Emergency SOS
 POST /accounts/setup-complete the ticket + new PIN (+ username and mobile for a first account)
 
 Every /accounts call carries the computer ID from IrisClick Desktop in the
@@ -21,16 +22,19 @@ from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from app.accounts import devices, mode, service, setup_codes, usernames
-from app.accounts.schemas import (AccountSessionRead, RemoveRequest, SetupCodeRead, SetupCodeRequest,
-                                  SetupCompleteRequest, SigninModeRead, SigninRequest, SignupRequest,
-                                  ThisComputerRead, TileRead, TilesRead, UsernameCheckRead, UsernameCheckRequest)
+from app.accounts.schemas import (AccountSessionRead, AddressRead, AddressRequest, RemoveRequest, SetupCodeRead,
+                                  SetupCodeRequest, SetupCompleteRequest, SigninModeRead, SigninRequest,
+                                  SignupRequest, ThisComputerRead, TileRead, TilesRead, UsernameCheckRead,
+                                  UsernameCheckRequest)
 from app.accounts.service import AccountError, SignedInAccount
 from app.api.deps import (DatabaseSafeRoute, clear_session_cookie, current_sign_in, get_db,
-                          set_session_cookie)
+                          require_assistive, set_session_cookie)
 from app.config import get_settings
 from app.models.account_models import Device
-from app.services import session_service
+from app.models.user import User
+from app.services import session_service, sos_service
 from app.services.session_service import SignedIn
+from app.services.system_log_service import log_activity
 
 LEGACY_MODE = "Accounts on this computer are not turned on."
 
@@ -179,3 +183,18 @@ def setup_complete(body: SetupCompleteRequest, request: Request, device: Device 
     except AccountError as exc:
         return _refusal(exc)
     return _signed_in(result, request, db)
+
+
+@router.put("/me/address", response_model=AddressRead)
+def my_address(body: AddressRequest, user: User = Depends(require_assistive), db: Session = Depends(get_db)):
+    """Sent with an SOS alert as the location (D8). The log never holds the address itself."""
+    address, barangay = " ".join(body.address.split()), " ".join(body.barangay.split())
+    if not address:
+        raise HTTPException(status_code=422, detail="Type your address first.")
+    row = db.get(User, user.user_id)
+    row.address, row.barangay = address, barangay or None
+    log_activity("address_updated", f"{row.full_name} updated their address for Emergency SOS", row.user_id,
+                 session=db)
+    db.commit()
+    return AddressRead(location_text=sos_service.location_text(row))
+

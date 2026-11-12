@@ -30,6 +30,7 @@ import { AccountsPage } from '@/pages/accounts-page'
 import { SigninModeSwitch } from '@/components/signin-mode-switch'
 import { AddAccountPage } from '@/pages/add-account-page'
 import { IdleSignOut } from '@/components/idle-signout'
+import { AddressPage } from '@/pages/address-page'
 import { VoicePage } from '@/pages/voice-page'
 
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
@@ -61,6 +62,7 @@ function Pages() {
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />
         <Route path="/sos/sent" element={<RequireRole role="assistive_user"><SosSentPage /></RequireRole>} />
         <Route path="/sos/contacts" element={<RequireRole role="assistive_user"><SosContactsPage /></RequireRole>} />
+        <Route path="/sos/address" element={<RequireRole role="assistive_user"><AddressPage /></RequireRole>} />
         <Route path="/settings" element={<RequireRole role="assistive_user"><SettingsPage /></RequireRole>} />
         <Route path="/admin" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
         <Route path="/admin/users" element={<RequireRole role="admin"><AdminUsersPage /></RequireRole>} />
