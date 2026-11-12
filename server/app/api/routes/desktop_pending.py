@@ -4,6 +4,7 @@ POST /api/desktop/pending-calibration/allow    let the next calibration start wi
 GET  /api/desktop/pending-calibration          the newest ownerless calibration of the last 15 min
 POST /api/desktop/pending-calibration/attach   give it to the person now linked, upload it
 POST /api/desktop/pending-calibration/discard  delete it (Back / Cancel)
+POST /api/desktop/pending-calibration/hold-tracking  keep eye tracking off until the account exists
 
 Only allowed websites reach these routes (origin_guard). See app/accounts/pending_calibration.py.
 """
@@ -43,6 +44,11 @@ def allow() -> dict:
     active_user.set_user_id(None)
     pending.allow_new_account()
     return {"allowed": True}
+
+
+@router.post("/hold-tracking")
+def hold_tracking() -> dict:
+    return {"held": pending.hold_tracking()}
 
 
 @router.get("", response_model=PendingRead)

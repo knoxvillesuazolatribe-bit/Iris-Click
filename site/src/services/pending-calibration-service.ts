@@ -9,6 +9,8 @@ import { pendingCalibrationSchema } from '@/validators/accounts-validator'
 export const pendingCalibrationService = {
   /** Let the next calibration start with nobody linked (IrisClick Desktop allows 15 minutes). */
   allow: () => apiClient.post('/desktop/pending-calibration/allow'),
+  /** The new person has no account yet: keep eye tracking off until it is created. */
+  holdTracking: () => apiClient.post('/desktop/pending-calibration/hold-tracking').catch(() => undefined),
   current: () => apiClient.get('/desktop/pending-calibration').then((r) => pendingCalibrationSchema.parse(r.data)),
   /** After sign-up or sign-in, once IrisClick Desktop is linked to the account. */
   attach: (profileFileId: string | null) =>

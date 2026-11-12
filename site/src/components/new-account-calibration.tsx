@@ -49,7 +49,10 @@ export function NewAccountCalibration({ stepLabel, onDone }: Props) {
     const finish = async () => {
       try {
         const pending = await pendingCalibrationService.current()
-        if (pending.pending) show({ kind: 'done', pending })
+        if (pending.pending) {
+          void pendingCalibrationService.holdTracking()
+          show({ kind: 'done', pending })
+        }
         else show({ kind: 'stopped', message: STOPPED })
       } catch {
         show({ kind: 'stopped', message: LOST })

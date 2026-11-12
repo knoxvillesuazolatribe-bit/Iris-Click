@@ -12,6 +12,7 @@ ownerless calibration is never handed to the wrong person.
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -49,6 +50,40 @@ def close_window() -> None:
 def new_account_allowed(now: float | None = None) -> bool:
     with _lock:
         return (now if now is not None else time.monotonic()) < _allowed_until
+
+
+def hold_tracking(stop: Callable[[], object] | None = None, delays_s: tuple[float, ...] = (1.0, 2.0, 3.0, 5.0),
+                  wait: Callable[[float], None] = time.sleep) -> bool:
+    """A new person just calibrated: keep eye tracking off until their account exists.
+
+    The calibration service starts tracking by itself after every successful calibration;
+    for someone with no account that would let them use the whole computer. This stops it,
+    and checks again for a few seconds in case it starts just after. It never touches
+    tracking while a person is linked. True when nobody was linked (so tracking is held).
+    """
+    if active_user.get_user_id() is not None:
+        return False
+    if stop is None:
+        from app.services.tracking_service import get_tracking_service
+        stop = get_tracking_service().stop
+
+    def stop_if_nobody() -> None:
+        if active_user.get_user_id() is None:
+            try:
+                stop()
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not hold eye tracking for the new account")
+
+    stop_if_nobody()
+
+    def later() -> None:
+        for delay in delays_s:
+            wait(delay)
+            stop_if_nobody()
+
+    if delays_s:
+        threading.Thread(target=later, name="hold-tracking", daemon=True).start()
+    return True
 
 
 @dataclass(frozen=True)
