@@ -26,6 +26,8 @@ import { SosPage } from '@/pages/sos-page'
 import { SosSentPage } from '@/pages/sos-sent-page'
 import { TrackingPage } from '@/pages/tracking-page'
 import { UserSelectPage } from '@/pages/user-select-page'
+import { AccountsPage } from '@/pages/accounts-page'
+import { SigninModeSwitch } from '@/components/signin-mode-switch'
 import { VoicePage } from '@/pages/voice-page'
 
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
@@ -44,7 +46,7 @@ function Pages() {
       <Routes>
         <Route path="/" element={<LoginSelectionPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/user/select" element={<UserSelectPage />} />
+        <Route path="/user/select" element={<SigninModeSwitch legacy={<UserSelectPage />} deviceAccounts={<AccountsPage />} />} />
         <Route path="/home" element={<RequireRole role="assistive_user"><HomePage /></RequireRole>} />
         <Route path="/tracking" element={<RequireRole role="assistive_user">{ONLINE_COPY
           ? <DesktopGate><DesktopTrackingPage /></DesktopGate> : <TrackingPage />}</RequireRole>} />
