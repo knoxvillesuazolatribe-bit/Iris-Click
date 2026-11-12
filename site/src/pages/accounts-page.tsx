@@ -15,6 +15,9 @@ import { accountRefusal, accountsService } from '@/services/accounts-service'
 import { useSessionStore } from '@/store/session-store'
 import type { AccountRefusal, AccountSession, AccountTile as Tile, Tiles } from '@/validators/accounts-validator'
 
+/** How long good news (account removed or created) stays before it fades away. */
+const NOTICE_SHOW_MS = 6000
+
 type Load =
   | { state: 'finding' }
   | { state: 'no-desktop' }
@@ -41,8 +44,18 @@ export function AccountsPage() {
   const [view, setView] = useState<View>({ kind: 'pick' })
   const [busy, setBusy] = useState(false)
   // Coming back from Add account: "Account created. Look at your name to start."
-  const [message, setMessage] = useState<string | null>(
+  const [message, setMessage] = useState<string | null>(null)
+  // Good news fades away by itself (NOTICE_SHOW_MS, then a 1 s fade); problems stay in `message`.
+  const [notice, setNotice] = useState<string | null>(
     (location.state as { notice?: string } | null)?.notice ?? null)
+  const [fading, setFading] = useState(false)
+  useEffect(() => {
+    setFading(false)
+    if (!notice) return
+    const fade = window.setTimeout(() => setFading(true), NOTICE_SHOW_MS)
+    const hide = window.setTimeout(() => setNotice(null), NOTICE_SHOW_MS + 1000)
+    return () => { window.clearTimeout(fade); window.clearTimeout(hide) }
+  }, [notice])
   const [refusal, setRefusal] = useState<AccountRefusal | null>(null)
 
   const askPin = (tile: Tile, purpose: 'signin' | 'remove') => {
@@ -79,6 +92,7 @@ export function AccountsPage() {
 
   const pick = async (tile: Tile) => {
     setMessage(null)
+    setNotice(null)
     if (load.state !== 'ready') return
     if (tile.needs_pin) return askPin(tile, 'signin')
     setBusy(true)
@@ -99,7 +113,7 @@ export function AccountsPage() {
     try {
       await accountsService.remove(load.deviceId, tile.user_id)
       setView({ kind: 'pick' })
-      setMessage(`${tile.username} was removed from this computer.`)
+      setNotice(`${tile.username} was removed from this computer.`)
       await refresh()
     } catch (err) {
       const answer = accountRefusal(err, 'Could not remove the account. Please try again.')
@@ -121,7 +135,7 @@ export function AccountsPage() {
       if (purpose === 'remove') {
         await accountsService.remove(load.deviceId, tile.user_id, pin)
         setView({ kind: 'pick' })
-        setMessage(`${tile.username} was removed from this computer.`)
+        setNotice(`${tile.username} was removed from this computer.`)
         await refresh()
       } else {
         signedIn(await accountsService.signInWithTile(load.deviceId, tile.user_id, pin, remember))
@@ -135,6 +149,7 @@ export function AccountsPage() {
 
   const back = () => {
     setMessage(null)
+    setNotice(null)
     if (view.kind === 'pick' || view.kind === 'welcome') return void navigate('/')
     if (view.kind === 'forgot') return askPin(view.tile, view.purpose)
     setView({ kind: 'pick' })
@@ -154,6 +169,11 @@ export function AccountsPage() {
       {message && (
         <Alert role="status" className="w-full max-w-3xl">
           <AlertDescription className="text-lg">{message}</AlertDescription>
+        </Alert>
+      )}
+      {notice && !message && (
+        <Alert role="status" className={`w-full max-w-3xl transition-opacity duration-1000 ${fading ? 'opacity-0' : 'opacity-100'}`}>
+          <AlertDescription className="text-lg">{notice}</AlertDescription>
         </Alert>
       )}
 
@@ -233,7 +253,7 @@ export function AccountsPage() {
                       Add account
                     </GazeButton>
                     {load.tiles.accounts.length > 0 && (
-                      <GazeButton variant="outline" disabled={busy} onClick={() => { setMessage(null); setView({ kind: 'remove' }) }}>
+                      <GazeButton variant="outline" disabled={busy} onClick={() => { setMessage(null); setNotice(null); setView({ kind: 'remove' }) }}>
                         <Trash2 aria-hidden />
                         Remove account
                       </GazeButton>
