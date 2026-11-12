@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.models.account_models import SIGNUP_SELF, Device, DeviceAccount, UserAccount
 from app.models.timestamps import as_utc, utc_now
 from app.models.user import ROLE_ASSISTIVE_USER, STATUS_ACTIVE, User
+from app.services import active_user
 from app.services.system_log_service import log_activity
 
 REMEMBER_DAYS = 30
@@ -160,6 +161,7 @@ def sign_up(db: Session, device: Device | None, *, consent: bool, username: str,
                        ("account_added_to_device", f"{username} was added to computer #{device.device_id}")):
         log_activity(kind, text, user.user_id, session=db)
     db.commit()
+    active_user.set_user_id(user.user_id)  # this computer's person, as picking a name tile does
     return SignedInAccount(user, username, True)
 
 
@@ -230,6 +232,7 @@ def sign_in(db: Session, device: Device | None, *, user_id: int | None = None, u
                                                                     " (remembered on this computer)"),
                  account.user_id, session=db)
     db.commit()
+    active_user.set_user_id(account.user_id)  # this computer's person, as picking a name tile does
     return SignedInAccount(db.get(User, account.user_id), account.username, added)
 
 

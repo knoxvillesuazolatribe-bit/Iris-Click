@@ -24,6 +24,7 @@ from app.desktop_calibration import surface as surface_setting
 from app.desktop_calibration.messages import VERSION, agent_message, event, site_message, version_of
 from app.desktop_calibration.relay import relay
 from app.services import active_user
+from app.accounts import pending_calibration  # extension: accounts on this computer
 
 logger = logging.getLogger("irisclick.desktop_calibration")
 
@@ -99,7 +100,7 @@ async def site_socket(websocket: WebSocket):
                 await relay.send(websocket, event("calibration.error", message="Invalid message."))
                 continue
             if message.type == "calibration.start":
-                if active_user.get_user_id() is None:
+                if active_user.get_user_id() is None and not pending_calibration.new_account_allowed():
                     await relay.send(websocket, event("calibration.error", message=NOT_LINKED,
                                                     reason="not_linked"))
                     continue

@@ -31,6 +31,22 @@ export const accountSessionSchema = z.object({
 })
 export type AccountSession = z.infer<typeof accountSessionSchema>
 
+export const usernameCheckSchema = z.object({
+  available: z.boolean(),
+  problem: z.string().nullable(),
+  message: z.string().nullable(),
+  suggestions: z.array(z.string()),
+})
+export type UsernameCheck = z.infer<typeof usernameCheckSchema>
+
+export const pendingCalibrationSchema = z.object({
+  pending: z.boolean(),
+  profile_file_id: z.string().nullable(),
+  accuracy_score: z.number().nullable(),
+  low_accuracy: z.boolean(),
+})
+export type PendingCalibration = z.infer<typeof pendingCalibrationSchema>
+
 /** A refusal from /api/accounts: a plain message plus a stable code (and sometimes more). */
 export const accountRefusalSchema = z.object({
   detail: z.string(),

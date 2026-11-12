@@ -1,6 +1,6 @@
 import { ArrowLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { AccountTile } from '@/components/account-tile'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
@@ -36,10 +36,13 @@ type View =
  */
 export function AccountsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [load, setLoad] = useState<Load>({ state: 'finding' })
   const [view, setView] = useState<View>({ kind: 'pick' })
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  // Coming back from Add account: "Account created. Look at your name to start."
+  const [message, setMessage] = useState<string | null>(
+    (location.state as { notice?: string } | null)?.notice ?? null)
   const [refusal, setRefusal] = useState<AccountRefusal | null>(null)
 
   const askPin = (tile: Tile, purpose: 'signin' | 'remove') => {

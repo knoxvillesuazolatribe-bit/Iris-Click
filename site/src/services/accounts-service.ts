@@ -5,6 +5,7 @@ import {
   accountRefusalSchema,
   accountSessionSchema,
   tilesSchema,
+  usernameCheckSchema,
   type AccountRefusal,
 } from '@/validators/accounts-validator'
 
@@ -24,6 +25,30 @@ export const accountsService = {
 
   signOut: (deviceId: string | null) =>
     appClient.post('/accounts/signout', null, { headers: deviceId ? deviceHeaders(deviceId) : {} }),
+
+  usernameCheck: (deviceId: string, username: string) =>
+    appClient
+      .post('/accounts/username-check', { username }, { headers: deviceHeaders(deviceId) })
+      .then((r) => usernameCheckSchema.parse(r.data)),
+
+  signUp: (deviceId: string, input: SignupInput) =>
+    appClient
+      .post('/accounts/signup', { ...input, consent: true }, { headers: deviceHeaders(deviceId) })
+      .then((r) => accountSessionSchema.parse(r.data)),
+
+  /** "I already have an account": username + PIN, which also adds the account to this computer. */
+  signInWithUsername: (deviceId: string, username: string, pin: string, remember = false) =>
+    appClient
+      .post('/accounts/signin', { username, pin, remember }, { headers: deviceHeaders(deviceId) })
+      .then((r) => accountSessionSchema.parse(r.data)),
+}
+
+export interface SignupInput {
+  username: string
+  mobile_number: string
+  pin: string
+  pin_confirm: string
+  remember: boolean
 }
 
 /** The server's refusal (code, message, tries left...), or a plain message when it was not reached. */
