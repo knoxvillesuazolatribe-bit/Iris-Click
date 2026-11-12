@@ -1,0 +1,66 @@
+"""Request and response shapes for /api/accounts (accounts on this computer).
+
+Lengths are capped here only to keep junk out; the real rules (and the messages
+people see) are in usernames.py, pins.py and mobiles.py. No response ever carries
+a PIN, a hash or a full mobile number.
+"""
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class SigninModeRead(BaseModel):
+    mode: Literal["legacy", "device_accounts"]
+    sms_enabled: bool = False
+
+
+class TileRead(BaseModel):
+    user_id: int
+    username: str
+    needs_pin: bool
+
+
+class TilesRead(BaseModel):
+    is_shared: bool
+    accounts: list[TileRead]
+
+
+class UsernameCheckRequest(BaseModel):
+    username: str = Field(max_length=64)
+
+
+class UsernameCheckRead(BaseModel):
+    available: bool
+    problem: str | None = None
+    message: str | None = None
+    suggestions: list[str] = []
+
+
+class SignupRequest(BaseModel):
+    consent: bool
+    username: str = Field(max_length=64)
+    mobile_number: str = Field(max_length=32)
+    pin: str = Field(max_length=16)
+    pin_confirm: str = Field(max_length=16)
+    remember: bool = False
+
+
+class SigninRequest(BaseModel):
+    """A tile (``user_id``) or "I already have an account" (``username``); the PIN when one is needed."""
+    user_id: int | None = Field(default=None, gt=0)
+    username: str | None = Field(default=None, max_length=64)
+    pin: str | None = Field(default=None, max_length=16)
+    remember: bool = False
+
+
+class RemoveRequest(BaseModel):
+    user_id: int = Field(gt=0)
+    pin: str | None = Field(default=None, max_length=16)
+
+
+class AccountSessionRead(BaseModel):
+    user_id: int
+    full_name: str
+    username: str
+    role: Literal["assistive_user"] = "assistive_user"
