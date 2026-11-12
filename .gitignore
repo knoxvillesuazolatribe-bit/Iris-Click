@@ -25,6 +25,7 @@ site/.env
 server/app/storage/device_settings.json
 server/app/storage/recenter.json
 server/app/storage/active_user.json
+server/app/storage/device_id.txt
 server/app/storage/screenshots/
 
 # Gaze benchmark recordings and diagnostics traces (local baselines, never committed)
