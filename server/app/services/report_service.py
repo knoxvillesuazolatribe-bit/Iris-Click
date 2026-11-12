@@ -20,7 +20,7 @@ from app.models.timestamps import as_utc
 from app.models.user import User
 from app.services.local_time import day_start, to_local
 
-LOG_TABS = ("all", "calibration", "sos", "communication", "screenshot")
+LOG_TABS = ("all", "calibration", "sos", "communication", "screenshot", "accounts")
 LOGS_PER_PAGE = 50
 REPORT_TYPES = {"calibration": "Calibration", "communication": "Communication", "sos": "SOS"}
 MAX_RANGE_DAYS = 366
@@ -64,7 +64,12 @@ def logs(db: Session, tab: str, date_from: date | None, date_to: date | None,
         raise ReportError(422, f"Unknown tab {tab!r}.")
     start, end = day_bounds(date_from, date_to)
     query = select(SystemLog, User.full_name).outerjoin(User, User.user_id == SystemLog.user_id)
-    if tab != "all":
+    if tab == "accounts":  # extension: accounts on this computer (build step 14)
+        from sqlalchemy import or_
+
+        from app.accounts.admin import ACCOUNT_LOG_TYPES
+        query = query.where(or_(*(SystemLog.activity_type.like(f"{t}%") for t in ACCOUNT_LOG_TYPES)))
+    elif tab != "all":
         query = query.where(SystemLog.activity_type.like(f"{tab}%"))
     if start:
         query = query.where(SystemLog.log_date >= start)

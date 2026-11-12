@@ -153,7 +153,7 @@ def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked)) -> di
 
 
 def _routers() -> list[APIRouter]:
-    from app.api.routes import (accessibility, accounts, admin_reports, admin_settings, admin_speech,
+    from app.api.routes import (accessibility, accounts, admin_accounts, admin_reports, admin_settings, admin_speech,
                                 admin_user_apps, admin_users, admin_voice_settings,
                                 admin_word_filter, apps, assistive, auth, health, neural_tts,
                                 sos, speech, user_apps, voice, word_filter)
@@ -166,7 +166,7 @@ def _routers() -> list[APIRouter]:
             user_apps.router, admin_user_apps.router, word_filter.router,
             admin_word_filter.router, speech.router, admin_speech.router, neural_tts.router,
             admin_voice_settings.router, cloud_desktop.me_router, cloud_desktop.desktop_router,
-            cloud_desktop_api.router, accounts.mode_router, accounts.router]
+            cloud_desktop_api.router, accounts.mode_router, accounts.router, admin_accounts.router]
 
 
 def create_app() -> FastAPI:

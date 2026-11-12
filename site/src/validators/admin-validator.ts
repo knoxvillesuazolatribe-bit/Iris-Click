@@ -59,7 +59,7 @@ export type SystemInfo = z.infer<typeof systemSchema>
 export const testResultSchema = z.object({ sent: z.boolean(), detail: z.string() })
 export type TestResult = z.infer<typeof testResultSchema>
 
-export const LOG_TABS = ['all', 'calibration', 'sos', 'communication', 'screenshot'] as const
+export const LOG_TABS = ['all', 'calibration', 'sos', 'communication', 'screenshot', 'accounts'] as const
 export type LogTab = (typeof LOG_TABS)[number]
 
 export const logPageSchema = z.object({

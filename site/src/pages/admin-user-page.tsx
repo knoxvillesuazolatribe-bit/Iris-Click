@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { AdminApprovedComputersCard } from '@/components/admin-approved-computers-card'
+import { AdminSigninCard } from '@/components/admin-signin-card'
 import { AdminUserAppsCard } from '@/components/admin-user-apps-card'
 import { AdminUserLanguageCard } from '@/components/admin-user-language-card'
 import { AdminUserVoiceCard } from '@/components/admin-user-voice-card'
@@ -96,6 +97,7 @@ export function AdminUserPage() {
       </div>
 
       <StatusCard key={user.status} detail={load.detail} onChanged={reload} />
+      {accounts && <AdminSigninCard key={`${userId}-${user.status}`} userId={userId} name={user.full_name} />}
 
       {!accounts && <Card>
         <CardHeader>
@@ -189,6 +191,7 @@ function ProfileCard({ detail, onSaved }: { detail: AdminUserDetail; onSaved: ()
 }
 
 function StatusCard({ detail, onChanged }: { detail: AdminUserDetail; onChanged: () => void }) {
+  const accounts = useAccountsMode()
   const { user } = detail
   const active = user.status === 'active'
   const [confirm, setConfirm] = useState(false)
@@ -211,9 +214,13 @@ function StatusCard({ detail, onChanged }: { detail: AdminUserDetail; onChanged:
             Status <Badge variant={active ? 'secondary' : 'destructive'}>{active ? 'Active' : 'Inactive'}</Badge>
           </p>
           <p className="text-muted-foreground text-sm">
-            {active
-              ? 'Deactivating hides their name tile and ends their sign-in now. Their history is kept, and eye tracking keeps running until it is closed.'
-              : 'Reactivating shows their name tile again.'}
+            {accounts
+              ? (active
+                ? 'Deactivating removes their account from every computer and ends their sign-in now. Their history is kept.'
+                : 'Reactivating lets them sign in again.')
+              : active
+                ? 'Deactivating hides their name tile and ends their sign-in now. Their history is kept, and eye tracking keeps running until it is closed.'
+                : 'Reactivating shows their name tile again.'}
           </p>
           {error && <p className="text-destructive text-sm">{error}</p>}
         </div>

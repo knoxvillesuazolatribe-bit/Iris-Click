@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
+import { AdminSharedComputerCard } from '@/components/admin-shared-computer-card'
 import { ServerDown } from '@/components/server-down'
 import { SettingsEditor } from '@/components/settings-editor'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -241,6 +242,7 @@ export function AdminSystemPage() {
           <Button asChild variant="outline"><Link to="/admin/settings/accessibility">Change defaults</Link></Button>
         </CardContent>
       </Card>}
+      {accounts && <AdminSharedComputerCard />}
     </AdminLayout>
   )
 }

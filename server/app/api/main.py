@@ -59,6 +59,8 @@ def create_app() -> FastAPI:
         from app.api.routes import accounts  # extension: accounts on this computer
         app.include_router(accounts.mode_router, prefix=settings.api_prefix)
         app.include_router(accounts.router, prefix=settings.api_prefix)
+        from app.api.routes import admin_accounts  # extension: accounts on this computer (admin)
+        app.include_router(admin_accounts.router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")
     return app

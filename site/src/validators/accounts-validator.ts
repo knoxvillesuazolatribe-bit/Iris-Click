@@ -69,3 +69,26 @@ export const accountRefusalSchema = z.object({
   suggestions: z.array(z.string()).optional(),
 })
 export type AccountRefusal = z.infer<typeof accountRefusalSchema>
+
+// ---------- admin side (build step 14) ----------
+
+export const adminAccountRowSchema = z.object({
+  user_id: z.number().int(),
+  username: z.string(),
+  mobile: z.string(),
+  mobile_verified: z.boolean(),
+  computers: z.number().int(),
+})
+export type AdminAccountRow = z.infer<typeof adminAccountRowSchema>
+
+export const adminAccountDetailSchema = adminAccountRowSchema.extend({
+  lock: z.enum(['ok', 'locked', 'needs_new_pin']),
+  must_reset_pin: z.boolean(),
+  shared_computers: z.number().int(),
+})
+export type AdminAccountDetail = z.infer<typeof adminAccountDetailSchema>
+
+export const setupCodeMadeSchema = z.object({ code: z.string(), expires_at: z.string() })
+export type SetupCodeMade = z.infer<typeof setupCodeMadeSchema>
+
+export const sharedSchema = z.object({ shared: z.boolean() })
