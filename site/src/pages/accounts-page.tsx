@@ -1,9 +1,10 @@
-import { ArrowLeft, KeyRound, LoaderCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AccountTile } from '@/components/account-tile'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
+import { ForgotPinScreen, PinScreen } from '@/components/pin-screen'
 import { ServerDown } from '@/components/server-down'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { linkDesktop } from '@/lib/desktop-link'
@@ -12,7 +13,7 @@ import { ONLINE_COPY } from '@/lib/online-copy'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { accountRefusal, accountsService } from '@/services/accounts-service'
 import { useSessionStore } from '@/store/session-store'
-import type { AccountSession, AccountTile as Tile, Tiles } from '@/validators/accounts-validator'
+import type { AccountRefusal, AccountSession, AccountTile as Tile, Tiles } from '@/validators/accounts-validator'
 
 type Load =
   | { state: 'finding' }
@@ -24,7 +25,8 @@ type View =
   | { kind: 'pick' }
   | { kind: 'remove' }
   | { kind: 'confirm-remove'; tile: Tile }
-  | { kind: 'pin'; tile: Tile }
+  | { kind: 'pin'; tile: Tile; purpose: 'signin' | 'remove' }
+  | { kind: 'forgot'; tile: Tile; purpose: 'signin' | 'remove' }
   | { kind: 'welcome'; username: string }
 
 /**
@@ -38,6 +40,12 @@ export function AccountsPage() {
   const [view, setView] = useState<View>({ kind: 'pick' })
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [refusal, setRefusal] = useState<AccountRefusal | null>(null)
+
+  const askPin = (tile: Tile, purpose: 'signin' | 'remove') => {
+    setRefusal(null)
+    setView({ kind: 'pin', tile, purpose })
+  }
 
   const refresh = useCallback(async (): Promise<boolean> => {
     const deviceId = await thisComputerId()
@@ -69,14 +77,14 @@ export function AccountsPage() {
   const pick = async (tile: Tile) => {
     setMessage(null)
     if (load.state !== 'ready') return
-    if (tile.needs_pin) return setView({ kind: 'pin', tile })
+    if (tile.needs_pin) return askPin(tile, 'signin')
     setBusy(true)
     try {
       signedIn(await accountsService.signInWithTile(load.deviceId, tile.user_id))
     } catch (err) {
-      const refusal = accountRefusal(err, 'Could not sign you in. Please try again.')
-      if (refusal.code === 'pin_required') setView({ kind: 'pin', tile })
-      else setMessage(refusal.detail)
+      const answer = accountRefusal(err, 'Could not sign you in. Please try again.')
+      if (answer.code === 'pin_required') askPin(tile, 'signin')
+      else setMessage(answer.detail)
     } finally {
       setBusy(false)
     }
@@ -91,11 +99,32 @@ export function AccountsPage() {
       setMessage(`${tile.username} was removed from this computer.`)
       await refresh()
     } catch (err) {
-      const refusal = accountRefusal(err, 'Could not remove the account. Please try again.')
+      const answer = accountRefusal(err, 'Could not remove the account. Please try again.')
+      if (answer.code === 'pin_required') return askPin(tile, 'remove')
       setView({ kind: 'pick' })
-      setMessage(refusal.code === 'pin_required'
-        ? `This is a shared computer, so ${tile.username}'s PIN is needed to remove it.`
-        : refusal.detail)
+      setMessage(answer.detail)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** The PIN from the number pad: sign in, or (shared computer) remove the account. */
+  const submitPin = async (pin: string, remember: boolean) => {
+    if (load.state !== 'ready' || view.kind !== 'pin') return
+    const { tile, purpose } = view
+    setBusy(true)
+    setRefusal(null)
+    try {
+      if (purpose === 'remove') {
+        await accountsService.remove(load.deviceId, tile.user_id, pin)
+        setView({ kind: 'pick' })
+        setMessage(`${tile.username} was removed from this computer.`)
+        await refresh()
+      } else {
+        signedIn(await accountsService.signInWithTile(load.deviceId, tile.user_id, pin, remember))
+      }
+    } catch (err) {
+      setRefusal(accountRefusal(err, 'Could not check your PIN. Please try again.'))
     } finally {
       setBusy(false)
     }
@@ -104,6 +133,7 @@ export function AccountsPage() {
   const back = () => {
     setMessage(null)
     if (view.kind === 'pick' || view.kind === 'welcome') return void navigate('/')
+    if (view.kind === 'forgot') return askPin(view.tile, view.purpose)
     setView({ kind: 'pick' })
   }
 
@@ -131,14 +161,12 @@ export function AccountsPage() {
           <DesktopStartButtons signIn={() => Promise.resolve(true)} onError={setMessage} />
         </section>
       ) : view.kind === 'pin' ? (
-        <section className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">
-          <h1 className="text-4xl font-bold break-all">Hello, {view.tile.username}</h1>
-          <p className="text-muted-foreground flex items-center gap-3 text-2xl">
-            <KeyRound aria-hidden /> Enter your PIN
-          </p>
-          {/* Build step 6 puts the number pad here (screens C1-C3). */}
-          <p className="text-muted-foreground text-lg">PIN entry is not ready yet.</p>
-        </section>
+        <PinScreen username={view.tile.username} purpose={view.purpose} busy={busy} refusal={refusal}
+          showRemember={load.state === 'ready' && !load.tiles.is_shared}
+          onSubmit={(pin, remember) => void submitPin(pin, remember)}
+          onForgot={() => setView({ kind: 'forgot', tile: view.tile, purpose: view.purpose })} />
+      ) : view.kind === 'forgot' ? (
+        <ForgotPinScreen onBack={back} />
       ) : view.kind === 'confirm-remove' ? (
         <section role="alertdialog" aria-labelledby="remove-title"
           className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">
