@@ -73,6 +73,15 @@ def website_url() -> str:
     return cloud_url() or get_settings().site_url.rstrip("/")
 
 
+def start_page(website: str) -> str:
+    """The page the app opens: straight to choosing the person (accounts, or today's name tiles).
+
+    The website's own start page (Welcome: Assistive User / Administrator) is for people browsing;
+    the app on someone's computer is always for that person, so it skips it.
+    """
+    return website.rstrip("/") + "/user/select"
+
+
 def base_url(port: int) -> str:
     return f"http://{HOST}:{port}"
 
@@ -404,7 +413,7 @@ def run(port: int, *, window: bool = True, voice: bool = True, tracking: bool = 
     if tracking and not running:
         first_run_calibration(port)  # desktop calibration: desktop mode + someone linked only
     if window:
-        show(website, edge)
+        show(start_page(website), edge)
     if voice:
         speak(WELCOME_TRACKING if running else WELCOME_NO_CALIBRATION)
     if already_running or not tray:
@@ -420,7 +429,7 @@ def run(port: int, *, window: bool = True, voice: bool = True, tracking: bool = 
     pid_file = STORAGE_DIR / LAUNCHER_PID
     pid_file.write_text(str(os.getpid()), encoding="utf-8")
     try:
-        tray_loop(lambda: show(website, edge), quit_all)
+        tray_loop(lambda: show(start_page(website), edge), quit_all)
     finally:
         stop_sync.set()
         pid_file.unlink(missing_ok=True)

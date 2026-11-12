@@ -157,7 +157,7 @@ def test_start_up_opens_the_website_welcomes_and_keeps_the_tray_and_sync(hosted_
     code, calls = run_with()
     time.sleep(0.05)  # the sync thread
     assert code == 0
-    assert calls[:4] == [("launch", SITE), "splash closed", ("window", SITE), launcher.WELCOME_TRACKING]
+    assert calls[:4] == [("launch", SITE), "splash closed", ("window", SITE + "/user/select"), launcher.WELCOME_TRACKING]
     assert "tray" in calls and "sync started" in calls
 
 
@@ -168,7 +168,7 @@ def test_without_a_calibration_the_welcome_asks_for_a_helper(hosted_site):
 
 def test_a_second_launch_only_opens_the_window(hosted_site):
     code, calls = run_with(ready=lambda p: True)
-    assert code == 0 and calls == [("window", SITE), launcher.WELCOME_TRACKING]  # no server, tray or sync
+    assert code == 0 and calls == [("window", SITE + "/user/select"), launcher.WELCOME_TRACKING]  # no server, tray or sync
 
 
 def test_a_failed_start_is_spoken_and_offers_try_again(hosted_site):
