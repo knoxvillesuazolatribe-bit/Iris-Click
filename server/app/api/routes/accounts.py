@@ -3,6 +3,7 @@
 GET  /signin/mode             which sign-in the website should show (always answers)
 GET  /accounts/tiles          the accounts added to this computer
 GET  /accounts/this-computer  shared or not, and the idle sign-out time
+GET  /accounts/can-sign-up    may this computer still make a new account today
 POST /accounts/username-check free / taken (+ suggestions) / not allowed
 POST /accounts/signup         consent + username + mobile + PIN -> account, signed in
 POST /accounts/signin         a tile, or username + PIN -> signed in, added to this computer
@@ -92,6 +93,14 @@ def tiles(device: Device | None = Depends(known_device), db: Session = Depends(g
     return TilesRead(is_shared=bool(device and device.is_shared),
                      accounts=[TileRead(user_id=t.user_id, username=t.username, needs_pin=t.needs_pin,
                                        accuracy=t.accuracy) for t in found])
+
+
+@router.get("/can-sign-up")
+def can_sign_up(device: Device | None = Depends(known_device), db: Session = Depends(get_db)) -> dict:
+    """Asked before "I'm new" calibrates, so nobody does the whole calibration only to be refused."""
+    if service.new_account_allowed(db, device):
+        return {"allowed": True}
+    return {"allowed": False, "detail": service.MESSAGES["signup_limit"]}
 
 
 @router.get("/this-computer", response_model=ThisComputerRead)

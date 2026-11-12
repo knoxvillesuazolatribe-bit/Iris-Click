@@ -130,8 +130,29 @@ export function AddAccountPage() {
     } else if (MOBILE_STEP_CODES.includes(answer.code)) setStep('mobile')
     else if (PIN_STEP_CODES.includes(answer.code) || answer.code === 'wrong_pin') setStep('pin')
     else if (answer.code === 'wait' || answer.code === 'reset_needed') setStep('pin')
+    // Nothing on these screens can fix the daily limit: go back to the start, where
+    // "I already have an account" and Back still work.
+    else if (answer.code === 'signup_limit') setStep('choose')
+    // Anything else (server down, ...): never stay on "Saving…"; try again from the PIN.
+    else setStep('pin')
     setPin('')
     setMessage(answer.detail)
+  }
+
+  /** "I'm new": check the daily limit first, so nobody calibrates only to be refused at the end. */
+  const startNew = async () => {
+    if (!deviceId) return
+    setBusy(true)
+    try {
+      const answer = await accountsService.canSignUp(deviceId)
+      if (!answer.allowed) return setMessage(answer.detail ?? 'No more new accounts on this computer today.')
+      setPath('new')
+      go('consent')
+    } catch (err) {
+      setMessage(accountRefusal(err, 'Could not reach IrisClick. Please try again.').detail)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const checkUsername = async () => {
@@ -241,7 +262,7 @@ export function AddAccountPage() {
       {deviceId && step === 'choose' && (
         <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
           <h1 className="text-4xl font-bold">Add your account</h1>
-          <GazeButton autoFocus className="min-h-24 w-full text-2xl" onClick={() => { setPath('new'); go('consent') }}>
+          <GazeButton autoFocus className="min-h-24 w-full text-2xl" disabled={busy} onClick={() => void startNew()}>
             <UserRoundPlus aria-hidden /> I'm new: create my account
           </GazeButton>
           <GazeButton variant="outline" className="min-h-24 w-full text-2xl" onClick={() => { setPath('existing'); go('calibrate') }}>

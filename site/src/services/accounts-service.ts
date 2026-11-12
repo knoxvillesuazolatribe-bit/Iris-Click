@@ -4,6 +4,7 @@ import { deviceHeaders } from '@/lib/device'
 import {
   accountRefusalSchema,
   accountSessionSchema,
+  canSignUpSchema,
   setupCodeSchema,
   thisComputerSchema,
   tilesSchema,
@@ -32,6 +33,11 @@ export const accountsService = {
   signOut: (deviceId: string | null) =>
     appClient.post('/accounts/signout', null, { headers: deviceId ? deviceHeaders(deviceId) : {} }),
 
+  /** May this computer still make a new account today? Asked before the new person calibrates. */
+  canSignUp: (deviceId: string) =>
+    appClient
+      .get('/accounts/can-sign-up', { headers: deviceHeaders(deviceId) })
+      .then((r) => canSignUpSchema.parse(r.data)),
   usernameCheck: (deviceId: string, username: string) =>
     appClient
       .post('/accounts/username-check', { username }, { headers: deviceHeaders(deviceId) })

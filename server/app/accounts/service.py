@@ -92,6 +92,14 @@ def _active(db: Session, user_id: int) -> User | None:
     return user if user is not None and user.role == ROLE_ASSISTIVE_USER and user.status == STATUS_ACTIVE else None
 
 
+def new_account_allowed(db: Session, device: Device | None, now: datetime | None = None) -> bool:
+    """This computer may still make a new account today (asked before the new person calibrates)."""
+    if device is None:
+        return True  # sign-up itself then asks for IrisClick Desktop
+    return limits.signup_allowed(db, device.device_id, now=now, per_day=int(getattr(
+        get_settings(), "signups_per_device_per_day", limits.SIGNUPS_PER_DEVICE_PER_DAY)))
+
+
 def list_tiles(db: Session, device: Device | None, now: datetime | None = None) -> list[Tile]:
     """The active accounts added to this computer, most recently used first."""
     if device is None:
@@ -160,8 +168,7 @@ def sign_up(db: Session, device: Device | None, *, consent: bool, username: str,
         raise AccountError(422, problem)
     if pin != pin_confirm:
         raise AccountError(422, "pin_mismatch")
-    if not limits.signup_allowed(db, device.device_id, now=now, per_day=int(getattr(
-            get_settings(), "signups_per_device_per_day", limits.SIGNUPS_PER_DEVICE_PER_DAY))):
+    if not new_account_allowed(db, device, now=now):
         raise AccountError(429, "signup_limit")
     user = User(full_name=username, role=ROLE_ASSISTIVE_USER)
     db.add(user)
