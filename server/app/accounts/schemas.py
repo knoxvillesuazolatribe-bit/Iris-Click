@@ -19,6 +19,7 @@ class TileRead(BaseModel):
     user_id: int
     username: str
     needs_pin: bool
+    accuracy: float | None = None
 
 
 class TilesRead(BaseModel):

@@ -289,7 +289,7 @@ export function AddAccountPage() {
       )}
 
       {deviceId && step === 'username' && (
-        <section className="flex w-full max-w-4xl flex-col items-center gap-5 text-center">
+        <section className="flex w-full max-w-4xl flex-col items-center gap-3 text-center">
           <h1 className="text-4xl font-bold">{numbered(path === 'new' ? 'Choose a username' : 'Your username')}</h1>
           <p aria-live="polite" className="bg-card min-h-16 w-full max-w-xl rounded-2xl border-2 p-3 text-3xl font-bold break-all">
             {username || <span className="text-muted-foreground text-xl font-normal">3 to {USERNAME_MAX} letters, numbers, _ .</span>}

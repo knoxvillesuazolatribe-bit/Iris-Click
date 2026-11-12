@@ -220,7 +220,8 @@ export function AccountsPage() {
                     onSelect={(t) => (view.kind === 'remove' ? setView({ kind: 'confirm-remove', tile: t }) : void pick(t))} />
                 ))}
               </div>
-              <div className="flex w-full flex-wrap items-center justify-between gap-6">
+              <div className={`flex w-full flex-wrap items-center gap-6 ${
+                load.tiles.accounts.length === 0 ? 'justify-center' : 'justify-between'}`}>
                 {view.kind === 'remove' ? (
                   <GazeButton variant="outline" className="ml-auto min-w-48" onClick={() => setView({ kind: 'pick' })}>
                     Cancel

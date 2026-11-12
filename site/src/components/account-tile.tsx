@@ -1,4 +1,4 @@
-import { KeyRound, UserRound, X } from 'lucide-react'
+import { Crosshair, KeyRound, UserRound, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AccountTile as Tile } from '@/validators/accounts-validator'
 
@@ -31,6 +31,11 @@ export function AccountTile({ tile, onSelect, removing, disabled }: AccountTileP
       {!removing && (
         <span className="text-muted-foreground flex items-center gap-2 text-base">
           {tile.needs_pin ? <><KeyRound className="size-4" aria-hidden /> PIN needed</> : 'Remembered on this computer'}
+        </span>
+      )}
+      {!removing && tile.accuracy != null && (
+        <span className="text-muted-foreground flex items-center gap-2 text-base">
+          <Crosshair className="size-4" aria-hidden /> Accuracy {Math.round(tile.accuracy)}%
         </span>
       )}
     </button>

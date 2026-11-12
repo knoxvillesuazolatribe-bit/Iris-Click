@@ -50,7 +50,7 @@ export function PinScreen({ username, purpose, showRemember, busy, refusal, onSu
   else if (refusal && refusal.code !== 'wait') note = refusal.detail + triesText(refusal.tries_left)
 
   return (
-    <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
+    <section className="flex w-full max-w-5xl flex-col items-center gap-6 text-center">
       <h1 className="text-4xl font-bold break-all">Hello, {username}</h1>
       <p className="text-muted-foreground flex items-center gap-3 text-2xl">
         <KeyRound aria-hidden />
@@ -61,18 +61,21 @@ export function PinScreen({ username, purpose, showRemember, busy, refusal, onSu
           <AlertDescription className="text-lg">{note}</AlertDescription>
         </Alert>
       )}
-      <PinEntry disabled={busy || waiting || locked} onSubmit={(pin) => onSubmit(pin, remember)} />
-      <div className="flex w-full flex-wrap items-center justify-center gap-6">
-        {showRemember && purpose === 'signin' && (
-          <GazeButton variant="outline" aria-pressed={remember} disabled={busy} onClick={() => setRemember((r) => !r)}>
-            {remember ? <SquareCheckBig aria-hidden /> : <Square aria-hidden />}
-            Remember me on this computer
+      <div className="flex w-full flex-wrap items-end justify-center gap-8">
+        <PinEntry disabled={busy || waiting || locked} onSubmit={(pin) => onSubmit(pin, remember)} />
+        <div className="flex max-w-72 flex-col items-stretch gap-6">
+          {showRemember && purpose === 'signin' && (
+            <GazeButton variant="outline" className="h-auto py-3 whitespace-normal" aria-pressed={remember} disabled={busy}
+              onClick={() => setRemember((r) => !r)}>
+              {remember ? <SquareCheckBig aria-hidden /> : <Square aria-hidden />}
+              Remember me on this computer
+            </GazeButton>
+          )}
+          <GazeButton variant="outline" disabled={busy} onClick={onForgot}>
+            <CircleHelp aria-hidden />
+            Forgot PIN?
           </GazeButton>
-        )}
-        <GazeButton variant="outline" disabled={busy} onClick={onForgot}>
-          <CircleHelp aria-hidden />
-          Forgot PIN?
-        </GazeButton>
+        </div>
       </div>
     </section>
   )

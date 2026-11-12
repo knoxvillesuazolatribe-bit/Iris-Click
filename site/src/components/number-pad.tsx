@@ -31,9 +31,9 @@ export function NumberPad({ onDigit, onDelete, onOk, okDisabled, disabled, okLab
     return () => window.removeEventListener('keydown', onKey)
   }, [onDigit, onDelete, onOk, okDisabled, disabled])
 
-  const key = 'min-h-20 min-w-24 text-3xl font-bold'
+  const key = 'min-h-20 w-full text-3xl font-bold'
   return (
-    <div role="group" aria-label="Number pad" className="grid grid-cols-3 gap-4">
+    <div role="group" aria-label="Number pad" className="grid grid-cols-[repeat(3,10rem)] gap-4">
       {ROWS.flat().map((digit) => (
         <GazeButton key={digit} variant="outline" className={key} disabled={disabled} onClick={() => onDigit(digit)}>
           {digit}
@@ -45,8 +45,8 @@ export function NumberPad({ onDigit, onDelete, onOk, okDisabled, disabled, okLab
       <GazeButton variant="outline" className={key} disabled={disabled} onClick={() => onDigit('0')}>
         0
       </GazeButton>
-      <GazeButton className={key} disabled={disabled || okDisabled} onClick={onOk}>
-        <Check aria-hidden className="size-8" />
+      <GazeButton className="min-h-20 w-full px-2 text-2xl font-bold" disabled={disabled || okDisabled} onClick={onOk}>
+        <Check aria-hidden className="size-7" />
         {okLabel}
       </GazeButton>
     </div>

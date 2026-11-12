@@ -85,11 +85,13 @@ def signin_mode() -> SigninModeRead:
     return SigninModeRead(mode=mode.signin_mode())
 
 
-@router.get("/tiles", response_model=TilesRead)
+# A person never calibrated has no accuracy: the field is left out rather than sent as null.
+@router.get("/tiles", response_model=TilesRead, response_model_exclude_none=True)
 def tiles(device: Device | None = Depends(known_device), db: Session = Depends(get_db)) -> TilesRead:
     found = service.list_tiles(db, device)
     return TilesRead(is_shared=bool(device and device.is_shared),
-                     accounts=[TileRead(user_id=t.user_id, username=t.username, needs_pin=t.needs_pin) for t in found])
+                     accounts=[TileRead(user_id=t.user_id, username=t.username, needs_pin=t.needs_pin,
+                                       accuracy=t.accuracy) for t in found])
 
 
 @router.get("/this-computer", response_model=ThisComputerRead)

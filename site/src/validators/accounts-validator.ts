@@ -14,6 +14,7 @@ export const accountTileSchema = z.object({
   user_id: z.number().int(),
   username: z.string(),
   needs_pin: z.boolean(),
+  accuracy: z.number().nullable().optional(),
 })
 export type AccountTile = z.infer<typeof accountTileSchema>
 

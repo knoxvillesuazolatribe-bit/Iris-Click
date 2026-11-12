@@ -19,11 +19,11 @@ const ROWS = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm']
  */
 export function UsernameKeys({ value, onChange, onOk, okDisabled, disabled }: UsernameKeysProps) {
   const add = (c: string) => value.length < USERNAME_MAX && onChange(value + c)
-  const key = 'min-h-16 min-w-14 px-2 text-2xl font-bold'
+  const key = 'min-h-20 min-w-20 px-2 text-2xl font-bold'
   return (
-    <div role="group" aria-label="Username keyboard" className="flex w-full flex-col items-center gap-3">
+    <div role="group" aria-label="Username keyboard" className="flex w-full flex-col items-center gap-2">
       {ROWS.map((row) => (
-        <div key={row} className="flex flex-wrap justify-center gap-3">
+        <div key={row} className="flex flex-wrap justify-center gap-2">
           {[...row].map((c) => (
             <GazeButton key={c} variant="outline" className={key} disabled={disabled} onClick={() => add(c)}>
               {c}
@@ -31,7 +31,7 @@ export function UsernameKeys({ value, onChange, onOk, okDisabled, disabled }: Us
           ))}
         </div>
       ))}
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-wrap justify-center gap-2">
         <GazeButton variant="outline" className={key} disabled={disabled} onClick={() => add('_')}>_</GazeButton>
         <GazeButton variant="outline" className={key} disabled={disabled} onClick={() => add('.')}>.</GazeButton>
         <GazeButton variant="outline" className={key} disabled={disabled || !value} aria-label="Delete"

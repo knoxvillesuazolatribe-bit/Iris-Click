@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.accounts import limits, mobiles, pins, usernames
 from app.config import get_settings
 from app.models.account_models import SIGNUP_SELF, Device, DeviceAccount, UserAccount
+from app.models.calibration_record import CalibrationRecord
 from app.models.timestamps import as_utc, utc_now
 from app.models.user import ROLE_ASSISTIVE_USER, STATUS_ACTIVE, User
 from app.services import active_user
@@ -61,6 +62,8 @@ class Tile:
     user_id: int
     username: str
     needs_pin: bool
+    # The latest successful calibration's accuracy percentage; None before the first one.
+    accuracy: float | None = None
 
 
 @dataclass(frozen=True)
@@ -100,7 +103,24 @@ def list_tiles(db: Session, device: Device | None, now: datetime | None = None) 
         .where(DeviceAccount.device_id == device.device_id, DeviceAccount.removed_at.is_(None),
                User.status == STATUS_ACTIVE, User.role == ROLE_ASSISTIVE_USER, UserAccount.pin_hash.is_not(None))
         .order_by(DeviceAccount.last_used_at.desc().nulls_last(), UserAccount.username_key)).all()
-    return [Tile(account.user_id, account.username, not _remembered(link, device, now)) for link, account in rows]
+    accuracy = _latest_accuracy(db, [account.user_id for _, account in rows])
+    return [Tile(account.user_id, account.username, not _remembered(link, device, now), accuracy.get(account.user_id))
+            for link, account in rows]
+
+
+def _latest_accuracy(db: Session, user_ids: list[int]) -> dict[int, float]:
+    """Each person's most recent successful calibration accuracy (the percentage on the tile)."""
+    found: dict[int, float] = {}
+    if not user_ids:
+        return found
+    rows = db.execute(
+        select(CalibrationRecord.user_id, CalibrationRecord.accuracy_score)
+        .where(CalibrationRecord.user_id.in_(user_ids), CalibrationRecord.status == "Successful",
+               CalibrationRecord.accuracy_score.is_not(None))
+        .order_by(CalibrationRecord.calibration_date.desc(), CalibrationRecord.calibration_id.desc())).all()
+    for user_id, score in rows:
+        found.setdefault(user_id, float(score))
+    return found
 
 
 def _use_on(db: Session, device: Device, user_id: int, remember: bool | None, now: datetime) -> bool:
