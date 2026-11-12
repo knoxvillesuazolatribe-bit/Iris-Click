@@ -2,6 +2,7 @@
 
 GET  /signin/mode             which sign-in the website should show (always answers)
 GET  /accounts/tiles          the accounts added to this computer
+GET  /accounts/this-computer  shared or not, and the idle sign-out time
 POST /accounts/username-check free / taken (+ suggestions) / not allowed
 POST /accounts/signup         consent + username + mobile + PIN -> account, signed in
 POST /accounts/signin         a tile, or username + PIN -> signed in, added to this computer
@@ -19,10 +20,12 @@ from starlette.responses import JSONResponse
 
 from app.accounts import devices, mode, service, usernames
 from app.accounts.schemas import (AccountSessionRead, RemoveRequest, SigninModeRead, SigninRequest,
-                                  SignupRequest, TileRead, TilesRead, UsernameCheckRead, UsernameCheckRequest)
+                                  SignupRequest, ThisComputerRead, TileRead, TilesRead, UsernameCheckRead,
+                                  UsernameCheckRequest)
 from app.accounts.service import AccountError, SignedInAccount
 from app.api.deps import (DatabaseSafeRoute, clear_session_cookie, current_sign_in, get_db,
                           set_session_cookie)
+from app.config import get_settings
 from app.models.account_models import Device
 from app.services import session_service
 from app.services.session_service import SignedIn
@@ -81,6 +84,12 @@ def tiles(device: Device | None = Depends(known_device), db: Session = Depends(g
     found = service.list_tiles(db, device)
     return TilesRead(is_shared=bool(device and device.is_shared),
                      accounts=[TileRead(user_id=t.user_id, username=t.username, needs_pin=t.needs_pin) for t in found])
+
+
+@router.get("/this-computer", response_model=ThisComputerRead)
+def this_computer(device: Device | None = Depends(known_device)) -> ThisComputerRead:
+    return ThisComputerRead(is_shared=bool(device and device.is_shared),
+                            idle_minutes=get_settings().shared_idle_minutes)
 
 
 @router.post("/username-check", response_model=UsernameCheckRead)

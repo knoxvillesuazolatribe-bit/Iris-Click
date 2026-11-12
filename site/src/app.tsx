@@ -29,6 +29,7 @@ import { UserSelectPage } from '@/pages/user-select-page'
 import { AccountsPage } from '@/pages/accounts-page'
 import { SigninModeSwitch } from '@/components/signin-mode-switch'
 import { AddAccountPage } from '@/pages/add-account-page'
+import { IdleSignOut } from '@/components/idle-signout'
 import { VoicePage } from '@/pages/voice-page'
 
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
@@ -44,6 +45,7 @@ function Pages() {
   useAppName() // browser tab title = the app name the admin set, on every page
   return (
     <BrowserRouter>
+      <IdleSignOut>
       <Routes>
         <Route path="/" element={<LoginSelectionPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -77,6 +79,7 @@ function Pages() {
           : <CalibrationSurfaceSwitch web={<CalibrationPage />} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </IdleSignOut>
     </BrowserRouter>
   )
 }

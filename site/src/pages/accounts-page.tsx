@@ -193,6 +193,11 @@ export function AccountsPage() {
           <h1 className="text-4xl font-bold">
             {view.kind === 'remove' ? 'Which account do you want to remove?' : 'Who is using IrisClick?'}
           </h1>
+          {load.state === 'ready' && load.tiles.is_shared && (
+            <p className="bg-card rounded-xl border-2 px-5 py-2 text-lg">
+              Shared computer: enter your PIN every time. You are signed out when nobody uses it for a while.
+            </p>
+          )}
           {load.state === 'finding' && (
             <LoaderCircle className="text-muted-foreground size-12 animate-spin" aria-label="Loading accounts" />
           )}

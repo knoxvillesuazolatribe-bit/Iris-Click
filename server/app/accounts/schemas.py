@@ -26,6 +26,12 @@ class TilesRead(BaseModel):
     accounts: list[TileRead]
 
 
+class ThisComputerRead(BaseModel):
+    """Shared computers never remember an account and sign the person out after ``idle_minutes``."""
+    is_shared: bool
+    idle_minutes: int
+
+
 class UsernameCheckRequest(BaseModel):
     username: str = Field(max_length=64)
 

@@ -4,6 +4,7 @@ import { deviceHeaders } from '@/lib/device'
 import {
   accountRefusalSchema,
   accountSessionSchema,
+  thisComputerSchema,
   tilesSchema,
   usernameCheckSchema,
   type AccountRefusal,
@@ -13,6 +14,10 @@ import {
 export const accountsService = {
   tiles: (deviceId: string) =>
     appClient.get('/accounts/tiles', { headers: deviceHeaders(deviceId) }).then((r) => tilesSchema.parse(r.data)),
+
+  thisComputer: (deviceId: string) =>
+    appClient.get('/accounts/this-computer', { headers: deviceHeaders(deviceId) })
+      .then((r) => thisComputerSchema.parse(r.data)),
 
   /** A tile: no PIN when this computer remembers the account. */
   signInWithTile: (deviceId: string, userId: number, pin?: string, remember = false) =>

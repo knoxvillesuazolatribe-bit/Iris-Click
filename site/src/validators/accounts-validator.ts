@@ -23,6 +23,9 @@ export const tilesSchema = z.object({
 })
 export type Tiles = z.infer<typeof tilesSchema>
 
+export const thisComputerSchema = z.object({ is_shared: z.boolean(), idle_minutes: z.number().int() })
+export type ThisComputer = z.infer<typeof thisComputerSchema>
+
 export const accountSessionSchema = z.object({
   user_id: z.number().int(),
   full_name: z.string(),
