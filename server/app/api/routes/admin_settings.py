@@ -9,6 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.accounts.guards import NO_GLOBAL_DEFAULTS, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.config import get_settings
 from app.models.user import User
@@ -52,7 +53,8 @@ def read_defaults(db: Session = Depends(get_db), _admin: User = Depends(require_
     return _defaults(db)
 
 
-@router.put("/defaults", response_model=GlobalDefaultsRead)
+@router.put("/defaults", response_model=GlobalDefaultsRead,
+            dependencies=[Depends(legacy_only(NO_GLOBAL_DEFAULTS))])
 def save_defaults(body: AccessibilitySettingsWrite, db: Session = Depends(get_db),
                   admin: User = Depends(require_admin)):
     try:
@@ -62,7 +64,8 @@ def save_defaults(body: AccessibilitySettingsWrite, db: Session = Depends(get_db
     return _defaults(db)
 
 
-@router.post("/defaults/reset", response_model=GlobalDefaultsRead)
+@router.post("/defaults/reset", response_model=GlobalDefaultsRead,
+             dependencies=[Depends(legacy_only(NO_GLOBAL_DEFAULTS))])
 def reset_defaults(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     accessibility_service.reset_global(db, admin)
     return _defaults(db)

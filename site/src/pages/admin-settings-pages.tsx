@@ -12,14 +12,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { pickValues } from '@/lib/settings'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { adminService } from '@/services/admin-service'
 import type { AdminUserRow, GlobalDefaults, SystemInfo, TestResult } from '@/validators/admin-validator'
 
 /** Screen 26: settings menu. */
 export function AdminSettingsPage() {
+  const accounts = useAccountsMode()
   const items = [
-    { to: '/admin/settings/accessibility', title: 'Accessibility', text: 'Global defaults, and any user’s own settings.', icon: Accessibility },
-    { to: '/admin/settings/system', title: 'System', text: 'Email and SMS status and tests, app name, default dwell time.', icon: Server },
+    ...(accounts ? [] : [{ to: '/admin/settings/accessibility', title: 'Accessibility', text: 'Global defaults, and any user’s own settings.', icon: Accessibility }]),
+    { to: '/admin/settings/system', title: 'System', text: accounts ? 'Email and SMS status and tests, app name.' : 'Email and SMS status and tests, app name, default dwell time.', icon: Server },
     { to: '/admin/settings/word-filter', title: 'Word Filter', text: 'Blocked and allowed words for Voice Communication (extension).', icon: ShieldBan },
   ]
   return (
@@ -104,6 +106,7 @@ type SystemLoad = { state: 'loading' } | { state: 'error'; message: string } | {
 
 /** Screen 28: email/SMS status and tests, app name, default dwell time. */
 export function AdminSystemPage() {
+  const accounts = useAccountsMode()
   const [load, setLoad] = useState<SystemLoad>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [appName, setAppName] = useState('')
@@ -227,7 +230,7 @@ export function AdminSystemPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      {!accounts && <Card>
         <CardHeader>
           <CardTitle>Default dwell time</CardTitle>
           <CardDescription>Part of the global accessibility defaults.</CardDescription>
@@ -237,7 +240,7 @@ export function AdminSystemPage() {
           <p className="text-muted-foreground">Dwell click is {defaults.dwell_enabled ? 'on' : 'off'} by default.</p>
           <Button asChild variant="outline"><Link to="/admin/settings/accessibility">Change defaults</Link></Button>
         </CardContent>
-      </Card>
+      </Card>}
     </AdminLayout>
   )
 }

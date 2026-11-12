@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
 import { DesktopGate } from '@/components/desktop-gate'
+import { LegacyOnly } from '@/components/legacy-only'
 import { CalibrationSurfaceSwitch } from '@/components/calibration-surface-switch'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { ApproveComputerPage } from '@/pages/approve-computer-page'
@@ -68,7 +69,7 @@ function Pages() {
         <Route path="/admin/users" element={<RequireRole role="admin"><AdminUsersPage /></RequireRole>} />
         <Route path="/admin/users/:id" element={<RequireRole role="admin"><AdminUserPage /></RequireRole>} />
         <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
-        <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><AdminAccessibilityPage /></RequireRole>} />
+        <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><LegacyOnly to="/admin/settings"><AdminAccessibilityPage /></LegacyOnly></RequireRole>} />
         <Route path="/admin/settings/system" element={<RequireRole role="admin"><AdminSystemPage /></RequireRole>} />
         <Route path="/admin/settings/word-filter" element={<RequireRole role="admin"><AdminWordFilterPage /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />

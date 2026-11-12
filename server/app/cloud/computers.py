@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
+from app.accounts.guards import ADDED_ON_COMPUTER, USE_YOUR_PIN, legacy_only
 from app.api.deps import (DatabaseSafeRoute, current_sign_in, get_db, require_admin,
                           require_signed_in)
 from app.api.routes import assistive
@@ -114,7 +115,7 @@ def list_computers(user_id: int, request: Request, _admin: User = Depends(requir
                         computers=[ComputerRead.model_validate(v, from_attributes=True) for v in views])
 
 
-@admin_router.post("/link", response_model=LinkRead)
+@admin_router.post("/link", response_model=LinkRead, dependencies=[Depends(legacy_only(ADDED_ON_COMPUTER))])
 def make_link(user_id: int, body: LabelRequest, admin: User = Depends(require_admin),
               db: Session = Depends(get_db)) -> LinkRead:
     try:
@@ -126,7 +127,7 @@ def make_link(user_id: int, body: LabelRequest, admin: User = Depends(require_ad
     return LinkRead(code=code, path=f"/approve#{code}", expires_at=expires)
 
 
-@admin_router.post("/this", response_model=ComputerRead)
+@admin_router.post("/this", response_model=ComputerRead, dependencies=[Depends(legacy_only(ADDED_ON_COMPUTER))])
 def approve_this_computer(user_id: int, body: LabelRequest, request: Request, response: Response,
                           admin: User = Depends(require_admin),
                           db: Session = Depends(get_db)) -> ComputerRead:
@@ -179,7 +180,7 @@ def _not_approved(message: str) -> JSONResponse:
     return JSONResponse({"detail": message, "code": NOT_APPROVED_CODE}, status_code=403)
 
 
-@sign_in_router.get("/users")
+@sign_in_router.get("/users", dependencies=[Depends(legacy_only(USE_YOUR_PIN))])
 def list_users(request: Request, response: Response, db: Session = Depends(get_db)):
     if not computers.lock_on():
         return assistive.list_users(db)
@@ -192,7 +193,7 @@ def list_users(request: Request, response: Response, db: Session = Depends(get_d
     return [tile for tile in tiles if tile.user_id in allowed]
 
 
-@sign_in_router.post("/select")
+@sign_in_router.post("/select", dependencies=[Depends(legacy_only(USE_YOUR_PIN))])
 def select_user(body: AssistiveSelectRequest, request: Request, response: Response,
                 db: Session = Depends(get_db)):
     if not computers.lock_on():

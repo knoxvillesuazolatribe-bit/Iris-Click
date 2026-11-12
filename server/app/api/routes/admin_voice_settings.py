@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.accounts.guards import PEOPLE_SET, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.api.routes.neural_tts import VoiceSettingsRead, VoiceSettingsWrite, fail, settings_read
 from app.models.user import User
@@ -26,7 +27,8 @@ def user_settings(user_id: int, db: Session = Depends(get_db), _admin: User = De
     return settings_read(db, _target(db, user_id))
 
 
-@router.put("/{user_id}/voice-settings", response_model=VoiceSettingsRead)
+@router.put("/{user_id}/voice-settings", response_model=VoiceSettingsRead,
+            dependencies=[Depends(legacy_only(PEOPLE_SET))])
 def save_user_settings(user_id: int, body: VoiceSettingsWrite, db: Session = Depends(get_db),
                        admin: User = Depends(require_admin)):
     user = _target(db, user_id)
@@ -37,7 +39,8 @@ def save_user_settings(user_id: int, body: VoiceSettingsWrite, db: Session = Dep
     return settings_read(db, user)
 
 
-@router.post("/{user_id}/voice-settings/reset", response_model=VoiceSettingsRead)
+@router.post("/{user_id}/voice-settings/reset", response_model=VoiceSettingsRead,
+             dependencies=[Depends(legacy_only(PEOPLE_SET))])
 def reset_user_settings(user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     user = _target(db, user_id)
     tts.reset_settings(db, user, actor=admin)

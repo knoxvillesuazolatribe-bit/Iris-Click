@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ONLINE_COPY } from '@/lib/online-copy'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { pickValues } from '@/lib/settings'
 import { adminService } from '@/services/admin-service'
 import { profileFormSchema, type AdminUserDetail, type ProfileForm } from '@/validators/admin-validator'
@@ -34,6 +35,7 @@ const FIELDS = [
 
 /** Screens 22–25: one assistive user (profile, calibration, settings, contacts, status). */
 export function AdminUserPage() {
+  const accounts = useAccountsMode()
   const userId = Number(useParams().id)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
@@ -66,7 +68,9 @@ export function AdminUserPage() {
   const { user, settings, contacts, sos_location: location } = load.detail
   return (
     <AdminLayout title={user.full_name} actions={back}
-      description={user.status === 'active' ? 'Active: can sign in from the name tiles.' : 'Inactive: hidden from the name tiles and cannot sign in.'}>
+      description={user.status === 'active'
+        ? (accounts ? 'Active: can sign in on their computers.' : 'Active: can sign in from the name tiles.')
+        : 'Inactive: hidden from the name tiles and cannot sign in.'}>
       <div className="grid gap-6 lg:grid-cols-2">
         <ProfileCard key={`${user.user_id}-${user.full_name}-${user.address}-${user.barangay}`} detail={load.detail} onSaved={reload} />
         <Card>
@@ -93,7 +97,7 @@ export function AdminUserPage() {
 
       <StatusCard key={user.status} detail={load.detail} onChanged={reload} />
 
-      <Card>
+      {!accounts && <Card>
         <CardHeader>
           <CardTitle>Accessibility settings</CardTitle>
           <CardDescription>
@@ -111,7 +115,7 @@ export function AdminUserPage() {
             onSaved={reload}
           />
         </CardContent>
-      </Card>
+      </Card>}
 
       <Card>
         <CardHeader>
@@ -129,9 +133,9 @@ export function AdminUserPage() {
         </CardContent>
       </Card>
       <SilentBoundary><AdminUserAppsCard userId={userId} name={user.full_name} /></SilentBoundary>
-      <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>
-      <SilentBoundary><AdminUserVoiceCard userId={userId} name={user.full_name} /></SilentBoundary>
-      {ONLINE_COPY && <SilentBoundary><AdminApprovedComputersCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {!accounts && <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {!accounts && <SilentBoundary><AdminUserVoiceCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {ONLINE_COPY && !accounts && <SilentBoundary><AdminApprovedComputersCard userId={userId} name={user.full_name} /></SilentBoundary>}
     </AdminLayout>
   )
 }

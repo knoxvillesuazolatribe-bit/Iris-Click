@@ -4,11 +4,18 @@ import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { ServerDown } from '@/components/server-down'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { adminService } from '@/services/admin-service'
 import type { Dashboard } from '@/validators/admin-validator'
 
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; data: Dashboard }
+
+/** H11: the Users and Settings texts with accounts on this computer. */
+const ACCOUNTS_TEXT: Record<string, string> = {
+  '/admin/users': 'View users, reset PIN, deactivate.',
+  '/admin/settings': 'Email and SMS, app name, word filter.',
+}
 
 const MENU = [
   { to: '/admin/users', label: 'Users', text: 'Create users, edit their settings and contacts, deactivate.', icon: Users },
@@ -19,6 +26,8 @@ const MENU = [
 
 /** Screen 18: admin dashboard with real counts. */
 export function AdminPage() {
+  const accounts = useAccountsMode()
+  const menu = accounts ? MENU.map((item) => ({ ...item, text: ACCOUNTS_TEXT[item.to] ?? item.text })) : MENU
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
 
@@ -63,7 +72,7 @@ export function AdminPage() {
         </div>
       )}
       <div className="grid gap-4 md:grid-cols-2">
-        {MENU.map(({ to, label, text, icon: Icon }) => (
+        {menu.map(({ to, label, text, icon: Icon }) => (
           <Link key={to} to={to} className="focus-visible:ring-ring rounded-xl outline-none focus-visible:ring-4">
             <Card className="hover:border-primary h-full transition-colors">
               <CardHeader>

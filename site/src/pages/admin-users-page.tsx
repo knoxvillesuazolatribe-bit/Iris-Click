@@ -6,6 +6,7 @@ import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { ServerDown } from '@/components/server-down'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,7 @@ const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 
 /** Screens 19–21: assistive users and creating them. */
 export function AdminUsersPage() {
+  const accounts = useAccountsMode()
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -62,8 +64,10 @@ export function AdminUsersPage() {
   })
 
   return (
-    <AdminLayout title="Users" description="Assistive users sign in by looking at their name tile. No password is needed.">
-      <Card>
+    <AdminLayout title="Users" description={accounts
+      ? 'People create their own accounts on their computer. Here you can view, reset PIN or deactivate them.'
+      : 'Assistive users sign in by looking at their name tile. No password is needed.'}>
+      {!accounts && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl"><UserPlus aria-hidden /> Create assistive user</CardTitle>
           <CardDescription>The address and barangay are shared with emergency contacts when the person presses SOS.</CardDescription>
@@ -93,7 +97,7 @@ export function AdminUsersPage() {
             </div>
           </form>
         </CardContent>
-      </Card>
+      </Card>}
 
       <Card>
         <CardContent className="pt-6">
