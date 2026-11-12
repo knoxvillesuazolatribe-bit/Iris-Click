@@ -1,6 +1,6 @@
-import { ArrowLeft, KeyRound, LoaderCircle, ShieldCheck, Sparkles, UserRoundPlus } from 'lucide-react'
+import { ArrowLeft, KeyRound, LoaderCircle, ShieldCheck, Sparkles, Ticket, UserRoundPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { GazeButton } from '@/components/gaze-button'
 import { NewAccountCalibration } from '@/components/new-account-calibration'
 import { NumberPad } from '@/components/number-pad'
@@ -14,13 +14,18 @@ import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { accountRefusal, accountsService } from '@/services/accounts-service'
 import { pendingCalibrationService } from '@/services/pending-calibration-service'
 import { useSessionStore } from '@/store/session-store'
-import type { AccountSession, PendingCalibration } from '@/validators/accounts-validator'
+import type { AccountSession, PendingCalibration, SetupCodeFound } from '@/validators/accounts-validator'
 
-type Path = 'new' | 'existing'
-type Step = 'choose' | 'consent' | 'calibrate' | 'username' | 'mobile' | 'pin' | 'pin-confirm' | 'saving'
+type Path = 'new' | 'existing' | 'code'
+type Step = 'choose' | 'code' | 'consent' | 'calibrate' | 'username' | 'mobile' | 'pin' | 'pin-confirm' | 'saving'
 
 const NEW_STEPS: Step[] = ['choose', 'consent', 'calibrate', 'username', 'mobile', 'pin', 'pin-confirm']
 const EXISTING_STEPS: Step[] = ['choose', 'calibrate', 'username', 'pin']
+// PDAO setup code: a first account (no username yet) or a new PIN for an existing account.
+const CODE_FIRST_STEPS: Step[] = ['choose', 'code', 'consent', 'username', 'mobile', 'pin', 'pin-confirm']
+const CODE_RESET_STEPS: Step[] = ['choose', 'code', 'pin', 'pin-confirm']
+const CODE_STEP_CODES = ['wrong_code', 'ticket_expired']
+const CODE_DIGITS = 8
 const USERNAME_STEP_CODES = ['too_short', 'too_long', 'bad_characters', 'needs_letter', 'bad_edges', 'reserved',
   'not_allowed', 'taken']
 const MOBILE_STEP_CODES = ['bad_mobile', 'mobile_limit']
@@ -40,9 +45,14 @@ function formatMobile(digits: string) {
  */
 export function AddAccountPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Forgot PIN -> "I have a setup code" opens this page at the code step.
+  const startWithCode = (location.state as { path?: string } | null)?.path === 'code'
   const [deviceId, setDeviceId] = useState<string | null | undefined>(undefined)
-  const [path, setPath] = useState<Path>('new')
-  const [step, setStep] = useState<Step>('choose')
+  const [path, setPath] = useState<Path>(startWithCode ? 'code' : 'new')
+  const [step, setStep] = useState<Step>(startWithCode ? 'code' : 'choose')
+  const [code, setCode] = useState('')
+  const [setup, setSetup] = useState<SetupCodeFound | null>(null)
   const [username, setUsername] = useState('')
   const [mobile, setMobile] = useState('')
   const [pin, setPin] = useState('')
@@ -67,7 +77,8 @@ export function AddAccountPage() {
     if (!finished.current && calibration.current) void pendingCalibrationService.discard(calibration.current.profile_file_id)
   }, [])
 
-  const steps = path === 'new' ? NEW_STEPS : EXISTING_STEPS
+  const steps = path === 'new' ? NEW_STEPS : path === 'existing' ? EXISTING_STEPS
+    : setup?.username ? CODE_RESET_STEPS : CODE_FIRST_STEPS
   const go = (next: Step) => {
     setMessage(null)
     setSuggestions([])
@@ -96,10 +107,12 @@ export function AddAccountPage() {
     })
     if (ONLINE_COPY) await linkDesktop() // IrisClick Desktop must know the new account before attaching
     let note = text
-    try {
-      await pendingCalibrationService.attach(calibration.current?.profile_file_id ?? null)
-    } catch {
-      note += ' The calibration could not be added to the account; you can calibrate again from the welcome screen.'
+    if (calibration.current) {
+      try {
+        await pendingCalibrationService.attach(calibration.current.profile_file_id)
+      } catch {
+        note += ' The calibration could not be added to the account; you can calibrate again from the welcome screen.'
+      }
     }
     finished.current = true
     void navigate('/user/select', { replace: true, state: { notice: note } })
@@ -107,7 +120,11 @@ export function AddAccountPage() {
 
   const refused = (err: unknown, fallback: string) => {
     const answer = accountRefusal(err, fallback)
-    if (USERNAME_STEP_CODES.includes(answer.code)) {
+    if (CODE_STEP_CODES.includes(answer.code)) {
+      setStep('code')
+      setCode('')
+      if (answer.code === 'ticket_expired') setSetup(null)
+    } else if (USERNAME_STEP_CODES.includes(answer.code)) {
       setStep('username')
       setSuggestions(answer.suggestions ?? [])
     } else if (MOBILE_STEP_CODES.includes(answer.code)) setStep('mobile')
@@ -143,12 +160,39 @@ export function AddAccountPage() {
     setBusy(true)
     setStep('saving')
     try {
+      if (path === 'code' && setup) {
+        const session = await accountsService.completeSetup(deviceId, setup.username
+          ? { ticket: setup.ticket, pin, pin_confirm: confirm }
+          : { ticket: setup.ticket, pin, pin_confirm: confirm, username, mobile_number: mobile })
+        await finish(session, setup.username ? 'Your new PIN is ready. Look at your name to start.'
+          : 'Account created. Look at your name to start.')
+        return
+      }
       const session = await accountsService.signUp(deviceId, {
         username, mobile_number: mobile, pin, pin_confirm: confirm, remember: false,
       })
       await finish(session, 'Account created. Look at your name to start.')
     } catch (err) {
       refused(err, 'Could not create your account. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const redeemCode = async () => {
+    if (!deviceId || code.length !== CODE_DIGITS) return
+    setBusy(true)
+    try {
+      const found = await accountsService.redeemCode(deviceId, code)
+      setSetup(found)
+      if (found.username) setUsername(found.username)
+      go(found.username ? 'pin' : 'consent')
+    } catch (err) {
+      const answer = accountRefusal(err, 'Could not check the code. Please try again.')
+      setCode('')
+      const left = answer.tries_left
+      setMessage(answer.code === 'wrong_code' && left !== undefined
+        ? `${answer.detail} ${left} ${left === 1 ? 'try' : 'tries'} left.` : answer.detail)
     } finally {
       setBusy(false)
     }
@@ -171,6 +215,7 @@ export function AddAccountPage() {
   if (deviceId === null) return <DesktopDownloadPage onRetry={findDesktop} />
 
   const numbered = (label: string) => {
+    if (path === 'code') return label
     const order: Step[] = steps.filter((s) => s !== 'choose' && s !== 'consent' && s !== 'pin-confirm')
     const at = order.indexOf(step === 'pin-confirm' ? 'pin' : step)
     return at >= 0 ? `Step ${at + 1} of ${order.length}: ${label}` : label
@@ -202,6 +247,25 @@ export function AddAccountPage() {
           <GazeButton variant="outline" className="min-h-24 w-full text-2xl" onClick={() => { setPath('existing'); go('calibrate') }}>
             <KeyRound aria-hidden /> I already have an account
           </GazeButton>
+          <GazeButton variant="outline" className="min-h-24 w-full text-2xl"
+            onClick={() => { setPath('code'); setSetup(null); setCode(''); go('code') }}>
+            <Ticket aria-hidden /> I have a setup code from PDAO
+          </GazeButton>
+        </section>
+      )}
+
+      {deviceId && step === 'code' && (
+        <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
+          <h1 className="text-4xl font-bold">Your setup code</h1>
+          <p className="text-muted-foreground text-xl">The 8 numbers PDAO staff gave you.</p>
+          <p aria-live="polite" className="bg-card min-h-16 min-w-80 rounded-2xl border-2 p-3 text-3xl font-bold tracking-widest tabular-nums">
+            {code ? `${code.slice(0, 4)} ${code.slice(4)}`.trim()
+              : <span className="text-muted-foreground text-xl font-normal tracking-normal">1234 5678</span>}
+          </p>
+          <NumberPad disabled={busy} okDisabled={code.length !== CODE_DIGITS}
+            onDigit={(d) => { setCode((c) => (c.length < CODE_DIGITS ? c + d : c)); setMessage(null) }}
+            onDelete={() => setCode((c) => c.slice(0, -1))}
+            onOk={() => void redeemCode()} />
         </section>
       )}
 
@@ -214,7 +278,7 @@ export function AddAccountPage() {
             <p>Your camera picture stays on this computer. It is not saved or sent.</p>
             <p className="text-muted-foreground text-base">Data Privacy Act of 2012 (Republic Act No. 10173)</p>
           </div>
-          <GazeButton autoFocus className="min-h-24 min-w-80 text-2xl" onClick={() => go('calibrate')}>I agree</GazeButton>
+          <GazeButton autoFocus className="min-h-24 min-w-80 text-2xl" onClick={() => go(path === 'code' ? 'username' : 'calibrate')}>I agree</GazeButton>
         </section>
       )}
 
@@ -263,24 +327,26 @@ export function AddAccountPage() {
 
       {deviceId && step === 'pin' && (
         <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
-          <h1 className="text-4xl font-bold">{numbered(path === 'new' ? 'Create your PIN' : 'Enter your PIN')}</h1>
-          {path === 'new' && <p className="text-muted-foreground text-xl">6 numbers that are easy for you to remember.</p>}
+          <h1 className="text-4xl font-bold">{path === 'code' && setup?.username ? `Hello, ${setup.username}: choose a new PIN`
+            : numbered(path === 'existing' ? 'Enter your PIN' : 'Create your PIN')}</h1>
+          {path !== 'existing' && <p className="text-muted-foreground text-xl">6 numbers that are easy for you to remember.</p>}
           <PinEntry disabled={busy}
-            onSubmit={(entered) => (path === 'new' ? (setPin(entered), go('pin-confirm')) : void submitExisting(entered))} />
+            onSubmit={(entered) => (path === 'existing' ? void submitExisting(entered) : (setPin(entered), go('pin-confirm')))} />
         </section>
       )}
 
       {deviceId && step === 'pin-confirm' && (
         <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
           <h1 className="text-4xl font-bold">{numbered('Confirm your PIN')}</h1>
-          <PinEntry disabled={busy} okLabel="Create" onSubmit={(entered) => void submitNew(entered)} />
+          <PinEntry disabled={busy} okLabel={path === 'code' && setup?.username ? 'Save' : 'Create'}
+            onSubmit={(entered) => void submitNew(entered)} />
         </section>
       )}
 
       {step === 'saving' && (
         <section className="flex flex-col items-center gap-6 text-center">
           <Sparkles className="text-primary size-12" aria-hidden />
-          <p className="text-2xl">{path === 'new' ? 'Creating your account…' : 'Adding your account to this computer…'}</p>
+          <p className="text-2xl">{path === 'existing' ? 'Adding your account to this computer…' : 'Saving…'}</p>
           <LoaderCircle className="text-muted-foreground size-12 animate-spin" aria-label="Saving" />
         </section>
       )}

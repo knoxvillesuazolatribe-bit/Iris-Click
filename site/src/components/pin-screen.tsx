@@ -79,12 +79,16 @@ export function PinScreen({ username, purpose, showRemember, busy, refusal, onSu
 }
 
 /** Screen F1: until SMS is connected, a forgotten PIN is reset by PDAO staff. */
-export function ForgotPinScreen({ onBack }: { onBack: () => void }) {
+export function ForgotPinScreen({ onBack, onSetupCode }: { onBack: () => void; onSetupCode?: () => void }) {
   return (
     <section className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">
       <h1 className="text-4xl font-bold">Forgot your PIN?</h1>
       <p className="text-muted-foreground text-2xl">We couldn't send a code. Ask PDAO staff to reset your PIN.</p>
-      <GazeButton autoFocus className="min-h-20 min-w-60 text-xl" onClick={onBack}>Back</GazeButton>
+      <p className="text-muted-foreground text-xl">They will give you an 8-number setup code to choose a new PIN.</p>
+      <div className="flex flex-wrap justify-center gap-6">
+        {onSetupCode && <GazeButton className="min-h-20 min-w-60 text-xl" onClick={onSetupCode}>I have a setup code</GazeButton>}
+        <GazeButton autoFocus variant="outline" className="min-h-20 min-w-60 text-xl" onClick={onBack}>Back</GazeButton>
+      </div>
     </section>
   )
 }

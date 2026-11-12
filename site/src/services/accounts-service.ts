@@ -4,6 +4,7 @@ import { deviceHeaders } from '@/lib/device'
 import {
   accountRefusalSchema,
   accountSessionSchema,
+  setupCodeSchema,
   thisComputerSchema,
   tilesSchema,
   usernameCheckSchema,
@@ -41,11 +42,28 @@ export const accountsService = {
       .post('/accounts/signup', { ...input, consent: true }, { headers: deviceHeaders(deviceId) })
       .then((r) => accountSessionSchema.parse(r.data)),
 
+  /** PDAO's 8-digit setup code: a short ticket for the next screens. */
+  redeemCode: (deviceId: string, code: string) =>
+    appClient.post('/accounts/setup-code', { code }, { headers: deviceHeaders(deviceId) })
+      .then((r) => setupCodeSchema.parse(r.data)),
+
+  completeSetup: (deviceId: string, input: SetupCompleteInput) =>
+    appClient.post('/accounts/setup-complete', { ...input, consent: true }, { headers: deviceHeaders(deviceId) })
+      .then((r) => accountSessionSchema.parse(r.data)),
+
   /** "I already have an account": username + PIN, which also adds the account to this computer. */
   signInWithUsername: (deviceId: string, username: string, pin: string, remember = false) =>
     appClient
       .post('/accounts/signin', { username, pin, remember }, { headers: deviceHeaders(deviceId) })
       .then((r) => accountSessionSchema.parse(r.data)),
+}
+
+export interface SetupCompleteInput {
+  ticket: string
+  pin: string
+  pin_confirm: string
+  username?: string
+  mobile_number?: string
 }
 
 export interface SignupInput {

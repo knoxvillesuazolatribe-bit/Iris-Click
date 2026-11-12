@@ -70,3 +70,22 @@ class AccountSessionRead(BaseModel):
     full_name: str
     username: str
     role: Literal["assistive_user"] = "assistive_user"
+
+
+class SetupCodeRequest(BaseModel):
+    code: str = Field(max_length=32)
+
+
+class SetupCodeRead(BaseModel):
+    ticket: str
+    full_name: str
+    username: str | None  # None: no account yet; choose a username and mobile number too
+
+
+class SetupCompleteRequest(BaseModel):
+    ticket: str = Field(max_length=512)
+    pin: str = Field(max_length=16)
+    pin_confirm: str = Field(max_length=16)
+    consent: bool = False
+    username: str | None = Field(default=None, max_length=64)
+    mobile_number: str | None = Field(default=None, max_length=32)

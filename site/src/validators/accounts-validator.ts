@@ -50,6 +50,13 @@ export const pendingCalibrationSchema = z.object({
 })
 export type PendingCalibration = z.infer<typeof pendingCalibrationSchema>
 
+export const setupCodeSchema = z.object({
+  ticket: z.string(),
+  full_name: z.string(),
+  username: z.string().nullable(),
+})
+export type SetupCodeFound = z.infer<typeof setupCodeSchema>
+
 /** A refusal from /api/accounts: a plain message plus a stable code (and sometimes more). */
 export const accountRefusalSchema = z.object({
   detail: z.string(),

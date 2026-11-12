@@ -169,7 +169,7 @@ export function AccountsPage() {
           onSubmit={(pin, remember) => void submitPin(pin, remember)}
           onForgot={() => setView({ kind: 'forgot', tile: view.tile, purpose: view.purpose })} />
       ) : view.kind === 'forgot' ? (
-        <ForgotPinScreen onBack={back} />
+        <ForgotPinScreen onBack={back} onSetupCode={() => void navigate('/user/add', { state: { path: 'code' } })} />
       ) : view.kind === 'confirm-remove' ? (
         <section role="alertdialog" aria-labelledby="remove-title"
           className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">

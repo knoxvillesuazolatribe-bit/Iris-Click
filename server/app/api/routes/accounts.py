@@ -8,6 +8,8 @@ POST /accounts/signup         consent + username + mobile + PIN -> account, sign
 POST /accounts/signin         a tile, or username + PIN -> signed in, added to this computer
 POST /accounts/remove         forget an account on this computer
 POST /accounts/signout        sign out; this computer asks for the PIN next time
+POST /accounts/setup-code     PDAO's 8-digit setup code -> a short setup ticket
+POST /accounts/setup-complete the ticket + new PIN (+ username and mobile for a first account)
 
 Every /accounts call carries the computer ID from IrisClick Desktop in the
 X-IrisClick-Device header, and answers 403 while ASSISTIVE_SIGNIN_MODE is "legacy".
@@ -18,10 +20,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
-from app.accounts import devices, mode, service, usernames
-from app.accounts.schemas import (AccountSessionRead, RemoveRequest, SigninModeRead, SigninRequest,
-                                  SignupRequest, ThisComputerRead, TileRead, TilesRead, UsernameCheckRead,
-                                  UsernameCheckRequest)
+from app.accounts import devices, mode, service, setup_codes, usernames
+from app.accounts.schemas import (AccountSessionRead, RemoveRequest, SetupCodeRead, SetupCodeRequest,
+                                  SetupCompleteRequest, SigninModeRead, SigninRequest, SignupRequest,
+                                  ThisComputerRead, TileRead, TilesRead, UsernameCheckRead, UsernameCheckRequest)
 from app.accounts.service import AccountError, SignedInAccount
 from app.api.deps import (DatabaseSafeRoute, clear_session_cookie, current_sign_in, get_db,
                           set_session_cookie)
@@ -149,3 +151,31 @@ def signout(request: Request, device: Device | None = Depends(known_device),
     response = Response(status_code=204)
     clear_session_cookie(response)
     return response
+
+
+def _setup_refusal(exc: setup_codes.SetupCodeError) -> JSONResponse:
+    return JSONResponse({"detail": exc.message, "code": exc.code, **exc.extra}, status_code=exc.status_code)
+
+
+@router.post("/setup-code", response_model=SetupCodeRead)
+def setup_code(body: SetupCodeRequest, request: Request, device: Device | None = Depends(this_device),
+               db: Session = Depends(get_db)):
+    try:
+        found = setup_codes.redeem(db, device, body.code, address=visitor_address(request))
+    except setup_codes.SetupCodeError as exc:
+        return _setup_refusal(exc)
+    return SetupCodeRead(ticket=found.ticket, full_name=found.full_name, username=found.username)
+
+
+@router.post("/setup-complete", response_model=AccountSessionRead)
+def setup_complete(body: SetupCompleteRequest, request: Request, device: Device | None = Depends(this_device),
+                   db: Session = Depends(get_db)):
+    try:
+        result = setup_codes.complete(db, device, ticket=body.ticket, pin=body.pin, pin_confirm=body.pin_confirm,
+                                      consent=body.consent, username=body.username,
+                                      mobile_number=body.mobile_number)
+    except setup_codes.SetupCodeError as exc:
+        return _setup_refusal(exc)
+    except AccountError as exc:
+        return _refusal(exc)
+    return _signed_in(result, request, db)
