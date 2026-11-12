@@ -9,6 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.accounts import sms
 from app.accounts.guards import NO_GLOBAL_DEFAULTS, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.config import get_settings
@@ -81,7 +82,7 @@ def _system(db: Session) -> SystemRead:
         email=EmailStatus(configured=sender.configured(), host=env.smtp_host or None,
                           port=env.smtp_port, security=env.smtp_security,
                           from_address=sender.from_address or None),
-        sms_configured=False)
+        sms_configured=sms.configured())
 
 
 @router.get("/system", response_model=SystemRead)
@@ -129,4 +130,13 @@ SMS_TEST_NOT_SET_UP = ("No SMS was sent: SMS sending is not set up yet. A paid S
 
 @router.post("/system/test-sms", response_model=TestResult)
 def test_sms(_admin: User = Depends(require_admin)):
-    return TestResult(sent=False, detail=SMS_TEST_NOT_SET_UP)
+    if not sms.configured():
+        return TestResult(sent=False, detail=SMS_TEST_NOT_SET_UP)
+    lock = sms.only_to()  # extension: Semaphore (file 07, Phase 5); tests go only to SMS_ONLY_TO
+    if not lock:
+        return TestResult(sent=False, detail="Set SMS_ONLY_TO in server/.env to the number that gets test texts.")
+    try:
+        sms.send(lock[0], "IrisClick test message: SMS sending works.")
+    except sms.SmsError:
+        return TestResult(sent=False, detail="Semaphore did not send the text. Check the API key and the credits.")
+    return TestResult(sent=True, detail="Test text sent to the SMS_ONLY_TO number.")

@@ -17,7 +17,7 @@ from app.services import active_user, session_service
 from app.services.system_log_service import log_activity
 
 # The Logs "Accounts" tab: every activity type the accounts feature writes.
-ACCOUNT_LOG_TYPES = ("account_", "pin_", "consent_given", "address_updated", "device_shared_")
+ACCOUNT_LOG_TYPES = ("account_", "pin_", "consent_given", "address_updated", "device_shared_", "mobile_verified")
 
 LOCK_OK, LOCK_WAIT, LOCK_RESET = "ok", "locked", "needs_new_pin"
 

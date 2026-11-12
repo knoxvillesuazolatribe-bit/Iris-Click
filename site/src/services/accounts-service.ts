@@ -5,8 +5,10 @@ import {
   accountRefusalSchema,
   accountSessionSchema,
   canSignUpSchema,
+  codeSentSchema,
   setupCodeSchema,
   thisComputerSchema,
+  ticketSchema,
   tilesSchema,
   usernameCheckSchema,
   type AccountRefusal,
@@ -32,6 +34,26 @@ export const accountsService = {
 
   signOut: (deviceId: string | null) =>
     appClient.post('/accounts/signout', null, { headers: deviceId ? deviceHeaders(deviceId) : {} }),
+
+  // ---------- SMS (Phase 5): verify the mobile number, Forgot PIN ----------
+  mobileSend: (deviceId: string, mobileNumber: string) =>
+    appClient.post('/accounts/mobile/send', { mobile_number: mobileNumber }, { headers: deviceHeaders(deviceId) })
+      .then((r) => codeSentSchema.parse(r.data)),
+  mobileVerify: (deviceId: string, mobileNumber: string, code: string) =>
+    appClient.post('/accounts/mobile/verify', { mobile_number: mobileNumber, code }, { headers: deviceHeaders(deviceId) })
+      .then((r) => ticketSchema.parse(r.data).ticket),
+  /** Signed in: mark the number verified (after the account was made). */
+  mobileConfirm: (deviceId: string, mobileTicket: string) =>
+    appClient.post('/accounts/mobile/confirm', { mobile_ticket: mobileTicket }, { headers: deviceHeaders(deviceId) }),
+  forgotSend: (deviceId: string, userId: number) =>
+    appClient.post('/accounts/forgot-pin/send', { user_id: userId }, { headers: deviceHeaders(deviceId) })
+      .then((r) => codeSentSchema.parse(r.data)),
+  forgotVerify: (deviceId: string, userId: number, code: string) =>
+    appClient.post('/accounts/forgot-pin/verify', { user_id: userId, code }, { headers: deviceHeaders(deviceId) })
+      .then((r) => ticketSchema.parse(r.data).ticket),
+  forgotComplete: (deviceId: string, ticket: string, pin: string, pinConfirm: string, remember: boolean) =>
+    appClient.post('/accounts/forgot-pin/complete', { ticket, pin, pin_confirm: pinConfirm, remember },
+      { headers: deviceHeaders(deviceId) }).then((r) => accountSessionSchema.parse(r.data)),
 
   /** May this computer still make a new account today? Asked before the new person calibrates. */
   canSignUp: (deviceId: string) =>

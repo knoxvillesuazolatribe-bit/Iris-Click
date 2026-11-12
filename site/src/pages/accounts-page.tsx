@@ -4,12 +4,14 @@ import { useLocation, useNavigate } from 'react-router'
 import { AccountTile } from '@/components/account-tile'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
+import { ForgotPinBySms } from '@/components/forgot-pin-by-sms'
 import { ForgotPinScreen, PinScreen } from '@/components/pin-screen'
 import { ServerDown } from '@/components/server-down'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { linkDesktop } from '@/lib/desktop-link'
 import { thisComputerId } from '@/lib/device'
 import { ONLINE_COPY } from '@/lib/online-copy'
+import { smsEnabled } from '@/lib/signin-mode'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { accountRefusal, accountsService } from '@/services/accounts-service'
 import { useSessionStore } from '@/store/session-store'
@@ -57,6 +59,10 @@ export function AccountsPage() {
     return () => { window.clearTimeout(fade); window.clearTimeout(hide) }
   }, [notice])
   const [refusal, setRefusal] = useState<AccountRefusal | null>(null)
+  const [sms, setSms] = useState(false) // Phase 5: Forgot PIN by text
+  useEffect(() => {
+    void smsEnabled().then(setSms)
+  }, [])
 
   const askPin = (tile: Tile, purpose: 'signin' | 'remove') => {
     setRefusal(null)
@@ -189,7 +195,12 @@ export function AccountsPage() {
           onSubmit={(pin, remember) => void submitPin(pin, remember)}
           onForgot={() => setView({ kind: 'forgot', tile: view.tile, purpose: view.purpose })} />
       ) : view.kind === 'forgot' ? (
-        <ForgotPinScreen onBack={back} onSetupCode={() => void navigate('/user/add', { state: { path: 'code' } })} />
+        sms && view.purpose === 'signin' && load.state === 'ready' ? (
+          <ForgotPinBySms deviceId={load.deviceId} tile={view.tile} onDone={signedIn} onBack={back}
+            onSetupCode={() => void navigate('/user/add', { state: { path: 'code' } })} />
+        ) : (
+          <ForgotPinScreen onBack={back} onSetupCode={() => void navigate('/user/add', { state: { path: 'code' } })} />
+        )
       ) : view.kind === 'confirm-remove' ? (
         <section role="alertdialog" aria-labelledby="remove-title"
           className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">

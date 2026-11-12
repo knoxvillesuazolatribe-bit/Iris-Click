@@ -10,6 +10,10 @@ export type SigninMode = z.infer<typeof signinModeSchema>['mode']
 
 export const deviceSchema = z.object({ device_id: z.string().regex(/^[A-Za-z0-9_-]{32,64}$/) })
 
+export const codeSentSchema = z.object({ to: z.string(), resend_after: z.number().int() })
+export type CodeSent = z.infer<typeof codeSentSchema>
+export const ticketSchema = z.object({ ticket: z.string() })
+
 export const canSignUpSchema = z.object({ allowed: z.boolean(), detail: z.string().optional() })
 
 export const accountTileSchema = z.object({

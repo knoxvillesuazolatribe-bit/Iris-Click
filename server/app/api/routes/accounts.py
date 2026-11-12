@@ -12,6 +12,12 @@ POST /accounts/signout        sign out; this computer asks for the PIN next time
 POST /accounts/setup-code     PDAO's 8-digit setup code -> a short setup ticket
 PUT  /accounts/me/address     the signed-in person adds their own address for Emergency SOS
 POST /accounts/setup-complete the ticket + new PIN (+ username and mobile for a first account)
+POST /accounts/mobile/send     text a code to verify the mobile number (sign-up, setup code)
+POST /accounts/mobile/verify   the code -> a short ticket saying the number is verified
+POST /accounts/mobile/confirm  (signed in) mark the account's number verified with that ticket
+POST /accounts/forgot-pin/send      text a reset code to the account's verified number
+POST /accounts/forgot-pin/verify    the code -> a short reset ticket
+POST /accounts/forgot-pin/complete  the ticket + new PIN -> signed in, other sessions ended
 
 Every /accounts call carries the computer ID from IrisClick Desktop in the
 X-IrisClick-Device header, and answers 403 while ASSISTIVE_SIGNIN_MODE is "legacy".
@@ -22,8 +28,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
-from app.accounts import devices, mode, service, setup_codes, usernames
-from app.accounts.schemas import (AccountSessionRead, AddressRead, AddressRequest, RemoveRequest, SetupCodeRead,
+from app.accounts import devices, mode, service, setup_codes, sms, sms_codes, usernames
+from app.accounts.schemas import (AccountSessionRead, AddressRead, AddressRequest, CodeSentRead,
+                                  ForgotCompleteRequest, ForgotSendRequest, ForgotVerifyRequest, MobileCodeRequest,
+                                  MobileRequest, MobileTicketRequest, RemoveRequest, SetupCodeRead, TicketRead,
                                   SetupCodeRequest, SetupCompleteRequest, SigninModeRead, SigninRequest,
                                   SignupRequest, ThisComputerRead, TileRead, TilesRead, UsernameCheckRead,
                                   UsernameCheckRequest)
@@ -83,7 +91,7 @@ def _signed_in(result: SignedInAccount, request: Request, db: Session) -> JSONRe
 
 @mode_router.get("/mode", response_model=SigninModeRead)
 def signin_mode() -> SigninModeRead:
-    return SigninModeRead(mode=mode.signin_mode())
+    return SigninModeRead(mode=mode.signin_mode(), sms_enabled=sms.configured())
 
 
 # A person never calibrated has no accuracy: the field is left out rather than sent as null.
@@ -210,3 +218,70 @@ def my_address(body: AddressRequest, user: User = Depends(require_assistive), db
     db.commit()
     return AddressRead(location_text=sos_service.location_text(row))
 
+
+# ---------- SMS: verify the mobile number, Forgot PIN (Phase 5) ----------
+
+def _sms_refusal(exc: sms_codes.SmsCodeError) -> JSONResponse:
+    return JSONResponse({"detail": exc.message, "code": exc.code, **exc.extra}, status_code=exc.status_code)
+
+
+@router.post("/mobile/send", response_model=CodeSentRead)
+def mobile_send(body: MobileRequest, device: Device | None = Depends(this_device), db: Session = Depends(get_db)):
+    try:
+        sent = sms_codes.send_verify(db, device, body.mobile_number)
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+    return CodeSentRead(to=sent.to, resend_after=sent.resend_after)
+
+
+@router.post("/mobile/verify", response_model=TicketRead)
+def mobile_verify(body: MobileCodeRequest, db: Session = Depends(get_db)):
+    try:
+        return TicketRead(ticket=sms_codes.verify_mobile(db, body.mobile_number, body.code))
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+
+
+@router.post("/mobile/confirm", status_code=204)
+def mobile_confirm(body: MobileTicketRequest, user: User = Depends(require_assistive),
+                   db: Session = Depends(get_db)) -> Response:
+    try:
+        confirmed = sms_codes.confirm_mobile(db, user.user_id, body.mobile_ticket)
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+    if not confirmed:
+        raise HTTPException(status_code=409, detail="That code was for another number.")
+    return Response(status_code=204)
+
+
+@router.post("/forgot-pin/send", response_model=CodeSentRead)
+def forgot_send(body: ForgotSendRequest, device: Device | None = Depends(known_device),
+                db: Session = Depends(get_db)):
+    try:
+        sent = sms_codes.forgot_send(db, device, body.user_id)
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+    return CodeSentRead(to=sent.to, resend_after=sent.resend_after)
+
+
+@router.post("/forgot-pin/verify", response_model=TicketRead)
+def forgot_verify(body: ForgotVerifyRequest, device: Device | None = Depends(known_device),
+                  db: Session = Depends(get_db)):
+    try:
+        return TicketRead(ticket=sms_codes.forgot_verify(db, device, body.user_id, body.code))
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+
+
+@router.post("/forgot-pin/complete", response_model=AccountSessionRead)
+def forgot_complete(body: ForgotCompleteRequest, request: Request, device: Device | None = Depends(known_device),
+                    db: Session = Depends(get_db)):
+    try:
+        account = sms_codes.forgot_complete(db, device, body.ticket, body.pin, body.pin_confirm)
+        result = service.sign_in(db, device, user_id=account.user_id, pin=body.pin, remember=body.remember,
+                                 address=visitor_address(request))
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+    except AccountError as exc:
+        return _refusal(exc)
+    return _signed_in(result, request, db)

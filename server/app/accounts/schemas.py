@@ -15,6 +15,42 @@ class SigninModeRead(BaseModel):
     sms_enabled: bool = False
 
 
+class MobileRequest(BaseModel):
+    mobile_number: str = Field(max_length=32)
+
+
+class MobileCodeRequest(MobileRequest):
+    code: str = Field(max_length=12)
+
+
+class MobileTicketRequest(BaseModel):
+    mobile_ticket: str = Field(max_length=600)
+
+
+class CodeSentRead(BaseModel):
+    to: str               # masked: 09** *** 2488
+    resend_after: int     # seconds
+
+
+class TicketRead(BaseModel):
+    ticket: str
+
+
+class ForgotSendRequest(BaseModel):
+    user_id: int
+
+
+class ForgotVerifyRequest(ForgotSendRequest):
+    code: str = Field(max_length=12)
+
+
+class ForgotCompleteRequest(BaseModel):
+    ticket: str = Field(max_length=600)
+    pin: str = Field(max_length=12)
+    pin_confirm: str = Field(max_length=12)
+    remember: bool = False
+
+
 class TileRead(BaseModel):
     user_id: int
     username: str

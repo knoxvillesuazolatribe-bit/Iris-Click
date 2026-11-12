@@ -5,19 +5,22 @@ import { GazeButton } from '@/components/gaze-button'
 import { NewAccountCalibration } from '@/components/new-account-calibration'
 import { NumberPad } from '@/components/number-pad'
 import { PinEntry } from '@/components/pin-entry'
+import { SmsCodeEntry } from '@/components/sms-code-entry'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { USERNAME_MAX, UsernameKeys } from '@/components/username-keys'
 import { linkDesktop } from '@/lib/desktop-link'
 import { thisComputerId } from '@/lib/device'
 import { ONLINE_COPY } from '@/lib/online-copy'
+import { smsEnabled } from '@/lib/signin-mode'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { accountRefusal, accountsService } from '@/services/accounts-service'
 import { pendingCalibrationService } from '@/services/pending-calibration-service'
 import { useSessionStore } from '@/store/session-store'
-import type { AccountSession, PendingCalibration, SetupCodeFound } from '@/validators/accounts-validator'
+import type { AccountSession, CodeSent, PendingCalibration, SetupCodeFound } from '@/validators/accounts-validator'
 
 type Path = 'new' | 'existing' | 'code'
-type Step = 'choose' | 'code' | 'consent' | 'calibrate' | 'username' | 'mobile' | 'pin' | 'pin-confirm' | 'saving'
+type Step = 'choose' | 'code' | 'consent' | 'calibrate' | 'username' | 'mobile' | 'mobile-code' | 'pin' | 'pin-confirm'
+  | 'saving'
 
 const NEW_STEPS: Step[] = ['choose', 'consent', 'calibrate', 'username', 'mobile', 'pin', 'pin-confirm']
 const EXISTING_STEPS: Step[] = ['choose', 'calibrate', 'username', 'pin']
@@ -55,6 +58,13 @@ export function AddAccountPage() {
   const [setup, setSetup] = useState<SetupCodeFound | null>(null)
   const [username, setUsername] = useState('')
   const [mobile, setMobile] = useState('')
+  // Phase 5: with SMS set up, a code checks the number (B4b); the ticket marks it verified once the account exists.
+  const [sms, setSms] = useState(false)
+  const [codeSent, setCodeSent] = useState<CodeSent | null>(null)
+  const mobileTicket = useRef<string | null>(null)
+  useEffect(() => {
+    void smsEnabled().then(setSms)
+  }, [])
   const [pin, setPin] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -92,6 +102,7 @@ export function AddAccountPage() {
 
   const back = () => {
     if (busy) return
+    if (step === 'mobile-code') return go('mobile')
     const i = steps.indexOf(step)
     if (i <= 0) return void navigate('/user/select')
     const previous = step === 'pin-confirm' ? 'pin' : steps[i - 1]
@@ -107,6 +118,10 @@ export function AddAccountPage() {
     })
     if (ONLINE_COPY) await linkDesktop() // IrisClick Desktop must know the new account before attaching
     let note = text
+    if (mobileTicket.current && deviceId) {
+      await accountsService.mobileConfirm(deviceId, mobileTicket.current).catch(() => undefined)
+      mobileTicket.current = null
+    }
     if (calibration.current) {
       try {
         await pendingCalibrationService.attach(calibration.current.profile_file_id)
@@ -150,6 +165,27 @@ export function AddAccountPage() {
       go('consent')
     } catch (err) {
       setMessage(accountRefusal(err, 'Could not reach IrisClick. Please try again.').detail)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** After the mobile number: text a code to check it (SMS set up), or go on unverified. */
+  const afterMobile = async () => {
+    if (!deviceId) return
+    if (!sms || mobileTicket.current) return go('pin')
+    setBusy(true)
+    try {
+      setCodeSent(await accountsService.mobileSend(deviceId, mobile))
+      go('mobile-code')
+    } catch (err) {
+      const answer = accountRefusal(err, 'We could not text this number.')
+      if (answer.code === 'bad_mobile') return setMessage(answer.detail)
+      if (answer.code === 'resend_wait' && codeSent) return go('mobile-code')
+      go('pin')
+      if (answer.code !== 'sms_off') {
+        setMessage(`${answer.detail} You can go on: your number is saved but not checked.`)
+      }
     } finally {
       setBusy(false)
     }
@@ -238,7 +274,7 @@ export function AddAccountPage() {
   const numbered = (label: string) => {
     if (path === 'code') return label
     const order: Step[] = steps.filter((s) => s !== 'choose' && s !== 'consent' && s !== 'pin-confirm')
-    const at = order.indexOf(step === 'pin-confirm' ? 'pin' : step)
+    const at = order.indexOf(step === 'pin-confirm' ? 'pin' : step === 'mobile-code' ? 'mobile' : step)
     return at >= 0 ? `Step ${at + 1} of ${order.length}: ${label}` : label
   }
 
@@ -336,14 +372,37 @@ export function AddAccountPage() {
             {formatMobile(mobile) || <span className="text-muted-foreground text-xl font-normal">0917 123 4567</span>}
           </p>
           <NumberPad
-            onDigit={(d) => { setMobile((m) => (m.length < MOBILE_DIGITS ? m + d : m)); setMessage(null) }}
-            onDelete={() => setMobile((m) => m.slice(0, -1))}
-            okDisabled={!/^09\d{9}$/.test(mobile)}
-            onOk={() => go('pin')} />
+            onDigit={(d) => { setMobile((m) => (m.length < MOBILE_DIGITS ? m + d : m)); setMessage(null); mobileTicket.current = null }}
+            onDelete={() => { setMobile((m) => m.slice(0, -1)); mobileTicket.current = null }}
+            okDisabled={!/^09\d{9}$/.test(mobile)} disabled={busy}
+            onOk={() => void afterMobile()} />
           <p className="text-muted-foreground max-w-2xl text-lg">
-            We can't text you yet. If you forget your PIN, ask PDAO staff.
+            {sms ? 'We will text a 6-digit code to this number to check it.'
+              : "We can't text you yet. If you forget your PIN, ask PDAO staff."}
           </p>
         </section>
+      )}
+
+      {deviceId && step === 'mobile-code' && codeSent && (
+        <SmsCodeEntry key={codeSent.to + codeSent.resend_after} title={numbered('Check your number')} to={codeSent.to}
+          resendAfter={codeSent.resend_after} busy={busy}
+          onSubmit={async (entered) => {
+            try {
+              mobileTicket.current = await accountsService.mobileVerify(deviceId, mobile, entered)
+              go('pin')
+              return null
+            } catch (err) {
+              const answer = accountRefusal(err, 'Could not check the code. Please try again.')
+              return answer.tries_left !== undefined ? `${answer.detail} ${answer.tries_left} tries left.` : answer.detail
+            }
+          }}
+          onResend={async () => {
+            try {
+              return (await accountsService.mobileSend(deviceId, mobile)).resend_after
+            } catch (err) {
+              return accountRefusal(err, 'We could not text this number.').detail
+            }
+          }} />
       )}
 
       {deviceId && step === 'pin' && (

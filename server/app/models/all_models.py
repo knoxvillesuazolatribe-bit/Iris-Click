@@ -14,6 +14,7 @@ from app.models.user_speech_settings import UserSpeechSettings  # extension: spe
 from app.models.approved_computer import ApprovedComputer  # extension: computer lock
 from app.models.user_session import UserSession
 from app.models.account_models import Device, DeviceAccount, PinAttempt, SetupCode, UserAccount  # extension: accounts on this computer
+from app.models.sms_models import SmsCode  # extension: accounts on this computer (SMS codes)
 
 __all__ = [
     "AccessibilitySettings",
@@ -36,4 +37,5 @@ __all__ = [
     "DeviceAccount",
     "PinAttempt",
     "SetupCode",
+    "SmsCode",
 ]
