@@ -24,6 +24,12 @@ def on(computer=PC1):
 
 
 @pytest.fixture(autouse=True)
+def signing_secret(monkeypatch):
+    """Codes and tickets are signed; CI has no server/.env, so give the tests their own secret."""
+    monkeypatch.setenv("IRISCLICK_DESKTOP_SECRET", "test-secret-for-accounts-tests-0123456789")
+
+
+@pytest.fixture(autouse=True)
 def own_file(tmp_path):
     active_user.use_path(tmp_path / "active_user.json")
     yield
