@@ -32,7 +32,7 @@ from app.api.deps import (DatabaseSafeRoute, clear_session_cookie, current_sign_
 from app.config import get_settings
 from app.models.account_models import Device
 from app.models.user import User
-from app.services import session_service, sos_service
+from app.services import active_user, session_service, sos_service
 from app.services.session_service import SignedIn
 from app.services.system_log_service import log_activity
 
@@ -152,6 +152,7 @@ def signout(request: Request, device: Device | None = Depends(known_device),
             signed_in: SignedIn | None = Depends(current_sign_in), db: Session = Depends(get_db)) -> Response:
     if signed_in is not None:
         service.forget_remember_me(db, device, signed_in.user.user_id)
+        active_user.clear_if(signed_in.user.user_id)  # as the legacy sign-out does
     session_service.revoke(db, request.cookies.get(session_service.COOKIE_NAME))
     db.commit()
     response = Response(status_code=204)

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.accounts import pending_calibration as pending
 from app.api.deps import DatabaseSafeRoute, get_db
 from app.config import get_settings
+from app.services import active_user
 
 router = APIRouter(prefix="/desktop/pending-calibration", tags=["desktop"], route_class=DatabaseSafeRoute)
 
@@ -37,6 +38,9 @@ class AttachRead(BaseModel):
 
 @router.post("/allow")
 def allow() -> dict:
+    # A new person is about to calibrate: unlink whoever used this computer before, or Desktop
+    # would save the calibration as theirs instead of keeping it for the new account.
+    active_user.set_user_id(None)
     pending.allow_new_account()
     return {"allowed": True}
 
