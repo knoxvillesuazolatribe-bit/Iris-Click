@@ -49,8 +49,7 @@ function Pages() {
     <BrowserRouter>
       <IdleSignOut>
       <Routes>
-        <Route path="/" element={<SigninModeSwitch legacy={<LoginSelectionPage />}
-          deviceAccounts={<Navigate to="/user/select" replace />} />} />
+        <Route path="/" element={<LoginSelectionPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/user/select" element={<SigninModeSwitch legacy={<UserSelectPage />} deviceAccounts={<AccountsPage />} />} />
         <Route path="/user/add" element={<AddAccountPage />} />

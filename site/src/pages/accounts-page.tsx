@@ -1,6 +1,6 @@
 import { ArrowLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { AccountTile } from '@/components/account-tile'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
 import { GazeButton } from '@/components/gaze-button'
@@ -156,8 +156,7 @@ export function AccountsPage() {
   const back = () => {
     setMessage(null)
     setNotice(null)
-    if (view.kind === 'pick') return // first screen: nothing to go back to
-    if (view.kind === 'welcome') return setView({ kind: 'pick' }) // "Hello, name" -> back to the tiles
+    if (view.kind === 'pick' || view.kind === 'welcome') return void navigate('/')
     if (view.kind === 'forgot') return askPin(view.tile, view.purpose)
     setView({ kind: 'pick' })
   }
@@ -167,12 +166,10 @@ export function AccountsPage() {
   return (
     <main className="bg-background text-foreground flex min-h-svh flex-col items-center gap-10 p-6">
       <div className="top-band flex w-full max-w-6xl justify-start">
-        {view.kind !== 'pick' && (
-          <GazeButton variant="outline" onClick={back} disabled={busy}>
-            <ArrowLeft aria-hidden />
-            Back
-          </GazeButton>
-        )}
+        <GazeButton variant="outline" onClick={back} disabled={busy}>
+          <ArrowLeft aria-hidden />
+          Back
+        </GazeButton>
       </div>
 
       {message && (
@@ -275,10 +272,6 @@ export function AccountsPage() {
                   </>
                 )}
               </div>
-              {view.kind === 'pick' && (
-                // The welcome screen is skipped in this mode, so PDAO staff sign in from here.
-                <Link to="/admin/login" className="text-muted-foreground mt-4 text-base underline">PDAO staff sign-in</Link>
-              )}
             </>
           )}
         </section>
