@@ -104,7 +104,7 @@ export function AddAccountPage() {
     if (busy) return
     if (step === 'mobile-code') return go('mobile')
     const i = steps.indexOf(step)
-    if (i <= 0) return void navigate('/user/select')
+    if (i <= 0) return void navigate('/user/select', { state: { stay: true } }) // no bounce back here
     const previous = step === 'pin-confirm' ? 'pin' : steps[i - 1]
     if (previous === 'calibrate' || previous === 'consent' || previous === 'choose') discardCalibration()
     if (step === 'pin-confirm') setPin('')

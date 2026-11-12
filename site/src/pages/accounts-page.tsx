@@ -1,5 +1,5 @@
 import { ArrowLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { AccountTile } from '@/components/account-tile'
 import { DesktopStartButtons } from '@/components/desktop-start-buttons'
@@ -69,6 +69,7 @@ export function AccountsPage() {
     setView({ kind: 'pin', tile, purpose })
   }
 
+  const firstLoad = useRef(true)
   const refresh = useCallback(async (): Promise<boolean> => {
     const deviceId = await thisComputerId()
     if (!deviceId) {
@@ -76,7 +77,16 @@ export function AccountsPage() {
       return false
     }
     try {
-      setLoad({ state: 'ready', deviceId, tiles: await accountsService.tiles(deviceId) })
+      const tiles = await accountsService.tiles(deviceId)
+      // A computer with no accounts yet (e.g. just installed): go straight to Add account, once.
+      // Coming back from Add account (Back) stays here, so there is no loop.
+      if (firstLoad.current && tiles.accounts.length === 0 && !(location.state as { stay?: boolean } | null)?.stay) {
+        firstLoad.current = false
+        void navigate('/user/add')
+        return true
+      }
+      firstLoad.current = false
+      setLoad({ state: 'ready', deviceId, tiles })
     } catch (err) {
       setLoad({ state: 'error', message: accountRefusal(err, 'Could not load the accounts.').detail })
     }
