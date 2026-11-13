@@ -183,7 +183,9 @@ def start_tracking(port: int, post: Callable = _post) -> bool:
 def open_window(url: str, edge: Path | None, popen: Callable = subprocess.Popen,
                 browser: Callable = webbrowser.open) -> None:
     if edge is not None:
-        popen([str(edge), f"--app={url}/", "--start-maximized"])
+        # The accessibility flag makes Edge share the page's buttons and text boxes with Windows, so gaze
+        # target snapping (app/desktop/target_assist.py) can find them; without it Edge shares none.
+        popen([str(edge), f"--app={url}/", "--start-maximized", "--force-renderer-accessibility"])
     else:
         browser(f"{url}/")
 

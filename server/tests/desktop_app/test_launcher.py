@@ -82,7 +82,8 @@ def test_tracking_start_uses_the_newest_calibration_and_reports_none_yet():
 def test_the_window_opens_the_website_in_an_edge_app_window(tmp_path):
     opened = []
     launcher.open_window(SITE, tmp_path / "msedge.exe", popen=opened.append)
-    assert opened == [[str(tmp_path / "msedge.exe"), f"--app={SITE}/", "--start-maximized"]]
+    assert opened == [[str(tmp_path / "msedge.exe"), f"--app={SITE}/", "--start-maximized",
+                       "--force-renderer-accessibility"]]
     launcher.open_window(SITE, None, browser=opened.append)
     assert opened[-1] == f"{SITE}/"
 
