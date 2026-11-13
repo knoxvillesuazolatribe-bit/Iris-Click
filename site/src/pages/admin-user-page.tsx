@@ -3,7 +3,7 @@ import { ArrowLeft, Save, UserCheck, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router'
-import { errorMessage } from '@/api/app-client'
+import { errorMessage, errorStatus } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { AdminApprovedComputersCard } from '@/components/admin-approved-computers-card'
 import { AdminSigninCard } from '@/components/admin-signin-card'
@@ -26,7 +26,8 @@ import { pickValues } from '@/lib/settings'
 import { adminService } from '@/services/admin-service'
 import { profileFormSchema, type AdminUserDetail, type ProfileForm } from '@/validators/admin-validator'
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; detail: AdminUserDetail }
+type Load = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string }
+  | { state: 'ready'; detail: AdminUserDetail }
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const FIELDS = [
   { name: 'full_name', label: 'Full name' },
@@ -47,7 +48,9 @@ export function AdminUserPage() {
     adminService
       .user(userId)
       .then((detail) => current && setLoad({ state: 'ready', detail }))
-      .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load this user.') }))
+      .catch((err) => current && setLoad(errorStatus(err) === 404
+        ? { state: 'missing' }
+        : { state: 'error', message: errorMessage(err, 'Could not load this user.') }))
     return () => {
       current = false
     }
@@ -61,6 +64,7 @@ export function AdminUserPage() {
     return (
       <AdminLayout title="User" actions={back}>
         {load.state === 'loading' ? <p className="text-muted-foreground">Loading…</p>
+          : load.state === 'missing' ? <p className="text-lg">That user was not found. They may have been removed; go back to All users.</p>
           : <ServerDown message={load.message} onRetry={() => { setLoad({ state: 'loading' }); reload() }} />}
       </AdminLayout>
     )

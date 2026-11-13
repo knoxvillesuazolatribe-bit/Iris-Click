@@ -317,13 +317,13 @@ export function AddAccountPage() {
       {deviceId && step === 'choose' && (
         <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
           <h1 className="text-4xl font-bold">Add your account</h1>
-          <GazeButton autoFocus className="min-h-24 w-full text-2xl" disabled={busy} onClick={() => void startNew()}>
+          <GazeButton autoFocus className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" disabled={busy} onClick={() => void startNew()}>
             <UserRoundPlus aria-hidden /> I'm new: create my account
           </GazeButton>
-          <GazeButton variant="outline" className="min-h-24 w-full text-2xl" onClick={() => { setPath('existing'); go('calibrate') }}>
+          <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" onClick={() => { setPath('existing'); go('calibrate') }}>
             <KeyRound aria-hidden /> I already have an account
           </GazeButton>
-          <GazeButton variant="outline" className="min-h-24 w-full text-2xl"
+          <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal"
             onClick={() => { setPath('code'); setSetup(null); setCode(''); go('code') }}>
             <Ticket aria-hidden /> I have a setup code from PDAO
           </GazeButton>

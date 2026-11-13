@@ -13,9 +13,11 @@ else changes.
 
 import json
 import logging
+import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -73,14 +75,32 @@ def load_session() -> dict | None:
     return data
 
 
+_save_lock = threading.Lock()
+SAVE_TRIES = 5
+
+
 def _save_session(data: dict | None) -> None:
-    if data is None:
-        session_path.unlink(missing_ok=True)
-        return
-    session_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = session_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data), encoding="utf-8")
-    tmp.replace(session_path)
+    """Write the link atomically. Several pages may link at the same moment: one writer at a time, each
+    with its own temporary file, and a short retry because Windows refuses to replace a file another
+    process is reading (found in testing: a 500 "Access is denied" when two links arrived together)."""
+    with _save_lock:
+        if data is None:
+            session_path.unlink(missing_ok=True)
+            return
+        session_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = session_path.with_name(f"{session_path.stem}.{uuid.uuid4().hex}.tmp")
+        tmp.write_text(json.dumps(data), encoding="utf-8")
+        try:
+            for attempt in range(SAVE_TRIES):
+                try:
+                    tmp.replace(session_path)
+                    return
+                except PermissionError:
+                    if attempt == SAVE_TRIES - 1:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 router = APIRouter(prefix="/desktop", tags=["desktop link"])
