@@ -87,7 +87,7 @@ export function DesktopDownloadPage({ onRetry }: Props) {
       )}
 
       <div className="flex flex-wrap gap-6">
-        <GazeButton asChild>
+        <GazeButton asChild className="h-auto max-w-full py-4 text-center whitespace-normal">
           <a href={latest?.download_url ?? FALLBACK_DOWNLOAD} rel="noopener">
             <Download aria-hidden /> Download IrisClick Desktop{latest ? ` ${latest.version}` : ''}
           </a>
