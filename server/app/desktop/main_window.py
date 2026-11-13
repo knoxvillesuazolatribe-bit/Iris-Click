@@ -8,7 +8,8 @@ the user is working in. Drag it by the IrisClick label.
 import queue
 import tkinter as tk
 
-from app.desktop.display import make_tool_window
+from app.desktop import appbar
+from app.desktop.display import make_tool_window, toplevel_hwnd
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
     CYCLE_EDGE,
@@ -85,6 +86,7 @@ class ControlBar:
         for widget in (handle, self._dot, self._status):
             widget.bind("<ButtonPress-1>", self._start_drag)
             widget.bind("<B1-Motion>", self._drag)
+            widget.bind("<ButtonRelease-1>", self._end_drag)
 
         self.win.update_idletasks()
         if self.win.winfo_reqwidth() > screen_w:
@@ -97,6 +99,8 @@ class ControlBar:
         x = max(0, (screen_w - self.win.winfo_reqwidth()) // 2)
         self.win.geometry(f"+{x}+{TOP_MARGIN_PX}")
         make_tool_window(self.win)
+        # Like the taskbar: maximised windows start below the bar, so address bars stay reachable.
+        self._strip = appbar.reserve_top(toplevel_hwnd(self.win), screen_w, self._strip_height())
 
     def _button(self, parent, text, command_name, command=None):
         button = tk.Button(
@@ -121,6 +125,14 @@ class ControlBar:
 
     def _start_drag(self, event):
         self._drag_offset = (event.x_root - self.win.winfo_x(), event.y_root - self.win.winfo_y())
+        self._strip.release()  # moved away from the top: give the space back
+
+    def _end_drag(self, _event):
+        if self.win.winfo_y() <= 2 * TOP_MARGIN_PX:  # dropped back at the top: claim it again
+            self._strip.dock(self._strip_height())
+
+    def _strip_height(self) -> int:
+        return TOP_MARGIN_PX + self.win.winfo_reqheight() + TOP_MARGIN_PX
 
     def _drag(self, event):
         dx, dy = self._drag_offset
