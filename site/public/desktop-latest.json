@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
-  "download_url": "https://github.com/knoxvillesuazolatribe-bit/Iris-Click/releases/latest/download/IrisClick-Desktop-Setup.exe",
-  "notes": "Eye tracking now re-centres itself once each time it starts, for better accuracy after you sit down."
+  "version": "1.1.0",
+  "download_url": "https://github.com/knoxvillesuazolatribe-bit/Iris-Click/releases/download/v1.1.0/IrisClick-Desktop-Setup.exe",
+  "notes": "Accounts on this computer: your own username and PIN, Add and Remove account, Forgot PIN by text."
 }

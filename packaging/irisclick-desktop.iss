@@ -46,7 +46,7 @@ Name: "{autoprograms}\Stop IrisClick"; Filename: "{app}\runtime\pythonw.exe"; Pa
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IrisClick Desktop"; ValueData: """{app}\runtime\pythonw.exe"" ""{app}\server\launch_irisclick.pyw"""; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\server\launch_irisclick.pyw"""; WorkingDir: "{app}\server"; Description: "Start IrisClick now"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\server\launch_irisclick.pyw"" --no-window"; WorkingDir: "{app}\server"; Description: "Start IrisClick now"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 Filename: "{app}\runtime\python.exe"; Parameters: """{app}\server\launch_irisclick.pyw"" --stop"; WorkingDir: "{app}\server"; Flags: runhidden waituntilterminated; RunOnceId: "StopIrisClick"

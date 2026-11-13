@@ -81,7 +81,9 @@ Set-Content -Path (Join-Path $App "server\VERSION.txt") -Value "IrisClick Deskto
 Set-Content -Path (Join-Path $App "server\.env") -Encoding ascii -Value @(
     "# IrisClick Desktop settings (no secrets). Written by packaging\build.ps1.",
     "IRISCLICK_CLOUD_URL=$CloudUrl",
-    "AUTO_START_WORKER=true"
+    "AUTO_START_WORKER=true",
+    "# Sharper eye image, as in development and testing; a webcam without 1080p gives its closest size.",
+    "CAMERA_RESOLUTION=1080p"
 )
 
 Step "Icon"

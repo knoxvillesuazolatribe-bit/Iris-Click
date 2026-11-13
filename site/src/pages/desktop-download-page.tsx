@@ -26,6 +26,9 @@ interface Props {
  * Hosted website: shown when IrisClick Desktop does not answer (not installed, not
  * running, or blocked by the browser). Admin pages never need it.
  */
+/** How often the page looks for IrisClick Desktop by itself. */
+const AUTO_CHECK_MS = 3000
+
 export function DesktopDownloadPage({ onRetry }: Props) {
   const navigate = useNavigate()
   const [latest, setLatest] = useState<Latest | null>(null)
@@ -43,6 +46,21 @@ export function DesktopDownloadPage({ onRetry }: Props) {
     setStillMissing(!(await onRetry()))
     setChecking(false)
   }
+
+  // Just installed? The app starts quietly (no new window), so look for it every few seconds and move
+  // on by itself; "Try again" stays as a backup.
+  useEffect(() => {
+    if (!onRetry) return
+    let busy = false
+    const timer = window.setInterval(() => {
+      if (busy) return
+      busy = true
+      void onRetry().finally(() => {
+        busy = false
+      })
+    }, AUTO_CHECK_MS)
+    return () => window.clearInterval(timer)
+  }, [onRetry])
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-4xl flex-col gap-8 p-6">
@@ -69,7 +87,7 @@ export function DesktopDownloadPage({ onRetry }: Props) {
       )}
 
       <div className="flex flex-wrap gap-6">
-        <GazeButton asChild>
+        <GazeButton asChild className="h-auto max-w-full py-4 text-center whitespace-normal">
           <a href={latest?.download_url ?? FALLBACK_DOWNLOAD} rel="noopener">
             <Download aria-hidden /> Download IrisClick Desktop{latest ? ` ${latest.version}` : ''}
           </a>

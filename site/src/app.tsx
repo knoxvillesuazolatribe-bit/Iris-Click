@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { OnlineAccessGate } from '@/components/online-access-gate'
 import { DesktopGate } from '@/components/desktop-gate'
+import { LegacyOnly } from '@/components/legacy-only'
 import { CalibrationSurfaceSwitch } from '@/components/calibration-surface-switch'
 import { DesktopDownloadPage } from '@/pages/desktop-download-page'
 import { ApproveComputerPage } from '@/pages/approve-computer-page'
@@ -26,6 +27,11 @@ import { SosPage } from '@/pages/sos-page'
 import { SosSentPage } from '@/pages/sos-sent-page'
 import { TrackingPage } from '@/pages/tracking-page'
 import { UserSelectPage } from '@/pages/user-select-page'
+import { AccountsPage } from '@/pages/accounts-page'
+import { SigninModeSwitch } from '@/components/signin-mode-switch'
+import { AddAccountPage } from '@/pages/add-account-page'
+import { IdleSignOut } from '@/components/idle-signout'
+import { AddressPage } from '@/pages/address-page'
 import { VoicePage } from '@/pages/voice-page'
 
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
@@ -41,10 +47,12 @@ function Pages() {
   useAppName() // browser tab title = the app name the admin set, on every page
   return (
     <BrowserRouter>
+      <IdleSignOut>
       <Routes>
         <Route path="/" element={<LoginSelectionPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/user/select" element={<UserSelectPage />} />
+        <Route path="/user/select" element={<SigninModeSwitch legacy={<UserSelectPage />} deviceAccounts={<AccountsPage />} />} />
+        <Route path="/user/add" element={<AddAccountPage />} />
         <Route path="/home" element={<RequireRole role="assistive_user"><HomePage /></RequireRole>} />
         <Route path="/tracking" element={<RequireRole role="assistive_user">{ONLINE_COPY
           ? <DesktopGate><DesktopTrackingPage /></DesktopGate> : <TrackingPage />}</RequireRole>} />
@@ -55,12 +63,13 @@ function Pages() {
         <Route path="/sos/confirm" element={<RequireRole role="assistive_user"><SosConfirmPage /></RequireRole>} />
         <Route path="/sos/sent" element={<RequireRole role="assistive_user"><SosSentPage /></RequireRole>} />
         <Route path="/sos/contacts" element={<RequireRole role="assistive_user"><SosContactsPage /></RequireRole>} />
+        <Route path="/sos/address" element={<RequireRole role="assistive_user"><AddressPage /></RequireRole>} />
         <Route path="/settings" element={<RequireRole role="assistive_user"><SettingsPage /></RequireRole>} />
         <Route path="/admin" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
         <Route path="/admin/users" element={<RequireRole role="admin"><AdminUsersPage /></RequireRole>} />
         <Route path="/admin/users/:id" element={<RequireRole role="admin"><AdminUserPage /></RequireRole>} />
         <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
-        <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><AdminAccessibilityPage /></RequireRole>} />
+        <Route path="/admin/settings/accessibility" element={<RequireRole role="admin"><LegacyOnly to="/admin/settings"><AdminAccessibilityPage /></LegacyOnly></RequireRole>} />
         <Route path="/admin/settings/system" element={<RequireRole role="admin"><AdminSystemPage /></RequireRole>} />
         <Route path="/admin/settings/word-filter" element={<RequireRole role="admin"><AdminWordFilterPage /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminLogsPage /></RequireRole>} />
@@ -73,6 +82,7 @@ function Pages() {
           : <CalibrationSurfaceSwitch web={<CalibrationPage />} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </IdleSignOut>
     </BrowserRouter>
   )
 }

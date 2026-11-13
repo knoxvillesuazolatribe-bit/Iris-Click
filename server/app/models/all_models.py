@@ -13,6 +13,8 @@ from app.models.word_filter import FilteredWord, WordFilterSettings  # extension
 from app.models.user_speech_settings import UserSpeechSettings  # extension: speech language
 from app.models.approved_computer import ApprovedComputer  # extension: computer lock
 from app.models.user_session import UserSession
+from app.models.account_models import Device, DeviceAccount, PinAttempt, SetupCode, UserAccount  # extension: accounts on this computer
+from app.models.sms_models import SmsCode  # extension: accounts on this computer (SMS codes)
 
 __all__ = [
     "AccessibilitySettings",
@@ -30,4 +32,10 @@ __all__ = [
     "WordFilterSettings",
     "UserSpeechSettings",
     "ApprovedComputer",
+    "UserAccount",
+    "Device",
+    "DeviceAccount",
+    "PinAttempt",
+    "SetupCode",
+    "SmsCode",
 ]

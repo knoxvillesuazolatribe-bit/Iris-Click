@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GazeButton } from '@/components/gaze-button'
 import { useSessionStore } from '@/store/session-store'
+import { signOutOnThisComputer } from '@/lib/account-signout'
 
 /**
  * Sign out in two presses (like the control bar's Quit), so a stray wink
@@ -14,6 +15,7 @@ export function SignOutButton() {
   const [confirming, setConfirming] = useState(false)
 
   const signOut = async () => {
+    if (await signOutOnThisComputer()) return void navigate('/user/select', { replace: true }) // accounts on this computer
     await logout().catch(() => undefined)
     void navigate('/', { replace: true })
   }

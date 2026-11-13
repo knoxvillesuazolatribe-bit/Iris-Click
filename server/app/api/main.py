@@ -52,6 +52,15 @@ def create_app() -> FastAPI:
             app.include_router(router, prefix=settings.api_prefix)
         from app.api.routes import desktop_calibration  # extension: desktop calibration
         app.include_router(desktop_calibration.router, prefix=settings.api_prefix)
+        from app.api.routes import desktop_device  # extension: accounts on this computer
+        app.include_router(desktop_device.router, prefix=settings.api_prefix)
+        from app.api.routes import desktop_pending  # extension: accounts on this computer
+        app.include_router(desktop_pending.router, prefix=settings.api_prefix)
+        from app.api.routes import accounts  # extension: accounts on this computer
+        app.include_router(accounts.mode_router, prefix=settings.api_prefix)
+        app.include_router(accounts.router, prefix=settings.api_prefix)
+        from app.api.routes import admin_accounts  # extension: accounts on this computer (admin)
+        app.include_router(admin_accounts.router, prefix=settings.api_prefix)
     except Exception:
         logging.getLogger("irisclick.api").exception("Extension routes not loaded")
     return app

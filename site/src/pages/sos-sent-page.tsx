@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, Home, LoaderCircle, MapPin, RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { errorMessage } from '@/api/app-client'
+import { errorMessage, errorStatus } from '@/api/app-client'
 import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
@@ -36,6 +36,10 @@ export function SosSentPage() {
   useEffect(() => {
     let current = true
     let timer: number | undefined
+    if (!activationId) {
+      void navigate('/sos', { replace: true }) // opened on its own: nothing was sent
+      return
+    }
     const refresh = () =>
       sosService
         .getActivation(activationId)
@@ -48,14 +52,14 @@ export function SosSentPage() {
         .catch((err) => {
           if (!current) return
           setError(errorMessage(err, 'Could not read the SOS status.'))
-          timer = window.setTimeout(() => void refresh(), POLL_MS * 3)
+          if (errorStatus(err) !== 404) timer = window.setTimeout(() => void refresh(), POLL_MS * 3)
         })
     void refresh()
     return () => {
       current = false
       window.clearTimeout(timer)
     }
-  }, [activationId])
+  }, [activationId, navigate])
 
   const dismiss = (
     <GazeButton className="min-h-24 min-w-72 text-2xl" onClick={() => void navigate('/home', { replace: true })}>

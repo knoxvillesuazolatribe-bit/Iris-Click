@@ -3,9 +3,10 @@ import { ArrowLeft, Save, UserCheck, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router'
-import { errorMessage } from '@/api/app-client'
+import { errorMessage, errorStatus } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { AdminApprovedComputersCard } from '@/components/admin-approved-computers-card'
+import { AdminSigninCard } from '@/components/admin-signin-card'
 import { AdminUserAppsCard } from '@/components/admin-user-apps-card'
 import { AdminUserLanguageCard } from '@/components/admin-user-language-card'
 import { AdminUserVoiceCard } from '@/components/admin-user-voice-card'
@@ -20,11 +21,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ONLINE_COPY } from '@/lib/online-copy'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { pickValues } from '@/lib/settings'
 import { adminService } from '@/services/admin-service'
 import { profileFormSchema, type AdminUserDetail, type ProfileForm } from '@/validators/admin-validator'
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; detail: AdminUserDetail }
+type Load = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string }
+  | { state: 'ready'; detail: AdminUserDetail }
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const FIELDS = [
   { name: 'full_name', label: 'Full name' },
@@ -34,6 +37,7 @@ const FIELDS = [
 
 /** Screens 22–25: one assistive user (profile, calibration, settings, contacts, status). */
 export function AdminUserPage() {
+  const accounts = useAccountsMode()
   const userId = Number(useParams().id)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
@@ -44,7 +48,9 @@ export function AdminUserPage() {
     adminService
       .user(userId)
       .then((detail) => current && setLoad({ state: 'ready', detail }))
-      .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load this user.') }))
+      .catch((err) => current && setLoad(errorStatus(err) === 404
+        ? { state: 'missing' }
+        : { state: 'error', message: errorMessage(err, 'Could not load this user.') }))
     return () => {
       current = false
     }
@@ -58,6 +64,7 @@ export function AdminUserPage() {
     return (
       <AdminLayout title="User" actions={back}>
         {load.state === 'loading' ? <p className="text-muted-foreground">Loading…</p>
+          : load.state === 'missing' ? <p className="text-lg">That user was not found. They may have been removed; go back to All users.</p>
           : <ServerDown message={load.message} onRetry={() => { setLoad({ state: 'loading' }); reload() }} />}
       </AdminLayout>
     )
@@ -66,7 +73,9 @@ export function AdminUserPage() {
   const { user, settings, contacts, sos_location: location } = load.detail
   return (
     <AdminLayout title={user.full_name} actions={back}
-      description={user.status === 'active' ? 'Active: can sign in from the name tiles.' : 'Inactive: hidden from the name tiles and cannot sign in.'}>
+      description={user.status === 'active'
+        ? (accounts ? 'Active: can sign in on their computers.' : 'Active: can sign in from the name tiles.')
+        : 'Inactive: hidden from the name tiles and cannot sign in.'}>
       <div className="grid gap-6 lg:grid-cols-2">
         <ProfileCard key={`${user.user_id}-${user.full_name}-${user.address}-${user.barangay}`} detail={load.detail} onSaved={reload} />
         <Card>
@@ -92,8 +101,9 @@ export function AdminUserPage() {
       </div>
 
       <StatusCard key={user.status} detail={load.detail} onChanged={reload} />
+      {accounts && <AdminSigninCard key={`${userId}-${user.status}`} userId={userId} name={user.full_name} />}
 
-      <Card>
+      {!accounts && <Card>
         <CardHeader>
           <CardTitle>Accessibility settings</CardTitle>
           <CardDescription>
@@ -111,7 +121,7 @@ export function AdminUserPage() {
             onSaved={reload}
           />
         </CardContent>
-      </Card>
+      </Card>}
 
       <Card>
         <CardHeader>
@@ -129,9 +139,9 @@ export function AdminUserPage() {
         </CardContent>
       </Card>
       <SilentBoundary><AdminUserAppsCard userId={userId} name={user.full_name} /></SilentBoundary>
-      <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>
-      <SilentBoundary><AdminUserVoiceCard userId={userId} name={user.full_name} /></SilentBoundary>
-      {ONLINE_COPY && <SilentBoundary><AdminApprovedComputersCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {!accounts && <SilentBoundary><AdminUserLanguageCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {!accounts && <SilentBoundary><AdminUserVoiceCard userId={userId} name={user.full_name} /></SilentBoundary>}
+      {ONLINE_COPY && !accounts && <SilentBoundary><AdminApprovedComputersCard userId={userId} name={user.full_name} /></SilentBoundary>}
     </AdminLayout>
   )
 }
@@ -185,6 +195,7 @@ function ProfileCard({ detail, onSaved }: { detail: AdminUserDetail; onSaved: ()
 }
 
 function StatusCard({ detail, onChanged }: { detail: AdminUserDetail; onChanged: () => void }) {
+  const accounts = useAccountsMode()
   const { user } = detail
   const active = user.status === 'active'
   const [confirm, setConfirm] = useState(false)
@@ -207,9 +218,13 @@ function StatusCard({ detail, onChanged }: { detail: AdminUserDetail; onChanged:
             Status <Badge variant={active ? 'secondary' : 'destructive'}>{active ? 'Active' : 'Inactive'}</Badge>
           </p>
           <p className="text-muted-foreground text-sm">
-            {active
-              ? 'Deactivating hides their name tile and ends their sign-in now. Their history is kept, and eye tracking keeps running until it is closed.'
-              : 'Reactivating shows their name tile again.'}
+            {accounts
+              ? (active
+                ? 'Deactivating removes their account from every computer and ends their sign-in now. Their history is kept.'
+                : 'Reactivating lets them sign in again.')
+              : active
+                ? 'Deactivating hides their name tile and ends their sign-in now. Their history is kept, and eye tracking keeps running until it is closed.'
+                : 'Reactivating shows their name tile again.'}
           </p>
           {error && <p className="text-destructive text-sm">{error}</p>}
         </div>

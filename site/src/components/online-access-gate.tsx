@@ -53,7 +53,9 @@ function Gate({ children }: { children: ReactNode }) {
     return (
       <>
         <OnlineBanner />
-        {children}
+        {/* Pages fill the window (min-h-svh); below the 2rem banner they fill only the rest of it,
+            so no page scrolls by the banner's height. */}
+        <div className="[&_.min-h-svh]:min-h-[calc(100svh-2rem)]">{children}</div>
       </>
     )
   }
@@ -131,9 +133,9 @@ function CodeForm({ onOpen }: { onOpen: () => void }) {
 
 function OnlineBanner() {
   return (
-    <div role="note" className="bg-muted text-muted-foreground flex items-center justify-center gap-2 px-4 py-1.5 text-center text-sm">
+    <div role="note" className="bg-muted text-muted-foreground flex h-8 items-center justify-center gap-2 overflow-hidden px-4 text-center text-sm">
       <Globe className="size-4 shrink-0" aria-hidden />
-      IrisClick online: eye tracking runs on this computer with IrisClick Desktop.
+      <span className="truncate">IrisClick online: eye tracking runs on this computer with IrisClick Desktop.</span>
     </div>
   )
 }

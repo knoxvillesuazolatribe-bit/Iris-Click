@@ -5,6 +5,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from app.accounts.guards import PEOPLE_CREATE, PEOPLE_SET, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.config import get_settings
 from app.models.user import ROLE_ASSISTIVE_USER, User
@@ -51,7 +52,8 @@ def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_adm
             for user, summary in admin_service.list_users(db)]
 
 
-@router.post("", response_model=AdminUserRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AdminUserRead, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(legacy_only(PEOPLE_CREATE))])
 def create_assistive_user(body: AssistiveCreateRequest, db: Session = Depends(get_db),
                           admin: User = Depends(require_admin)) -> AdminUserRead:
     user = User(full_name=body.full_name, role=ROLE_ASSISTIVE_USER,
@@ -101,7 +103,8 @@ def read_user_settings(user_id: int, db: Session = Depends(get_db),
     return _settings(db, _target(db, user_id))
 
 
-@router.put("/{user_id}/settings", response_model=AccessibilitySettingsRead)
+@router.put("/{user_id}/settings", response_model=AccessibilitySettingsRead,
+            dependencies=[Depends(legacy_only(PEOPLE_SET))])
 def save_user_settings(user_id: int, body: AccessibilitySettingsWrite,
                        db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     user = _target(db, user_id)
@@ -112,7 +115,8 @@ def save_user_settings(user_id: int, body: AccessibilitySettingsWrite,
     return _settings(db, user)
 
 
-@router.post("/{user_id}/settings/reset", response_model=AccessibilitySettingsRead)
+@router.post("/{user_id}/settings/reset", response_model=AccessibilitySettingsRead,
+             dependencies=[Depends(legacy_only(PEOPLE_SET))])
 def reset_user_settings(user_id: int, db: Session = Depends(get_db),
                         admin: User = Depends(require_admin)):
     user = _target(db, user_id)

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
+from app.accounts.guards import USE_YOUR_PIN, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, set_session_cookie
 from app.config import get_settings
 from app.schemas.auth import AssistiveSelectRequest, AssistiveTileRead, SessionUserRead
@@ -10,14 +11,14 @@ from app.services.assistive_service import SelectionError
 router = APIRouter(prefix="/assistive", tags=["assistive"], route_class=DatabaseSafeRoute)
 
 
-@router.get("/users", response_model=list[AssistiveTileRead])
+@router.get("/users", response_model=list[AssistiveTileRead], dependencies=[Depends(legacy_only(USE_YOUR_PIN))])
 def list_users(db: Session = Depends(get_db)) -> list[AssistiveTileRead]:
     """Name tiles for the sign-in screen (no sign-in needed: it is the sign-in)."""
     tiles = assistive_service.list_tiles(db, get_settings().profiles_dir)
     return [AssistiveTileRead.model_validate(tile) for tile in tiles]
 
 
-@router.post("/select", response_model=SessionUserRead)
+@router.post("/select", response_model=SessionUserRead, dependencies=[Depends(legacy_only(USE_YOUR_PIN))])
 def select_user(body: AssistiveSelectRequest, request: Request, response: Response,
                 db: Session = Depends(get_db)) -> SessionUserRead:
     try:

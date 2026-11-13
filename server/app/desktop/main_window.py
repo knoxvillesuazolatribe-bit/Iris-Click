@@ -8,7 +8,8 @@ the user is working in. Drag it by the IrisClick label.
 import queue
 import tkinter as tk
 
-from app.desktop.display import make_tool_window
+from app.desktop import appbar
+from app.desktop.display import make_tool_window, toplevel_hwnd
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
     CYCLE_EDGE,
@@ -36,6 +37,7 @@ STATUS_COLOURS = {"tracking": SUCCESS, "paused": WARNING, "problem": ERROR}
 
 FONT = ("Segoe UI", 12, "bold")
 TOP_MARGIN_PX = 8
+DRAG_START_PX = 6  # the bar only counts as dragged (and gives back its strip) after this much movement
 STATUS_CHARS = 34
 STATUS_WRAP_PX = 300
 # A stray wink can land on Quit by accident; require a second press in time.
@@ -85,6 +87,7 @@ class ControlBar:
         for widget in (handle, self._dot, self._status):
             widget.bind("<ButtonPress-1>", self._start_drag)
             widget.bind("<B1-Motion>", self._drag)
+            widget.bind("<ButtonRelease-1>", self._end_drag)
 
         self.win.update_idletasks()
         if self.win.winfo_reqwidth() > screen_w:
@@ -97,6 +100,8 @@ class ControlBar:
         x = max(0, (screen_w - self.win.winfo_reqwidth()) // 2)
         self.win.geometry(f"+{x}+{TOP_MARGIN_PX}")
         make_tool_window(self.win)
+        # Like the taskbar: maximised windows start below the bar, so address bars stay reachable.
+        self._strip = appbar.reserve_top(toplevel_hwnd(self.win), screen_w, self._strip_height())
 
     def _button(self, parent, text, command_name, command=None):
         button = tk.Button(
@@ -121,8 +126,25 @@ class ControlBar:
 
     def _start_drag(self, event):
         self._drag_offset = (event.x_root - self.win.winfo_x(), event.y_root - self.win.winfo_y())
+        self._press_at = (event.x_root, event.y_root)
+        self._moved = False  # a plain click keeps the strip: windows below must not jump
+
+    def _end_drag(self, _event):
+        # Dropped back at the top after a real move: claim the strip again.
+        if getattr(self, "_moved", False) and self.win.winfo_y() <= 2 * TOP_MARGIN_PX:
+            self._strip.dock(self._strip_height())
+        self._moved = False
+
+    def _strip_height(self) -> int:
+        return TOP_MARGIN_PX + self.win.winfo_reqheight() + TOP_MARGIN_PX
 
     def _drag(self, event):
+        if not self._moved:
+            px, py = self._press_at
+            if abs(event.x_root - px) + abs(event.y_root - py) < DRAG_START_PX:
+                return  # hand shake during a click is not a drag
+            self._moved = True
+            self._strip.release()  # moved away from the top: give the space back
         dx, dy = self._drag_offset
         self.win.geometry(f"+{event.x_root - dx}+{event.y_root - dy}")
 

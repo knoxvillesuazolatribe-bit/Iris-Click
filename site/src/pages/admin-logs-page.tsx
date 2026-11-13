@@ -8,16 +8,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { adminService } from '@/services/admin-service'
+import { useAccountsMode } from '@/lib/use-signin-mode'
 import { LOG_TABS, type LogPage, type LogTab } from '@/validators/admin-validator'
 
 type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; data: LogPage }
 const TAB_LABELS: Record<LogTab, string> = {
   all: 'All', calibration: 'Calibration', sos: 'SOS', communication: 'Communication', screenshot: 'Screenshot',
+  accounts: 'Accounts',
 }
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 
 /** Screens 29–30: system logs, newest first. */
 export function AdminLogsPage() {
+  const accounts = useAccountsMode()
   const [tab, setTab] = useState<LogTab>('all')
   const [page, setPage] = useState(1)
   const [dateFrom, setDateFrom] = useState('')
@@ -45,7 +48,7 @@ export function AdminLogsPage() {
     <AdminLayout title="Logs" description="Every important action by users and administrators.">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div role="tablist" aria-label="Log type" className="bg-muted flex flex-wrap gap-1 rounded-lg p-1">
-          {LOG_TABS.map((t) => (
+          {LOG_TABS.filter((t) => accounts || t !== 'accounts').map((t) => (
             <Button key={t} role="tab" aria-selected={tab === t} size="sm" variant={tab === t ? 'default' : 'ghost'} onClick={() => choose(t)}>
               {TAB_LABELS[t]}
             </Button>

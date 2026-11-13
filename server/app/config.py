@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # Postgres schema holding the IrisClick tables. Supabase's public schema
     # keeps the legacy tables, two of which share names with ours.
     db_schema: str = Field("irisclick", pattern=r"^[a-z_][a-z0-9_]*$")
+    # Accounts on this computer (file 07, app/accounts). Used only in device_accounts mode.
+    remember_days: int = Field(30, ge=1, le=365)
+    shared_idle_minutes: int = Field(10, ge=1, le=240)
+    signups_per_device_per_day: int = Field(5, ge=1, le=100)
+    accounts_per_mobile: int = Field(3, ge=1, le=20)
 
     # Email for Emergency SOS (team decision D8). Empty host: SOS alerts fail
     # with "email is not set up" instead of pretending to send.

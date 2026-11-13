@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.accounts.guards import PEOPLE_SET, legacy_only
 from app.api.deps import DatabaseSafeRoute, get_db, require_admin
 from app.api.routes.speech import LanguageRead, LanguageWrite
 from app.models.user import User
@@ -25,7 +26,7 @@ def language(user_id: int, db: Session = Depends(get_db), _admin: User = Depends
     return LanguageRead(language=speech_language_service.get_language(db, _target(db, user_id)))
 
 
-@router.put("/{user_id}/language", response_model=LanguageRead)
+@router.put("/{user_id}/language", response_model=LanguageRead, dependencies=[Depends(legacy_only(PEOPLE_SET))])
 def set_language(user_id: int, body: LanguageWrite, db: Session = Depends(get_db),
                  admin: User = Depends(require_admin)):
     try:

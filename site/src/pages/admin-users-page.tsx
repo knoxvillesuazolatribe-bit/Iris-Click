@@ -6,6 +6,9 @@ import { Link } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { ServerDown } from '@/components/server-down'
+import { useAccountsMode } from '@/lib/use-signin-mode'
+import { adminAccountsService } from '@/services/admin-accounts-service'
+import type { AdminAccountRow } from '@/validators/accounts-validator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,8 +31,14 @@ const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 
 /** Screens 19–21: assistive users and creating them. */
 export function AdminUsersPage() {
+  const accounts = useAccountsMode()
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [accountRows, setAccountRows] = useState<Record<number, AdminAccountRow>>({})
+  useEffect(() => {
+    if (!accounts) return
+    adminAccountsService.list().then((rows) => setAccountRows(Object.fromEntries(rows.map((r) => [r.user_id, r]))), () => undefined)
+  }, [accounts, attempt])
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const form = useForm<AssistiveCreateInput>({
     resolver: zodResolver(assistiveCreateSchema),
@@ -62,8 +71,10 @@ export function AdminUsersPage() {
   })
 
   return (
-    <AdminLayout title="Users" description="Assistive users sign in by looking at their name tile. No password is needed.">
-      <Card>
+    <AdminLayout title="Users" description={accounts
+      ? 'People create their own accounts on their computer. Here you can view, reset PIN or deactivate them.'
+      : 'Assistive users sign in by looking at their name tile. No password is needed.'}>
+      {!accounts && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl"><UserPlus aria-hidden /> Create assistive user</CardTitle>
           <CardDescription>The address and barangay are shared with emergency contacts when the person presses SOS.</CardDescription>
@@ -93,7 +104,7 @@ export function AdminUsersPage() {
             </div>
           </form>
         </CardContent>
-      </Card>
+      </Card>}
 
       <Card>
         <CardContent className="pt-6">
@@ -104,12 +115,17 @@ export function AdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="text-muted-foreground border-b text-sm">
-                  <tr><th className="py-2 pr-4">Name</th><th className="pr-4">Barangay</th><th className="pr-4">Calibration</th><th className="pr-4">Status</th><th /></tr>
+                  <tr><th className="py-2 pr-4">Name</th>{accounts && <><th className="pr-4">Username</th><th className="pr-4">Mobile</th><th className="pr-4">Computers</th></>}<th className="pr-4">Barangay</th><th className="pr-4">Calibration</th><th className="pr-4">Status</th><th /></tr>
                 </thead>
                 <tbody>
                   {load.users.map((u) => (
                     <tr key={u.user_id} className="border-b last:border-0">
                       <td className="py-3 pr-4 font-medium">{u.full_name}</td>
+                      {accounts && <>
+                        <td className="pr-4">{accountRows[u.user_id]?.username ?? <span className="text-muted-foreground">No account yet</span>}</td>
+                        <td className="pr-4">{accountRows[u.user_id]?.mobile || '—'}</td>
+                        <td className="pr-4">{accountRows[u.user_id]?.computers ?? 0}</td>
+                      </>}
                       <td className="pr-4">{u.barangay ?? '—'}</td>
                       <td className="pr-4">
                         {u.calibration_count === 0 ? (
