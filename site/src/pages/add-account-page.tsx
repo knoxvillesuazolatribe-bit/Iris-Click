@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { ArrowLeft, KeyRound, LoaderCircle, ShieldCheck, Sparkles, Ticket, UserRoundPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -46,6 +47,28 @@ function formatMobile(digits: string) {
  * in with username and PIN, which adds the account here. The calibration is kept by
  * IrisClick Desktop until the account exists, then attached to it; leaving discards it.
  */
+/**
+ * Give the new-account calibration to the account just made. IrisClick Desktop gets the new account
+ * from the website within a few seconds, so "not ready yet" (409) or a busy database (503) is tried
+ * again every 2 seconds for about 20 seconds. Nothing pending (404) is final.
+ */
+async function attachCalibration(profileFileId: string | null): Promise<boolean> {
+  for (let attempt = 0; attempt < ATTACH_TRIES; attempt++) {
+    try {
+      await pendingCalibrationService.attach(profileFileId)
+      return true
+    } catch (err) {
+      const status = isAxiosError(err) ? err.response?.status : undefined
+      if (status === 404) return false
+      await new Promise((resolve) => window.setTimeout(resolve, ATTACH_WAIT_MS))
+    }
+  }
+  return false
+}
+
+const ATTACH_TRIES = 10
+const ATTACH_WAIT_MS = 2000
+
 export function AddAccountPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -122,12 +145,8 @@ export function AddAccountPage() {
       await accountsService.mobileConfirm(deviceId, mobileTicket.current).catch(() => undefined)
       mobileTicket.current = null
     }
-    if (calibration.current) {
-      try {
-        await pendingCalibrationService.attach(calibration.current.profile_file_id)
-      } catch {
-        note += ' The calibration could not be added to the account; you can calibrate again from the welcome screen.'
-      }
+    if (calibration.current && !(await attachCalibration(calibration.current.profile_file_id))) {
+      note += ' The calibration could not be added to the account; you can calibrate again from the welcome screen.'
     }
     finished.current = true
     void navigate('/user/select', { replace: true, state: { notice: note } })

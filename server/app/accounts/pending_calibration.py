@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models.calibration_record import STATUS_SUCCESSFUL, CalibrationRecord
 from app.models.timestamps import as_utc, utc_now
+from app.models.user import User
 from app.services import active_user
 from app.services.system_log_service import log_activity
 
@@ -120,6 +121,7 @@ class PendingError(Exception):
 
 
 NONE_PENDING = "There is no new calibration on this computer. Please calibrate again."
+NOT_READY = "IrisClick Desktop is still getting the new account from the website. Trying again."
 NOT_LINKED = "Your account is not linked to IrisClick Desktop yet. Please try again."
 
 
@@ -130,12 +132,33 @@ def _row(db: Session, profiles_dir: Path, profile_file_id: str | None, now=None)
     return db.get(CalibrationRecord, pending.calibration_id)
 
 
+def _sync_now() -> None:
+    """Desktop mode: copy the just-made account down from the website now, not in a few seconds."""
+    from app.desktop_sync import sync
+    if sync.desktop_mode():
+        sync.sync_once()
+
+
+def _person_here(db: Session, user_id: int, sync_now=None) -> bool:
+    """The account exists in this computer's database (in desktop mode it arrives by sync)."""
+    if db.get(User, user_id) is not None:
+        return True
+    try:
+        (sync_now or _sync_now)()
+    except Exception:  # noqa: BLE001 - offline: the website simply tries again
+        logger.warning("Could not sync the new account before attaching", exc_info=True)
+    db.expire_all()
+    return db.get(User, user_id) is not None
+
+
 def attach(db: Session, profiles_dir: Path, profile_file_id: str | None = None, now=None,
-           upload=None) -> tuple[CalibrationRecord, bool]:
+           upload=None, sync_now=None) -> tuple[CalibrationRecord, bool]:
     """Give the pending calibration to the person linked on this computer; returns (row, uploaded)."""
     user_id = active_user.get_user_id()
     if user_id is None:
         raise PendingError(409, NOT_LINKED)
+    if not _person_here(db, user_id, sync_now):
+        raise PendingError(409, NOT_READY)  # the website tries again in a moment
     row = _row(db, profiles_dir, profile_file_id, now)
     row.user_id = user_id
     log_activity("calibration_attached", f"New-account calibration '{row.profile_name}' added to the account",
