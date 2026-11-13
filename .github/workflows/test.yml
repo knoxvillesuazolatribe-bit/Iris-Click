@@ -32,6 +32,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
           python -m pip install --no-deps gTTS==2.5.4 gazefollower==1.1.0
+      - name: Philippine time, like the IrisClick PC (report dates are local)
+        run: tzutil /s "Singapore Standard Time"  # UTC+8, same as Manila
       - name: Run all tests
         env:
           DB_HOST: ""   # tests use their own SQLite files; never a real database
