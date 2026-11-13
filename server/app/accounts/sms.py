@@ -29,7 +29,7 @@ KEY_ENV, SENDER_ENV, ONLY_TO_ENV = "SEMAPHORE_API_KEY", "SEMAPHORE_SENDER_NAME",
 
 
 class SmsError(Exception):
-    """A text was not sent. ``reason``: not_configured | not_allowed | failed."""
+    """A text was not sent. ``reason``: not_configured | not_allowed | no_sender_name | failed."""
 
     def __init__(self, reason: str):
         super().__init__(reason)
@@ -102,6 +102,9 @@ def _semaphore(number: str, text: str) -> None:
           and all(str(m.get("status", "")).lower() not in ("failed", "refunded") for m in body if isinstance(m, dict)))
     if not ok:
         logger.warning("SMS not sent: Semaphore answered %s", response.status_code)
+        # Semaphore refuses every text until the account has an approved sender name (found in the live test).
+        if isinstance(body, list) and any(isinstance(m, dict) and "senderName" in m for m in body):
+            raise SmsError("no_sender_name")
         raise SmsError("failed")
 
 
