@@ -85,6 +85,23 @@ export function AccountsPage() {
         void navigate('/user/add')
         return true
       }
+      // IrisClick just opened this page (not reached from inside the site): someone may still be signed in
+      // from before. Remembered on this computer -> straight to their home; otherwise sign them out, so
+      // the next person picks their tile and enters the PIN.
+      if (firstLoad.current && (window.history.state?.idx ?? 0) === 0) {
+        await useSessionStore.getState().load()
+        const { status, user } = useSessionStore.getState()
+        if (status === 'signed-in' && user?.role === 'assistive_user') {
+          const mine = tiles.accounts.find((tile) => tile.user_id === user.user_id)
+          if (mine && !mine.needs_pin) {
+            firstLoad.current = false
+            void navigate('/home', { replace: true })
+            return true
+          }
+          await accountsService.signOut(deviceId).catch(() => undefined)
+          useSessionStore.setState({ status: 'signed-out', user: null })
+        }
+      }
       firstLoad.current = false
       setLoad({ state: 'ready', deviceId, tiles })
     } catch (err) {

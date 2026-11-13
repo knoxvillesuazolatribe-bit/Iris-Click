@@ -71,6 +71,8 @@ class SignedInAccount:
     user: User
     username: str
     newly_added: bool = field(default=False, compare=False)
+    # "Remember me" is on for this person on this computer: the sign-in may outlive the browser.
+    remembered: bool = field(default=False, compare=False)
 
 
 def _remember_days() -> int:
@@ -189,7 +191,7 @@ def sign_up(db: Session, device: Device | None, *, consent: bool, username: str,
         log_activity(kind, text, user.user_id, session=db)
     db.commit()
     active_user.set_user_id(user.user_id)  # this computer's person, as picking a name tile does
-    return SignedInAccount(user, username, True)
+    return SignedInAccount(user, username, True, _remembered(_link(db, device, user.user_id), device, now))
 
 
 def _refuse(state: limits.TryState) -> AccountError:
@@ -260,7 +262,8 @@ def sign_in(db: Session, device: Device | None, *, user_id: int | None = None, u
                  account.user_id, session=db)
     db.commit()
     active_user.set_user_id(account.user_id)  # this computer's person, as picking a name tile does
-    return SignedInAccount(db.get(User, account.user_id), account.username, added)
+    return SignedInAccount(db.get(User, account.user_id), account.username, added,
+                           _remembered(_link(db, device, account.user_id), device, now))
 
 
 def remove_from_computer(db: Session, device: Device | None, *, user_id: int, pin: str | None = None,
