@@ -160,7 +160,6 @@ export function UserSelectPage() {
           )}
           {load.state === 'ready' && load.tiles.length > 0 && (
             <>
-              <p className="text-muted-foreground text-xl">Look at your name and wink your left eye.</p>
               <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-6">
                 {load.tiles.map((tile) => (
                   <UserTile key={tile.user_id} tile={tile} onSelect={choose} />
