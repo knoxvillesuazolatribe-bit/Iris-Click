@@ -41,6 +41,7 @@ from app.core.calibration.recenter import (
     save_recenter,
 )
 from app.workers.start_recentre import StartRecentre  # quick re-centre once per start
+from app.workers import web_home  # extension: control bar Home opens the website's Home
 from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
@@ -383,9 +384,10 @@ class TrackingWorker:
                                  daemon=True).start()
             elif command == QUIT:
                 self.quit()
-            elif command == HOME:  # H3: open the Home Suite; tracking keeps running
+            elif command == HOME:  # H3: the website's Home in the IrisClick window; tracking keeps running
                 with contextlib.suppress(Exception):
-                    webbrowser.open(f"{self.settings.site_url.rstrip('/')}/home")
+                    threading.Thread(target=web_home.go_home, args=(self.settings.port,),
+                                     daemon=True).start()
             elif command in (FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
                 with contextlib.suppress(Exception):
                     extra_keys.press(command)

@@ -52,6 +52,8 @@ def create_app() -> FastAPI:
             app.include_router(router, prefix=settings.api_prefix)
         from app.api.routes import desktop_calibration  # extension: desktop calibration
         app.include_router(desktop_calibration.router, prefix=settings.api_prefix)
+        from app.api.routes import desktop_home  # extension: one home, on the web
+        app.include_router(desktop_home.router, prefix=settings.api_prefix)
         from app.api.routes import desktop_device  # extension: accounts on this computer
         app.include_router(desktop_device.router, prefix=settings.api_prefix)
         from app.api.routes import desktop_pending  # extension: accounts on this computer

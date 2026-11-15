@@ -167,12 +167,17 @@ def test_wink_counter_counts_the_eye_that_winked_when_sides_are_swapped(settings
 
 
 def test_home_command_opens_home_suite_and_keeps_tracking(settings, monkeypatch):
+    # One home, on the web: Home asks the IrisClick page (or window) for the website's Home.
+    import time
     opened = []
-    monkeypatch.setattr(tracking_worker.webbrowser, "open", opened.append)
+    monkeypatch.setattr(tracking_worker.web_home, "go_home", opened.append)
     commands = queue.Queue()
     commands.put(HOME)
     quits = []
     host = SimpleNamespace(commands=commands, settings=settings, quit=lambda: quits.append(1))
     TrackingWorker._handle_commands(host)
-    assert opened == [f"{settings.site_url.rstrip('/')}/home"]
+    deadline = time.monotonic() + 2.0  # Home runs on a background thread
+    while not opened and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert opened == [settings.port]
     assert quits == []

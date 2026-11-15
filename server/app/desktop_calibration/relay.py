@@ -193,6 +193,13 @@ class Relay:
         with contextlib.suppress(Exception):
             await self.send(self.agent, message)
 
+    # ---- extension: one home, on the web (control bar "Home")
+    async def go_home(self) -> int:
+        """Ask every open IrisClick page to show its Home; returns how many pages were asked."""
+        pages = len(self.sites)
+        await self.broadcast(event("app.go_home"))
+        return pages
+
     # ---- the website's requests
     async def cancel(self) -> None:
         if self.agent is not None:
