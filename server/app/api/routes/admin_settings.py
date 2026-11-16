@@ -137,6 +137,10 @@ def test_sms(_admin: User = Depends(require_admin)):
         return TestResult(sent=False, detail="Set SMS_ONLY_TO in server/.env to the number that gets test texts.")
     try:
         sms.send(lock[0], "IrisClick test message: SMS sending works.")
-    except sms.SmsError:
+    except sms.SmsError as exc:
+        if exc.reason == "no_sender_name":
+            return TestResult(sent=False, detail="Semaphore did not send the text: the account has no approved "
+                              "sender name yet. Apply for one in Semaphore (Sender Names), then put it in "
+                              "server/.env as SEMAPHORE_SENDER_NAME.")
         return TestResult(sent=False, detail="Semaphore did not send the text. Check the API key and the credits.")
     return TestResult(sent=True, detail="Test text sent to the SMS_ONLY_TO number.")
