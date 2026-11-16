@@ -224,6 +224,14 @@ def stop(port: int, storage: Path = STORAGE_DIR, post: Callable = _post,
         if pid != os.getpid():
             (kill or _kill_tree)(pid)
         pid_file.unlink(missing_ok=True)
+    # Uninstall / upgrade: also close what the saved ids missed, such as an eye-tracking
+    # process whose server crashed (it keeps the IrisClick folder locked).
+    if kill is None:
+        try:
+            from app.process_cleanup import stop_leftovers
+            stop_leftovers(SERVER_DIR)
+        except Exception:  # noqa: BLE001 - stopping must never fail because of this
+            logger.warning("Could not close leftover IrisClick processes", exc_info=True)
 
 
 def _kill_tree(pid: int) -> None:
