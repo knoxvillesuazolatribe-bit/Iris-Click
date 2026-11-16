@@ -79,11 +79,13 @@ def test_tracking_start_uses_the_newest_calibration_and_reports_none_yet():
     assert launcher.start_tracking(8000, lambda u, timeout=20.0: (409, '{"detail":"Calibrate first."}')) is False
 
 
-def test_the_window_opens_the_website_in_an_edge_app_window(tmp_path):
+def test_the_window_opens_the_website_in_a_normal_edge_browser_window(tmp_path):
+    # One home, on the web: a normal browser window, not an app-style (--app) window.
     opened = []
     launcher.open_window(SITE, tmp_path / "msedge.exe", popen=opened.append)
-    assert opened == [[str(tmp_path / "msedge.exe"), f"--app={SITE}/", "--start-maximized",
-                       "--force-renderer-accessibility"]]
+    assert opened == [[str(tmp_path / "msedge.exe"), "--new-window", "--start-maximized",
+                       "--force-renderer-accessibility", f"{SITE}/"]]
+    assert not any(arg.startswith("--app") for arg in opened[0])
     launcher.open_window(SITE, None, browser=opened.append)
     assert opened[-1] == f"{SITE}/"
 

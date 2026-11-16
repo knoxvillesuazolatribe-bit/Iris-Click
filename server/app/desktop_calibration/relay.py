@@ -62,12 +62,23 @@ def _restart_tracking() -> None:
         logger.exception("Eye tracking could not restart after desktop calibration")
 
 
+def _open_web_home() -> None:
+    """After a successful calibration with no IrisClick page open: the website's Home in the browser."""
+    import os
+    if "PYTEST_CURRENT_TEST" in os.environ:  # tests never open a browser; they pass their own open_home
+        return
+    from app.workers.web_home import _open_home_window
+    _open_home_window()
+
+
 class Relay:
     def __init__(self, spawn: Callable[[int, str], int] = spawn_window,
                  alive: Callable[[int], bool] = _pid_alive,
                  restart_tracking: Callable[[], None] = _restart_tracking,
-                 connect_timeout_s: float = CONNECT_TIMEOUT_S):
+                 connect_timeout_s: float = CONNECT_TIMEOUT_S,
+                 open_home: Callable[[], None] | None = None):
         self._spawn = spawn
+        self._open_home = open_home or _open_web_home
         self._alive = alive
         self._restart_tracking = restart_tracking
         self._connect_timeout_s = connect_timeout_s
@@ -186,6 +197,9 @@ class Relay:
         await self.broadcast(self.snapshot())
         if not self._succeeded:
             await asyncio.to_thread(self._restart_tracking)
+        elif not self.sites:  # extension: one home, on the web (no page to take Home, so open it)
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self._open_home)
 
     async def _send_agent(self, message: dict) -> None:
         if self.agent is None:

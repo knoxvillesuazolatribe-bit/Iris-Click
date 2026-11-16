@@ -67,3 +67,44 @@ def test_web_pages_cannot_call_the_route():
     assert refused.status_code == 403
     allowed = client.post("/api/desktop/go-home")
     assert allowed.status_code == 200 and allowed.json() == {"pages": 0}
+
+
+class FakeAgent:
+    async def send_json(self, message):
+        pass
+
+
+def _finish_calibration(relay, status):
+    async def run():
+        agent = FakeAgent()
+        await relay.agent_connected(agent)
+        await relay.agent_event({"v": 1, "type": "calibration.started", "total": 13})
+        await relay.agent_event({"v": 1, "type": "calibration.result", "status": status,
+                                 "accuracy_percent": 90.0, "low_accuracy": False, "message": None})
+        await relay.agent_disconnected(agent)
+    asyncio.run(run())
+
+
+def test_successful_calibration_with_no_page_open_opens_the_web_home():
+    opened = []
+    relay = Relay(spawn=lambda port, reason: 1, restart_tracking=lambda: None,
+                  open_home=lambda: opened.append(1))
+    _finish_calibration(relay, "success")
+    assert opened == [1]
+
+
+def test_with_a_page_open_the_page_goes_home_itself_and_nothing_opens():
+    opened = []
+    relay = Relay(spawn=lambda port, reason: 1, restart_tracking=lambda: None,
+                  open_home=lambda: opened.append(1))
+    relay.add_site(FakeSite())
+    _finish_calibration(relay, "success")
+    assert opened == []
+
+
+def test_a_failed_calibration_opens_nothing():
+    opened = []
+    relay = Relay(spawn=lambda port, reason: 1, restart_tracking=lambda: None,
+                  open_home=lambda: opened.append(1))
+    _finish_calibration(relay, "failed")
+    assert opened == []
