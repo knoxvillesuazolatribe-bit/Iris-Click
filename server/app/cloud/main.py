@@ -92,8 +92,10 @@ def launch(_user: User = Depends(require_assistive)):
 @pc_only.post("/apps/tiles/{tile_id}/launch")
 def launch_tile(tile_id: int, user: User = Depends(require_assistive), db: Session = Depends(get_db)) -> dict:
     """Websites need no PC: their address goes back to the page, which opens it in a
-    new tab on the user's own device. Programs (Word, Calculator, ...) stay PC-only."""
-    from app.models.user_app_shortcut import KIND_BUILTIN, KIND_WEBSITE, UserAppShortcut
+    new tab on the user's own device. Programs (Word, Calculator, ...) are opened by
+    IrisClick Desktop on the user's PC: ``on_pc`` tells the page which one to ask for
+    (POST /api/desktop/apps/open on 127.0.0.1, which checks it against the PC's own list)."""
+    from app.models.user_app_shortcut import KIND_BUILTIN, KIND_INSTALLED, KIND_WEBSITE, UserAppShortcut
     from app.services import apps_service
     from app.services.system_log_service import log_activity
     from app.services.user_apps_service import UserAppsError, clean_url
@@ -112,6 +114,11 @@ def launch_tile(tile_id: int, user: User = Depends(require_assistive), db: Sessi
         if app is not None and app.target.startswith(("https://", "http://")):
             url = app.target  # Browser (Google) and Calendar (website)
     if url is None:
+        # extension: the page asks IrisClick Desktop to open the program (logged on the PC)
+        if row.type == KIND_BUILTIN and row.builtin_key:
+            return {"launched": False, "label": row.label, "on_pc": {"kind": "builtin", "key": row.builtin_key}}
+        if row.type == KIND_INSTALLED and row.target:
+            return {"launched": False, "label": row.label, "on_pc": {"kind": "installed_app", "path": row.target}}
         raise HTTPException(status_code=409, detail=PC_ONLY_APPS)
     log_activity("app_launched", f"{user.full_name} opened {row.label} (online)", user.user_id, session=db)
     db.commit()
@@ -203,11 +210,27 @@ def cloud_engine() -> Engine:
 def assume_pc_apps() -> None:
     """The user's apps are on their IrisClick PC, not on this Linux server, so the
     online copy shows every default app (Calculator, Word, Excel, PowerPoint)
-    instead of hiding the ones the server lacks. Opening one answers PC_ONLY_APPS."""
-    from app.services import apps_service
+    instead of hiding the ones the server lacks. Opening one is done by IrisClick Desktop."""
+    from pathlib import PureWindowsPath
+
+    from app.services import apps_service, user_apps_service
 
     apps_service.finder["calculator"] = lambda: "calc.exe"
     apps_service.finder["app_path"] = lambda exe: exe
+
+    # extension: programs come from the PC's own Start-menu list (IrisClick Desktop sends it to
+    # the page). This server cannot see that disk, so it stores a Start-menu .lnk/.exe path as
+    # given and never calls it "not installed"; the PC checks it again before opening it.
+    def pc_program(path: str):
+        program = PureWindowsPath(path)
+        if program.suffix.lower() not in user_apps_service.ALLOWED_APP_TYPES:
+            return None
+        if "start menu" not in str(program).lower() or not program.stem.strip():
+            return None
+        return user_apps_service.InstalledApp(program.stem.strip()[:user_apps_service.MAX_LABEL], path)
+
+    user_apps_service._scanned = pc_program  # noqa: SLF001 - online copy only
+    user_apps_service.file_exists = lambda path: True
 
 
 def configure_runtime(storage_dir: Path) -> None:

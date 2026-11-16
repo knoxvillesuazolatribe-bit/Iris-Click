@@ -13,6 +13,7 @@ from app.desktop.display import make_tool_window, toplevel_hwnd
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
     CYCLE_EDGE,
+    BACK,
     FORWARD,
     HOME,
     KEYBOARD,
@@ -78,6 +79,7 @@ class ControlBar:
         # move to a second row on screens too narrow for one (see below).
         self._extra_row = tk.Frame(self.win, bg=BACKGROUND)
         self._button(self._extra_row, "Home", HOME)  # opens the site's Home Suite
+        self._button(self._extra_row, "Back", BACK)  # adviser: Alt+Left
         self._button(self._extra_row, "Forward", FORWARD)  # Phase 6: Alt+Right
         self._button(self._extra_row, "Next Tab", NEXT_TAB)  # Phase 6: Ctrl+Tab
         self._button(self._extra_row, "Keyboard", KEYBOARD)  # Phase 9: on-screen keyboard

@@ -72,7 +72,9 @@ def test_first_load_gives_the_phase_9_defaults_once(api, ana, test_database):
     assert len(logs(test_database, "app_tiles_created")) == 1
     with test_database() as session:
         rows = session.scalars(select(UserAppShortcut)).all()
-    assert [r.builtin_key for r in rows] == ["browser", "calculator", "calendar", "word", "excel", "powerpoint"]
+    assert [r.builtin_key for r in rows] == ["browser", "calculator", "calendar", "word", "excel", "powerpoint",
+                                             "keyboard"]
+    assert [r.is_visible for r in rows][-1] is False  # adviser: waits in Edit Apps
 
 
 def test_default_tiles_still_launch_through_phase_9(api, ana, machine, test_database):
@@ -93,7 +95,7 @@ def test_removing_a_default_hides_it_and_it_can_come_back(api, ana, test_databas
     assert api.delete(f"/api/me/apps/tiles/{word}").status_code == 204
     body = tiles(api)
     assert "Word" not in [t["label"] for t in body["tiles"]]
-    assert [h["label"] for h in body["hidden_defaults"]] == ["Word"]
+    assert [h["label"] for h in body["hidden_defaults"]] == ["Word", "On-Screen Keyboard"]
     assert api.post(f"/api/me/apps/tiles/{word}/launch").status_code == 404
     response = api.post("/api/me/apps/tiles", json={"kind": "builtin", "builtin_key": "word"})
     assert response.status_code == 201 and labels(api)[-1] == "Word"
@@ -120,7 +122,7 @@ def test_reset_restores_the_defaults_and_drops_added_apps(api, ana, test_databas
     api.patch(f"/api/me/apps/tiles/{tile_id(api, 'Word')}", json={"position": 0})
     body = api.post("/api/me/apps/tiles/reset").json()
     assert [t["label"] for t in body["tiles"]] == ["Browser", "Calculator", "Calendar (website)", "Word"]
-    assert body["hidden_defaults"] == []
+    assert [h["label"] for h in body["hidden_defaults"]] == ["On-Screen Keyboard"]  # still waits in Edit Apps
     assert len(logs(test_database, "app_tiles_reset")) == 1
 
 

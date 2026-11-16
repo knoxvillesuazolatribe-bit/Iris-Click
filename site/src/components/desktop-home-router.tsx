@@ -18,7 +18,9 @@ export function DesktopHomeRouter() {
   const signedIn = useSessionStore((s) => s.status === 'signed-in' && s.user?.role === 'assistive_user')
   // The socket outlives page changes; it reads the latest page and session from here.
   const latest = useRef({ pathname, signedIn })
-  latest.current = { pathname, signedIn }
+  useEffect(() => {
+    latest.current = { pathname, signedIn }
+  }, [pathname, signedIn])
 
   useEffect(() => {
     if (!signedIn) return

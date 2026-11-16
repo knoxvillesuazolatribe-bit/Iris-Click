@@ -24,6 +24,7 @@ RECENTER = "recenter"
 RECALIBRATE = "recalibrate"
 QUIT = "quit"
 HOME = "home"  # Phase 3 (H3): open the site's Home Suite.
+BACK = "back"  # adviser: Alt+Left (the right wink is now right-click)
 FORWARD = "forward"  # Phase 6 (H3): Alt+Right
 NEXT_TAB = "next_tab"  # Phase 6 (H3): Ctrl+Tab
 KEYBOARD = "keyboard"  # Phase 9 (H3): open/close the on-screen keyboard
@@ -69,6 +70,7 @@ class SystemTray:
                 pystray.MenuItem("Recalibrate…", self._queue(RECALIBRATE)),
                 pystray.MenuItem("Calibrate here", self._queue(CALIBRATE_HERE)),
                 pystray.MenuItem("Home Suite", self._queue(HOME)),  # H3
+                pystray.MenuItem("Back", self._queue(BACK)),  # adviser
                 pystray.MenuItem("Forward", self._queue(FORWARD)),  # H3 (Phase 6)
                 pystray.MenuItem("Next Tab", self._queue(NEXT_TAB)),  # H3 (Phase 6)
                 pystray.MenuItem("Keyboard", self._queue(KEYBOARD)),  # H3 (Phase 9)

@@ -164,7 +164,9 @@ def test_website_tiles_open_on_this_device_programs_stay_pc_only(ana, restore_ru
     assert calendar["url"] == apps_service.GOOGLE_CALENDAR
     assert ana.post(f"/api/me/apps/tiles/{tiles['Browser']}/launch").json()["url"] == apps_service.BROWSER_START
     word = ana.post(f"/api/me/apps/tiles/{tiles['Word']}/launch")
-    assert word.status_code == 409 and word.json()["detail"] == cloud.PC_ONLY_APPS
+    # Programs are opened by IrisClick Desktop on the PC: the page is told which one (adviser).
+    assert word.status_code == 200
+    assert word.json() == {"launched": False, "label": "Word", "on_pc": {"kind": "builtin", "key": "word"}}
 
     assert ana.post("/api/me/apps/tiles/999999/launch").status_code == 404  # not one of Ana's tiles
 
@@ -277,10 +279,10 @@ def test_online_home_shows_every_default_app_even_on_a_linux_server(ana, restore
     word = next(t for t in ana.get("/api/me/apps/tiles").json()["tiles"] if t["label"] == "Word")
     assert ana.delete(f"/api/me/apps/tiles/{word['tile_id']}").status_code == 204
     hidden = ana.get("/api/me/apps/tiles").json()["hidden_defaults"]
-    assert [h["label"] for h in hidden] == ["Word"]  # offered again under "Default apps"
+    assert [h["label"] for h in hidden] == ["Word", "On-Screen Keyboard"]  # offered under "Default apps"
     excel = next(t for t in ana.get("/api/me/apps/tiles").json()["tiles"] if t["label"] == "Excel")
     response = ana.post(f"/api/me/apps/tiles/{excel['tile_id']}/launch")
-    assert response.status_code == 409 and response.json()["detail"] == cloud.PC_ONLY_APPS
+    assert response.status_code == 200 and response.json()["on_pc"] == {"kind": "builtin", "key": "excel"}
 
 
 def test_cloud_database_keeps_no_connections_open(monkeypatch):

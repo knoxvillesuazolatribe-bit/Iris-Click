@@ -35,6 +35,9 @@ BUILTINS = {  # key -> default label, in the Phase 9 order
     "browser": "Browser", "calculator": "Calculator", "calendar": "Calendar",
     "word": "Word", "excel": "Excel", "powerpoint": "PowerPoint",
 }
+# Adviser: built-in apps every user can add in Edit Apps, not shown until they do.
+OPTIONAL_BUILTINS = {"keyboard": "On-Screen Keyboard"}
+OPTIONAL_POSITION = 100  # after the user's own tiles
 ALLOWED_APP_TYPES = (".lnk", ".exe")
 SUGGESTIONS = [
     ("YouTube", "https://www.youtube.com", "video"),
@@ -156,6 +159,7 @@ def _rows(db: Session, user: User) -> list[UserAppShortcut]:
 def ensure_defaults(db: Session, user: User) -> None:
     """On first use, give the user the six Phase 9 apps."""
     if db.scalar(select(UserAppShortcut.shortcut_id).where(UserAppShortcut.user_id == user.user_id).limit(1)):
+        _ensure_optional(db, user)
         return
     for position, (key, label) in enumerate(BUILTINS.items()):
         db.add(UserAppShortcut(user_id=user.user_id, label=label, type=KIND_BUILTIN, builtin_key=key,
@@ -165,10 +169,27 @@ def ensure_defaults(db: Session, user: User) -> None:
         db.commit()
     except IntegrityError:  # two first loads at once: the other one won
         db.rollback()
+    _ensure_optional(db, user)
+
+
+def _ensure_optional(db: Session, user: User) -> None:
+    """Adviser: OPTIONAL_BUILTINS wait, hidden, in Edit Apps until the user adds them."""
+    have = set(db.scalars(select(UserAppShortcut.builtin_key).where(
+        UserAppShortcut.user_id == user.user_id, UserAppShortcut.builtin_key.in_(OPTIONAL_BUILTINS))))
+    missing = [key for key in OPTIONAL_BUILTINS if key not in have]
+    if not missing:
+        return
+    for key in missing:
+        db.add(UserAppShortcut(user_id=user.user_id, label=OPTIONAL_BUILTINS[key], type=KIND_BUILTIN,
+                               builtin_key=key, icon=key, position=OPTIONAL_POSITION, is_visible=False))
+    try:
+        db.commit()
+    except IntegrityError:  # added at the same moment by another request
+        db.rollback()
 
 
 def _builtins_here() -> dict[str, apps_service.App]:
-    return {a.app_id: a for a in apps_service.available()}
+    return {a.app_id: a for a in apps_service.builtins()}
 
 
 def _view(row: UserAppShortcut, here: dict[str, apps_service.App]) -> TileView | None:
@@ -317,7 +338,7 @@ def reset(db: Session, user: User, actor: User | None = None) -> None:
     order = list(BUILTINS)
     for row in _rows(db, user):
         if row.type == KIND_BUILTIN:
-            row.is_visible = True
+            row.is_visible = row.builtin_key not in OPTIONAL_BUILTINS  # adviser: back to waiting in Edit Apps
             row.position = order.index(row.builtin_key) if row.builtin_key in order else len(order)
         else:
             db.delete(row)

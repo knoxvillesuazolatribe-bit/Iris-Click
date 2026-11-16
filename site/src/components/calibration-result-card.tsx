@@ -26,7 +26,7 @@ const SOURCE_LABELS: Record<string, string> = {
 const CONTROLS = [
   ['Look', 'moves the cursor (yellow ring)'],
   ['Wink left eye', 'click'],
-  ['Wink right eye', 'go back'],
+  ['Wink right eye', 'right-click'],
 ] as const
 
 interface CalibrationResultCardProps {

@@ -118,7 +118,8 @@ class Settings(BaseSettings):
     head_fine_tune_max_px: float = 200.0
     # Gaze resumes this long after the physical mouse stops moving.
     mouse_handoff_s: float = 2.0
-    right_blink_action: Literal["go_back", "undo"] = "go_back"
+    # Adviser: right wink = mouse right-click (context menus); "go_back" / "undo" stay available.
+    right_blink_action: Literal["right_click", "go_back", "undo"] = "right_click"
     # MediaPipe labels eyes on the mirrored frame. Flip this if a wink of one
     # eye triggers the other eye's command on your camera.
     swap_blink_sides: bool = False
