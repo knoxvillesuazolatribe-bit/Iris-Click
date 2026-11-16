@@ -26,11 +26,12 @@ def test_server_runs_with_console_python_beside_pythonw(tmp_path):
 def test_the_hosted_website_may_use_the_desktop_app_and_its_pages_open_there(tmp_path):
     edge = tmp_path / "msedge.exe"
     env = launcher.server_env(8000, SITE, edge, ["http://localhost:5173"], base={"KEEP": "1"})
-    assert json.loads(env["CORS_ORIGINS"]) == ["http://localhost:5173", SITE]
+    # Both official addresses (after and before the irisclick rename) are always trusted.
+    assert json.loads(env["CORS_ORIGINS"]) == ["http://localhost:5173", SITE, *launcher.OFFICIAL_WEBSITES]
     assert env["SITE_URL"] == SITE and env["BROWSER"] == str(edge) and env["KEEP"] == "1"
     # already listed: not doubled; no Edge: no BROWSER
     env = launcher.server_env(8000, SITE, None, [SITE], base={})
-    assert json.loads(env["CORS_ORIGINS"]) == [SITE] and "BROWSER" not in env
+    assert json.loads(env["CORS_ORIGINS"]) == [SITE, *launcher.OFFICIAL_WEBSITES] and "BROWSER" not in env
 
 
 def test_finds_edge(tmp_path):

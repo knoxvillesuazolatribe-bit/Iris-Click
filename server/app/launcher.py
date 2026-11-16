@@ -31,6 +31,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
+# The hosted IrisClick website, after and before the project rename (both stay live).
+OFFICIAL_WEBSITES = ("https://irisclick.vercel.app", "https://iris-click.vercel.app")
 STORAGE_DIR = SERVER_DIR / "app" / "storage"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -105,8 +107,9 @@ def server_env(port: int, website: str, edge: Path | None, cors: list[str],
     env["PORT"] = str(port)
     # Pages the worker opens (tray "Recalibrate", Home) are on the IrisClick website.
     env["SITE_URL"] = website
-    # The website may use this desktop app (app/api/origin_guard.py and CORS).
-    origins = list(dict.fromkeys([*cors, website.rstrip("/")]))
+    # The website may use this desktop app (app/api/origin_guard.py and CORS). Both official
+    # addresses are trusted: the project was renamed to irisclick, and the old address still works.
+    origins = list(dict.fromkeys([*cors, website.rstrip("/"), *OFFICIAL_WEBSITES]))
     env["CORS_ORIGINS"] = json.dumps(origins)
     if edge is not None:
         env["BROWSER"] = str(edge)  # Python's webbrowser (tray Recalibrate) opens Edge
