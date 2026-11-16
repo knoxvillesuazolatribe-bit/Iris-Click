@@ -1,7 +1,7 @@
 <#
 Builds IrisClick Desktop: the app folder and (if Inno Setup 6 is installed) IrisClick-Desktop-Setup.exe.
 
-    powershell -ExecutionPolicy Bypass -File packaging\build.ps1 [-CloudUrl https://iris-click.vercel.app] [-SkipInstaller]
+    powershell -ExecutionPolicy Bypass -File packaging\build.ps1 [-CloudUrl https://irisclick.vercel.app] [-SkipInstaller]
 
 What goes in packaging\out\IrisClick-Desktop (committed files only, never server\.env or local data):
   runtime\   Python 3.12 from this PC's own python.org install (includes tkinter, which the
@@ -16,7 +16,7 @@ The website itself is hosted (Vercel); it is not inside the installer.
 Commit your changes first: the build uses the committed code (HEAD).
 #>
 param(
-    [string]$CloudUrl = "https://iris-click.vercel.app",
+    [string]$CloudUrl = "https://irisclick.vercel.app",
     [switch]$SkipInstaller
 )
 $ErrorActionPreference = "Stop"

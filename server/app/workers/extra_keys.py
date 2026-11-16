@@ -5,9 +5,9 @@ The control bar never takes focus, so the keys reach the app the user is in.
 
 import pyautogui
 
-from app.desktop.system_tray import FORWARD, NEXT_TAB
+from app.desktop.system_tray import BACK, FORWARD, NEXT_TAB
 
-KEYS = {FORWARD: ("alt", "right"), NEXT_TAB: ("ctrl", "tab")}
+KEYS = {BACK: ("alt", "left"), FORWARD: ("alt", "right"), NEXT_TAB: ("ctrl", "tab")}
 
 
 def press(command: str) -> bool:

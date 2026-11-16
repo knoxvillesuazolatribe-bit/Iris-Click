@@ -31,6 +31,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
+# The hosted IrisClick website, after and before the project rename (both stay live).
+OFFICIAL_WEBSITES = ("https://irisclick.vercel.app", "https://iris-click.vercel.app")
 STORAGE_DIR = SERVER_DIR / "app" / "storage"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -105,8 +107,9 @@ def server_env(port: int, website: str, edge: Path | None, cors: list[str],
     env["PORT"] = str(port)
     # Pages the worker opens (tray "Recalibrate", Home) are on the IrisClick website.
     env["SITE_URL"] = website
-    # The website may use this desktop app (app/api/origin_guard.py and CORS).
-    origins = list(dict.fromkeys([*cors, website.rstrip("/")]))
+    # The website may use this desktop app (app/api/origin_guard.py and CORS). Both official
+    # addresses are trusted: the project was renamed to irisclick, and the old address still works.
+    origins = list(dict.fromkeys([*cors, website.rstrip("/"), *OFFICIAL_WEBSITES]))
     env["CORS_ORIGINS"] = json.dumps(origins)
     if edge is not None:
         env["BROWSER"] = str(edge)  # Python's webbrowser (tray Recalibrate) opens Edge
@@ -183,9 +186,12 @@ def start_tracking(port: int, post: Callable = _post) -> bool:
 def open_window(url: str, edge: Path | None, popen: Callable = subprocess.Popen,
                 browser: Callable = webbrowser.open) -> None:
     if edge is not None:
+        # One home, on the web: an ordinary Edge browser window (tabs and address bar), never an
+        # app-style window that looks like a second IrisClick home.
         # The accessibility flag makes Edge share the page's buttons and text boxes with Windows, so gaze
         # target snapping (app/desktop/target_assist.py) can find them; without it Edge shares none.
-        popen([str(edge), f"--app={url}/", "--start-maximized", "--force-renderer-accessibility"])
+        # (Edge applies it only when this starts Edge; an Edge already open keeps its own setting.)
+        popen([str(edge), "--new-window", "--start-maximized", "--force-renderer-accessibility", f"{url}/"])
     else:
         browser(f"{url}/")
 
@@ -221,6 +227,14 @@ def stop(port: int, storage: Path = STORAGE_DIR, post: Callable = _post,
         if pid != os.getpid():
             (kill or _kill_tree)(pid)
         pid_file.unlink(missing_ok=True)
+    # Uninstall / upgrade: also close what the saved ids missed, such as an eye-tracking
+    # process whose server crashed (it keeps the IrisClick folder locked).
+    if kill is None:
+        try:
+            from app.process_cleanup import stop_leftovers
+            stop_leftovers(SERVER_DIR)
+        except Exception:  # noqa: BLE001 - stopping must never fail because of this
+            logger.warning("Could not close leftover IrisClick processes", exc_info=True)
 
 
 def _kill_tree(pid: int) -> None:

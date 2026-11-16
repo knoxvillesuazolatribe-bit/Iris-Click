@@ -5,7 +5,7 @@
 #     artifact only (a dry run; nothing is published).
 # The tag must match server/app/version.py and site/public/desktop-latest.json.
 # The installer holds only the public website address (no secrets): set the repository
-# variable IRISCLICK_CLOUD_URL, or https://iris-click.vercel.app is used.
+# variable IRISCLICK_CLOUD_URL, or https://irisclick.vercel.app is used.
 name: Release
 
 on:
@@ -48,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $url = "${{ vars.IRISCLICK_CLOUD_URL }}"
-          if (-not $url) { $url = "https://iris-click.vercel.app" }
+          if (-not $url) { $url = "https://irisclick.vercel.app" }
           ./packaging/build.ps1 -CloudUrl $url
       - name: Keep the installer (dry runs and tags)
         uses: actions/upload-artifact@v4

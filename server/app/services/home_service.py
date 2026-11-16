@@ -33,7 +33,7 @@ class HomeError(Exception):
 
 def gesture_guide(settings: Settings) -> list[dict[str, str]]:
     """Only gestures the tracking worker performs today, as configured."""
-    right_action = "Go back" if settings.right_blink_action == "go_back" else "Undo"
+    right_action = {"right_click": "Right-click", "go_back": "Go back"}.get(settings.right_blink_action, "Undo")
     left_eye, right_eye = ("Click", right_action)
     if settings.swap_blink_sides:
         left_eye, right_eye = right_eye, left_eye

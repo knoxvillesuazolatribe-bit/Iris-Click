@@ -6,7 +6,7 @@ Run with ``pythonw -m app.workers.tracking_worker [--profile-id ID]`` from
 
   look        moves the cursor (the "V" pyramid overlay shows the pointer)
   left wink   left click, the only click trigger
-  right wink  go back (Alt+Left) or undo (Ctrl+Z), see RIGHT_BLINK_ACTION
+  right wink  right-click (default), go back (Alt+Left) or undo (Ctrl+Z), see RIGHT_BLINK_ACTION
   both eyes   nothing: ordinary blinks never trigger
   dwell       off unless DWELL_CLICK_ENABLED=true (no UI toggle on purpose)
 
@@ -41,6 +41,8 @@ from app.core.calibration.recenter import (
     save_recenter,
 )
 from app.workers.start_recentre import StartRecentre  # quick re-centre once per start
+from app.workers import web_home  # extension: control bar Home opens the website's Home
+from app.workers import keyboard_request  # adviser: the On-Screen Keyboard app tile
 from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
@@ -60,6 +62,7 @@ from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
     CYCLE_EDGE,
+    BACK,
     FORWARD,
     HOME,
     KEYBOARD,
@@ -352,6 +355,9 @@ class TrackingWorker:
         return False
 
     def _handle_commands(self):
+        with contextlib.suppress(Exception):  # adviser: "On-Screen Keyboard" app tile
+            if keyboard_request.take(self.settings):
+                self._extras.toggle_keyboard()
         while not self.commands.empty():
             command = self.commands.get_nowait()
             now = time.monotonic()
@@ -383,10 +389,11 @@ class TrackingWorker:
                                  daemon=True).start()
             elif command == QUIT:
                 self.quit()
-            elif command == HOME:  # H3: open the Home Suite; tracking keeps running
+            elif command == HOME:  # H3: the website's Home in the IrisClick window; tracking keeps running
                 with contextlib.suppress(Exception):
-                    webbrowser.open(f"{self.settings.site_url.rstrip('/')}/home")
-            elif command in (FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
+                    threading.Thread(target=web_home.go_home, args=(self.settings.port,),
+                                     daemon=True).start()
+            elif command in (BACK, FORWARD, NEXT_TAB):  # H3 (Phase 6): Alt+Right / Ctrl+Tab
                 with contextlib.suppress(Exception):
                     extra_keys.press(command)
             elif command == KEYBOARD:  # H3 (Phase 9): open/close the on-screen keyboard
@@ -678,7 +685,9 @@ class TrackingWorker:
                 self.mouse.left_click()
             logger.info("Left wink: left click")
         elif side == RIGHT:
-            if self.settings.right_blink_action == "undo":
+            if self.settings.right_blink_action == "right_click":
+                self.mouse.right_click()  # adviser: context menu (Open, Open file location, Uninstall...)
+            elif self.settings.right_blink_action == "undo":
                 self.mouse.undo()
             else:
                 self.mouse.go_back()

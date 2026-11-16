@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { typeKey } from '@/lib/typing'
 import { cn } from '@/lib/utils'
-import type { AppTiles, InstalledApp, TileAdd, TilesApi } from '@/services/user-apps-service'
+import { DesktopNotRunning, type AppTiles, type InstalledApp, type TileAdd, type TilesApi } from '@/services/user-apps-service'
 
 type Tab = 'defaults' | 'installed' | 'website'
 const MAX_NAME = 40
@@ -107,7 +107,7 @@ function InstalledList({ api, busy, onPick }: { api: TilesApi; busy: boolean; on
     let current = true
     api.available()
       .then((list) => current && setApps(list))
-      .catch((err) => current && setError(errorMessage(err, 'The installed apps could not be listed.')))
+      .catch((err) => current && setError(err instanceof DesktopNotRunning ? err.message : errorMessage(err, 'The installed apps could not be listed.')))
     return () => {
       current = false
     }

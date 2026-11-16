@@ -33,6 +33,7 @@ import { AddAccountPage } from '@/pages/add-account-page'
 import { IdleSignOut } from '@/components/idle-signout'
 import { AddressPage } from '@/pages/address-page'
 import { VoicePage } from '@/pages/voice-page'
+import { DesktopHomeRouter } from '@/components/desktop-home-router'
 
 // Online copy hook: the access code comes first (on the PC build the gate renders App as before).
 export function App() {
@@ -48,6 +49,7 @@ function Pages() {
   return (
     <BrowserRouter>
       <IdleSignOut>
+      <DesktopHomeRouter />
       <Routes>
         <Route path="/" element={<LoginSelectionPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />

@@ -18,6 +18,8 @@ GOOGLE_CALENDAR = "https://calendar.google.com"
 BROWSER_START = "https://www.google.com"
 OFFICE = {"word": "WINWORD.EXE", "excel": "EXCEL.EXE", "powerpoint": "POWERPNT.EXE"}
 CALENDAR_PROTOCOLS = ("outlookcal", "ms-calendar")
+# Adviser: IrisClick's own floating keyboard, offered in Edit Apps (opened by the tracking worker).
+KEYBOARD = "keyboard"
 
 
 @dataclass(frozen=True)
@@ -99,10 +101,20 @@ def available() -> list[App]:
     return apps
 
 
+def builtins() -> list[App]:
+    """available() plus the adviser's On-Screen Keyboard (an app tile only, not a Phase 9 shortcut)."""
+    return [*available(), App(KEYBOARD, "On-Screen Keyboard", "irisclick:keyboard",
+                              "Type anywhere, e.g. on Facebook")]
+
+
 def launch(app_id: str) -> App:
-    app = next((a for a in available() if a.app_id == app_id), None)
+    app = next((a for a in builtins() if a.app_id == app_id), None)
     if app is None:
         raise AppError(404, "That app is not available on this computer.")
+    if app.app_id == KEYBOARD:  # adviser: the tracking worker shows or hides its keyboard
+        from app.workers import keyboard_request
+        keyboard_request.ask()
+        return app
     try:
         opener(app.target)
     except OSError as exc:
