@@ -12,7 +12,6 @@ export function LoginSelectionPage() {
       <header className="space-y-3 text-center">
         <Eye className="text-primary mx-auto size-16" aria-hidden />
         <h1 className="text-5xl font-bold tracking-tight">Welcome to {appName}</h1>
-        <p className="text-muted-foreground text-xl">Look at a button and wink your left eye to choose.</p>
       </header>
       <nav className="flex flex-wrap items-stretch justify-center gap-10" aria-label="Sign in as">
         <GazeButton className="min-h-40 min-w-72 flex-col text-3xl" onClick={() => void navigate('/user/select')}>

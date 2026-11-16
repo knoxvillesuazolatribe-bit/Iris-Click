@@ -266,11 +266,8 @@ export function AccountsPage() {
             <>
               {load.tiles.accounts.length === 0 ? (
                 <p className="text-muted-foreground text-2xl">Add your account to start.</p>
-              ) : (
-                <p className="text-muted-foreground text-xl">
-                  {view.kind === 'remove' ? 'Look at the account and wink your left eye.'
-                    : 'Look at your name and wink your left eye.'}
-                </p>
+              ) : view.kind === 'remove' && (
+                <p className="text-muted-foreground text-xl">Look at the account and wink your left eye.</p>
               )}
               <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-6">
                 {load.tiles.accounts.map((tile) => (
