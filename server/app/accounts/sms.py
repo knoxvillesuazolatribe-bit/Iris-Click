@@ -1,7 +1,13 @@
-"""Sending a text message (file 07, Phase 5): one small interface and one adapter, Semaphore.
+"""Sending a text message (file 07, Phase 5): one small interface and two adapters.
+
+TextBee sends from the SIM of an Android phone running the TextBee app (the owner's own
+number); Semaphore is a paid gateway that needs an approved sender name.
 
 Settings (server/.env or Vercel, never in code or logs):
-    SEMAPHORE_API_KEY       the Semaphore API key; empty = SMS is not set up
+    SMS_PROVIDER            "textbee" or "semaphore"; empty = textbee when TEXTBEE_API_KEY is set
+    TEXTBEE_API_KEY         the TextBee API key; empty = TextBee is not set up
+    TEXTBEE_DEVICE_ID       optional, the phone to send from; empty = TextBee's default phone
+    SEMAPHORE_API_KEY       the Semaphore API key; empty = Semaphore is not set up
     SEMAPHORE_SENDER_NAME   optional, an approved sender name; empty = Semaphore's default
     SMS_ONLY_TO             testing lock: while set, texts go ONLY to this number (comma list allowed)
 
@@ -26,10 +32,15 @@ logger = logging.getLogger("irisclick.sms")
 SEMAPHORE_URL = "https://api.semaphore.co/api/v4/messages"
 TIMEOUT_S = 15
 KEY_ENV, SENDER_ENV, ONLY_TO_ENV = "SEMAPHORE_API_KEY", "SEMAPHORE_SENDER_NAME", "SMS_ONLY_TO"
+# TextBee (adviser/owner choice): texts go out from the owner's phone through the TextBee app.
+TEXTBEE_URL = "https://api.textbee.dev/api/v1/gateway/send-sms"
+PROVIDER_ENV, TEXTBEE_KEY_ENV, TEXTBEE_DEVICE_ENV = "SMS_PROVIDER", "TEXTBEE_API_KEY", "TEXTBEE_DEVICE_ID"
+TEXTBEE, SEMAPHORE = "textbee", "semaphore"
 
 
 class SmsError(Exception):
-    """A text was not sent. ``reason``: not_configured | not_allowed | no_sender_name | failed."""
+    """A text was not sent. ``reason``: not_configured | not_allowed | no_sender_name |
+    limit_reached | no_phone | failed."""
 
     def __init__(self, reason: str):
         super().__init__(reason)
@@ -64,11 +75,24 @@ def fake_sender(send: Callable[[str, str], None]) -> Iterator[None]:
         _test_sender = None
 
 
+def provider() -> str:
+    """Which adapter sends: SMS_PROVIDER, else TextBee when its key is set, else Semaphore."""
+    chosen = _setting(PROVIDER_ENV).lower()
+    if chosen in (TEXTBEE, SEMAPHORE):
+        return chosen
+    return TEXTBEE if _setting(TEXTBEE_KEY_ENV) else SEMAPHORE
+
+
+def provider_name() -> str:
+    return "TextBee" if provider() == TEXTBEE else "Semaphore"
+
+
 def configured() -> bool:
-    """SMS can be sent: a key is set (and this is not a test run without a fake sender)."""
+    """SMS can be sent: the chosen adapter has a key (and this is not a test run without a fake sender)."""
     if _test_sender is not None:
         return True
-    return bool(_setting(KEY_ENV)) and not _under_tests()
+    key = TEXTBEE_KEY_ENV if provider() == TEXTBEE else KEY_ENV
+    return bool(_setting(key)) and not _under_tests()
 
 
 def only_to() -> list[str]:
@@ -108,6 +132,32 @@ def _semaphore(number: str, text: str) -> None:
         raise SmsError("failed")
 
 
+def _textbee(number: str, text: str) -> None:
+    body = {"recipients": [number], "message": text}  # TextBee wants +63... (international form)
+    device = _setting(TEXTBEE_DEVICE_ENV)
+    if device:
+        body["deviceId"] = device
+    try:
+        response = requests.post(TEXTBEE_URL, json=body, timeout=TIMEOUT_S,
+                                 headers={"x-api-key": _setting(TEXTBEE_KEY_ENV)})
+        answer = response.json() if response.content else None
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("SMS not sent: %s", type(exc).__name__)  # never the key, number or text
+        raise SmsError("failed") from exc
+    data = answer.get("data") if isinstance(answer, dict) else None
+    ok = (response.status_code in (200, 201) and isinstance(data, dict)
+          and data.get("success") is not False and not data.get("failureCount"))
+    if not ok:
+        logger.warning("SMS not sent: TextBee answered %s", response.status_code)
+        if response.status_code == 429:  # the plan's daily or monthly limit is used up
+            raise SmsError("limit_reached")
+        if response.status_code == 400:  # no enabled phone, or the text could not reach the phone
+            raise SmsError("no_phone")
+        raise SmsError("failed")
+    if isinstance(data.get("warning"), dict):
+        logger.warning("TextBee: %s", data["warning"].get("code"))  # e.g. SMS_PERMISSION_MISSING
+
+
 def send(number: str, text: str) -> None:
     """Text ``number`` (+639...). Raises SmsError; never pretends a text was sent."""
     normalized = mobiles.normalize_mobile(number)
@@ -121,4 +171,7 @@ def send(number: str, text: str) -> None:
         return
     if not configured():
         raise SmsError("not_configured")
-    _semaphore(normalized, text)
+    if provider() == TEXTBEE:
+        _textbee(normalized, text)
+    else:
+        _semaphore(normalized, text)
