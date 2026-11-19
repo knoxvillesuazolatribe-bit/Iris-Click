@@ -7,6 +7,7 @@ import { SilentBoundary } from '@/components/silent-boundary'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { myVoiceSettings } from '@/services/voice-settings-service'
 import { GazeButton } from '@/components/gaze-button'
+import { MyMobileCard } from '@/components/my-mobile-card'
 import { ServerDown } from '@/components/server-down'
 import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -157,6 +158,7 @@ export function SettingsPage() {
 
       <AccessibilityFields draft={draft} set={set} />
       <SilentBoundary><VoiceSettingsPanel api={myVoiceSettings} volume={draft.voice_volume} /></SilentBoundary>
+      <SilentBoundary><MyMobileCard /></SilentBoundary>
 
       <footer className="bg-background sticky bottom-0 flex flex-wrap items-center justify-between gap-6 border-t-2 py-6">
         {confirming ? (

@@ -12,6 +12,9 @@ export const deviceSchema = z.object({ device_id: z.string().regex(/^[A-Za-z0-9_
 
 export const codeSentSchema = z.object({ to: z.string(), resend_after: z.number().int() })
 export type CodeSent = z.infer<typeof codeSentSchema>
+/** The signed-in person's own number (masked) and whether it is verified. */
+export const myMobileSchema = z.object({ to: z.string(), verified: z.boolean(), sms_enabled: z.boolean() })
+export type MyMobile = z.infer<typeof myMobileSchema>
 export const ticketSchema = z.object({ ticket: z.string() })
 
 export const canSignUpSchema = z.object({ allowed: z.boolean(), detail: z.string().optional() })
