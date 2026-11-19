@@ -120,8 +120,9 @@ class Settings(BaseSettings):
     mouse_handoff_s: float = 2.0
     # Adviser: right wink = mouse right-click (context menus); "go_back" / "undo" stay available.
     right_blink_action: Literal["right_click", "go_back", "undo"] = "right_click"
-    # MediaPipe labels eyes on the mirrored frame. Flip this if a wink of one
-    # eye triggers the other eye's command on your camera.
+    # Winks are named for the user's real eyes (iris_detector.extract_features accounts for the
+    # mirrored frame). Flip this only if a camera already mirrors its own picture and a wink of
+    # one eye triggers the other eye's command.
     swap_blink_sides: bool = False
 
     # Cursor navigation mode (see core/gaze/navigation.py). "steer": eyes move

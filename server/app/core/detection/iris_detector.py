@@ -131,8 +131,11 @@ def compute_features(landmarks, frame_w, frame_h, transform_matrix=None, eye_cen
     dgy = gy_left - gy_right
     yaw, pitch = head_angles(transform_matrix)
 
-    left_ear = eye_aspect_ratio(landmarks, *LEFT_EYE_LIDS, *LEFT_EYE_CORNERS, frame_w, frame_h)
-    right_ear = eye_aspect_ratio(landmarks, *RIGHT_EYE_LIDS, *RIGHT_EYE_CORNERS, frame_w, frame_h)
+    # Per-eye openness, named for the USER'S REAL eyes (the wink commands depend on it). The frame
+    # is mirrored before MediaPipe (estimator.py), so MediaPipe's "left eye" landmarks (362/263)
+    # sit on the user's real RIGHT eye and its "right eye" landmarks (33/133) on the real LEFT eye.
+    left_ear = eye_aspect_ratio(landmarks, *RIGHT_EYE_LIDS, *RIGHT_EYE_CORNERS, frame_w, frame_h)
+    right_ear = eye_aspect_ratio(landmarks, *LEFT_EYE_LIDS, *LEFT_EYE_CORNERS, frame_w, frame_h)
     return (gx, gy, dgx, dgy, yaw, pitch), (left_ear + right_ear) / 2, left_ear, right_ear
 
 
