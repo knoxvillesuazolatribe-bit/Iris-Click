@@ -260,7 +260,7 @@ export function VoicePage() {
             </section>
           ) : (
             <section role="tabpanel" aria-label="Board">
-              <AacBoard volume={volume} onError={(text) => setNotice({ kind: 'error', text })} />
+              <AacBoard lang={lang} volume={volume} onError={(text) => setNotice({ kind: 'error', text })} />
             </section>
           )}
 
