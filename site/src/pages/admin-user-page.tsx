@@ -126,7 +126,7 @@ export function AdminUserPage() {
       <Card>
         <CardHeader>
           <CardTitle>Emergency contacts</CardTitle>
-          <CardDescription>Alerted by email when {user.full_name} presses SOS.</CardDescription>
+          <CardDescription>Alerted by text and email when {user.full_name} presses SOS.</CardDescription>
         </CardHeader>
         <CardContent>
           <ContactsManager
