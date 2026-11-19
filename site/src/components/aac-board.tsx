@@ -4,18 +4,26 @@ import { GazeButton } from '@/components/gaze-button'
 import { BOARD } from '@/lib/aac-board'
 import { player } from '@/lib/natural-voice'
 import { cn } from '@/lib/utils'
+import type { SpeechLang } from '@/lib/voices'
 import { filterText } from '@/lib/word-filter'
 
 const FLASH_MS = 600
 
+const HELP: Record<SpeechLang, { speaking: string; hint: string }> = {
+  en: { speaking: 'Speaking', hint: 'Look at a tile and wink to say it out loud.' },
+  fil: { speaking: 'Sinasabi', hint: 'Tumingin sa isang tile at kumindat para sabihin ito nang malakas.' },
+}
+
 interface AacBoardProps {
+  /** The page's language: the board shows and speaks it. */
+  lang: SpeechLang
   volume: number
   /** Reports a problem (e.g. the browser cannot speak). */
   onError: (message: string) => void
 }
 
 /** Communication board: pick a category, then a tile to speak it at once (two winks). */
-export function AacBoard({ volume, onError }: AacBoardProps) {
+export function AacBoard({ lang, volume, onError }: AacBoardProps) {
   const [categoryId, setCategoryId] = useState(BOARD[0].id)
   const [spoken, setSpoken] = useState<string | null>(null)
   const timer = useRef<number | undefined>(undefined)
@@ -24,7 +32,7 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
 
   const say = async (text: string) => {
     const { speak: words } = await filterText(text) // extension: word filter
-    const result = await player.speak(words, 'en', volume) // clearer TTS; falls back to the old voice
+    const result = await player.speak(words, lang, volume) // clearer TTS; falls back to the old voice
     if (!result.ok) {
       onError(result.error)
       return
@@ -37,21 +45,24 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
   return (
     <div className="flex flex-col gap-8">
       <div role="tablist" aria-label="Board categories" className="flex flex-wrap gap-6">
-        {BOARD.map(({ id, label, icon: Icon }) => (
+        {BOARD.map(({ id, label, fil, icon: Icon }) => (
           <GazeButton key={id} role="tab" aria-selected={id === categoryId}
             variant={id === categoryId ? 'default' : 'outline'} className="min-w-44"
             onClick={() => setCategoryId(id)}>
             <Icon aria-hidden />
-            {label}
+            {lang === 'fil' ? fil : label}
           </GazeButton>
         ))}
       </div>
 
-      <div role="tabpanel" aria-label={category.label}
+      <div role="tabpanel" aria-label={lang === 'fil' ? category.fil : category.label}
         className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-6">
-        {category.tiles.map(({ text, icon: Icon }) => (
+        {category.tiles.map((tile) => {
+          const text = lang === 'fil' ? tile.fil : tile.text
+          const Icon = tile.icon
+          return (
           <button
-            key={text}
+            key={tile.text}
             type="button"
             onClick={() => void say(text)}
             className={cn(
@@ -64,12 +75,13 @@ export function AacBoard({ volume, onError }: AacBoardProps) {
             <Icon className={cn('size-10', spoken !== text && 'text-primary')} aria-hidden />
             {text}
           </button>
-        ))}
+          )
+        })}
       </div>
 
       <p aria-live="polite" className="text-muted-foreground flex items-center gap-2 text-lg">
         <Volume2 className="size-5" aria-hidden />
-        {spoken ? `Speaking: “${spoken}”` : 'Look at a tile and wink to say it out loud.'}
+        {spoken ? `${HELP[lang].speaking}: “${spoken}”` : HELP[lang].hint}
       </p>
     </div>
   )
