@@ -23,7 +23,7 @@ def test_my_number_shows_masked_and_unverified(api, unverified_mari, texts):  # 
 
 def test_verify_my_number_then_forgot_pin_works(api, unverified_mari, texts, test_database):  # noqa: F811
     refused = api.post("/api/accounts/forgot-pin/send", json={"user_id": unverified_mari}, headers=on())
-    assert refused.status_code == 409 and refused.json()["code"] == "cant_send"  # before: refused
+    assert refused.status_code == 409 and refused.json()["code"] == "not_verified"  # before: refused
     assert len(texts) == 0
 
     sent = api.post("/api/accounts/me/mobile/send")

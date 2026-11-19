@@ -10,7 +10,7 @@ import type { AccountSession, AccountTile, CodeSent } from '@/validators/account
 
 type Step =
   | { kind: 'offer' }
-  | { kind: 'cant-send' }
+  | { kind: 'cant-send'; reason?: string }
   | { kind: 'code'; sent: CodeSent }
   | { kind: 'pin'; ticket: string }
   | { kind: 'confirm'; ticket: string; pin: string }
@@ -41,7 +41,8 @@ export function ForgotPinBySms({ deviceId, tile, onDone, onBack, onSetupCode }: 
     } catch (err) {
       const answer = accountRefusal(err, 'We could not send a code.')
       if (answer.code === 'resend_wait' || answer.code === 'sms_limit') setMessage(answer.detail)
-      else setStep({ kind: 'cant-send' })
+      // Not verified: say so (the server's words); any other failure: the usual "couldn't send".
+      else setStep({ kind: 'cant-send', reason: answer.code === 'not_verified' ? answer.detail : undefined })
     } finally {
       setBusy(false)
     }
@@ -66,7 +67,7 @@ export function ForgotPinBySms({ deviceId, tile, onDone, onBack, onSetupCode }: 
     }
   }
 
-  if (step.kind === 'cant-send') return <ForgotPinScreen onBack={onBack} onSetupCode={onSetupCode} />
+  if (step.kind === 'cant-send') return <ForgotPinScreen reason={step.reason} onBack={onBack} onSetupCode={onSetupCode} />
 
   const note = message && (
     <Alert role="status" className="w-full max-w-3xl text-left">
