@@ -134,7 +134,7 @@ function CodeForm({ onOpen }: { onOpen: () => void }) {
 function OnlineBanner() {
   return (
     <div role="note" className="bg-muted text-muted-foreground flex h-8 items-center justify-center gap-2 overflow-hidden px-4 text-center text-sm">
-      <Globe className="size-4 shrink-0" aria-hidden />
+      <img src="/irisclick-logo.png" alt="" className="h-5 w-auto shrink-0" />
       <span className="truncate">IrisClick online: eye tracking runs on this computer with IrisClick Desktop.</span>
     </div>
   )

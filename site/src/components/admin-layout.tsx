@@ -1,7 +1,8 @@
 import { FileText, LayoutDashboard, ScrollText, Settings, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { NavLink } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import { SignOutButton } from '@/components/sign-out-button'
+import { useAppName } from '@/lib/use-app-name'
 import { cn } from '@/lib/utils'
 import { useSessionStore } from '@/store/session-store'
 
@@ -22,11 +23,16 @@ interface AdminLayoutProps {
 
 /** Admin pages: menu, page title and sign-out (mouse and keyboard use, normal sizes). */
 export function AdminLayout({ title, description, actions, children }: AdminLayoutProps) {
+  const appName = useAppName()
   const admin = useSessionStore((s) => s.user)
   return (
     <div className="bg-background text-foreground min-h-svh">
       <header className="bg-card border-b">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-3">
+          <Link to="/admin" className="flex items-center gap-2 text-lg font-bold">
+            <img src="/irisclick-logo.png" alt="" className="h-8 w-auto" />
+            {appName}
+          </Link>
           <nav aria-label="Admin" className="flex flex-wrap gap-1">
             {LINKS.map(({ to, label, icon: Icon, end }) => (
               <NavLink
