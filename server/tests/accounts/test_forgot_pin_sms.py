@@ -181,7 +181,7 @@ def test_forgot_pin_by_text_sets_a_new_pin_and_ends_other_sessions(api, texts, t
 def test_forgot_pin_needs_a_verified_number(api, texts):
     uid = api.post("/api/accounts/signup", json=MARI, headers=on()).json()["user_id"]
     refused = api.post("/api/accounts/forgot-pin/send", json={"user_id": uid}, headers=on())
-    assert refused.status_code == 409 and refused.json()["detail"] == sms_codes.CANT_SEND
+    assert refused.status_code == 409 and refused.json()["code"] == "not_verified" and "checked" in refused.json()["detail"]
     assert texts == []
 
 
@@ -189,3 +189,25 @@ def test_forgot_pin_only_for_an_account_on_this_computer(api, texts):
     uid = verified_mari(api, texts)
     other = api.post("/api/accounts/forgot-pin/send", json={"user_id": uid}, headers={devices.DEVICE_HEADER: "Z" * 43})
     assert other.status_code in (400, 404)
+
+
+def test_iprog_refusals_are_logged_without_numbers_or_codes(monkeypatch, caplog):
+    """The Vercel log says why iProg refused, with any digits blanked."""
+    class Refused:
+        status_code, content = 200, b"x"
+
+        def json(self):
+            return {"status": 500, "message": "Insufficient credits for 639178082488, code 482913"}
+
+    monkeypatch.setattr(sms.requests, "post", lambda *a, **k: Refused())
+    with caplog.at_level("WARNING", logger="irisclick.sms"), pytest.raises(sms.SmsError):
+        sms._iprog("+639178082488", "Your code is 482913")
+    assert "Insufficient credits" in caplog.text
+    assert "8082488" not in caplog.text and "482913" not in caplog.text
+
+
+def test_forgot_pin_without_a_verified_number_is_logged(api, texts, caplog):
+    uid = api.post("/api/accounts/signup", json=MARI, headers=on()).json()["user_id"]
+    with caplog.at_level("WARNING", logger="irisclick.sms"):
+        api.post("/api/accounts/forgot-pin/send", json={"user_id": uid}, headers=on())
+    assert "mobile number is not verified" in caplog.text and "8082488" not in caplog.text

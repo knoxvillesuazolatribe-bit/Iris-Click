@@ -12,6 +12,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import time
 from dataclasses import dataclass
@@ -36,10 +37,14 @@ TEXTS_PER_HOUR = 3
 TEXTS_PER_DAY = 5
 TICKET_LIFETIME_S = 15 * 60
 
+logger = logging.getLogger("irisclick.sms")
+
 CANT_SEND = "We couldn't send a code. Ask PDAO staff to reset your PIN."
 MESSAGES = {
     "sms_off": "We can't text you yet. If you forget your PIN, ask PDAO staff.",
     "cant_send": CANT_SEND,
+    "not_verified": ("Your mobile number hasn't been checked yet, so we can't text you a code. "
+                     "Ask PDAO staff to reset your PIN."),
     "bad_mobile": "Enter a mobile number like 0917 123 4567.",
     "resend_wait": "Please wait a moment before asking for another code.",
     "sms_limit": "Too many codes were sent to this number. Try again later, or ask PDAO staff.",
@@ -253,7 +258,9 @@ def _account_on_device(db: Session, device: Device | None, user_id: int) -> User
 def forgot_send(db: Session, device: Device | None, user_id: int) -> Sent:
     account = _account_on_device(db, device, user_id)
     if not account.mobile_number or account.mobile_verified_at is None:
-        raise SmsCodeError(409, "cant_send")  # only a verified number gets a reset code
+        # Only a verified number gets a reset code. A warning, so it shows in the Vercel logs.
+        logger.warning("Forgot PIN: no code sent, the account's mobile number is not verified")
+        raise SmsCodeError(409, "not_verified")
     return send_code(db, purpose=PURPOSE_RESET, number=account.mobile_number, user_id=user_id,
                      device_id=device.device_id)
 

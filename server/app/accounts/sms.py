@@ -17,6 +17,7 @@ SOS alerts to contacts without an email use this module too (app/services/sos_de
 
 import logging
 import os
+import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -145,8 +146,10 @@ def _iprog(number: str, text: str) -> None:
     ok = (response.status_code == 200 and isinstance(answer, dict)
           and str(answer.get("status")) == "200" and answer.get("message_id"))
     if not ok:
-        logger.warning("SMS not sent: iProg answered %s / %s", response.status_code,
-                       answer.get("status") if isinstance(answer, dict) else None)
+        # iProg's own reason (e.g. no credits), with long digit runs blanked: never a number or code.
+        reason = re.sub(r"\d{4,}", "...", str(answer.get("message", ""))[:200]) if isinstance(answer, dict) else ""
+        logger.warning("SMS not sent: iProg answered %s / %s: %s", response.status_code,
+                       answer.get("status") if isinstance(answer, dict) else None, reason)
         raise SmsError("failed")
 
 
