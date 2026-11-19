@@ -208,8 +208,8 @@ export function AdminSystemPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><MessageSquare aria-hidden /> SMS</CardTitle>
           <CardDescription>{load.system.sms_configured
-            ? 'Semaphore is connected. Test texts go only to the number in SMS_ONLY_TO.'
-            : 'Needs a paid SMS gateway, which is not connected yet.'}</CardDescription>
+            ? 'SMS sending is connected. Test texts go only to the number in SMS_ONLY_TO.'
+            : 'Needs the iProg SMS token (IPROG_API_TOKEN), which is not set yet.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button variant="outline" disabled={busy !== null} onClick={() => void test('sms')}>Test SMS</Button>

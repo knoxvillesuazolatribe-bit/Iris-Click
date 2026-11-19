@@ -15,7 +15,7 @@ from app.models.sos import SOS_FAILED, SOS_PENDING, SOS_SENT, SosContact, SosHis
 from app.models.timestamps import as_utc, utc_now
 from app.models.user import User
 from app.services import system_settings_service
-from app.services.sos_delivery import EmailSender
+from app.services.sos_delivery import AccountsSms, EmailSender
 from app.services.sos_dispatcher import CHANNEL_EMAIL, CHANNEL_SMS, dispatcher
 from app.services.local_time import to_local
 from app.services.system_log_service import log_activity
@@ -122,7 +122,7 @@ def build_message(user: User, location: str | None, when: datetime, app_name: st
 def overview(db: Session, user: User) -> dict:
     return {"contacts": list_contacts(db, user), "location_text": location_text(user),
             "email_configured": EmailSender(get_settings()).configured(),
-            "sms_configured": False}
+            "sms_configured": AccountsSms().configured()}
 
 
 def activate(db: Session, user: User, activation_id: str) -> str:

@@ -1,12 +1,18 @@
-"""Sending a text message (file 07, Phase 5): one small interface and one adapter, Semaphore.
+"""Sending a text message (file 07, Phase 5): one small interface and two adapters.
+
+iProg SMS (the owner's choice) is a Philippine gateway: no phone is needed. Its shared sender
+reaches Globe, TM, DITO and GOMO; Smart and TNT need an approved sender name. Semaphore is
+the earlier adapter, kept for setups that still use it.
 
 Settings (server/.env or Vercel, never in code or logs):
-    SEMAPHORE_API_KEY       the Semaphore API key; empty = SMS is not set up
+    SMS_PROVIDER            "iprog" or "semaphore"; empty = iProg when IPROG_API_TOKEN is set
+    IPROG_API_TOKEN         the iProg SMS API token; empty = iProg is not set up
+    SEMAPHORE_API_KEY       the Semaphore API key; empty = Semaphore is not set up
     SEMAPHORE_SENDER_NAME   optional, an approved sender name; empty = Semaphore's default
     SMS_ONLY_TO             testing lock: while set, texts go ONLY to this number (comma list allowed)
 
 Safety: nothing is ever texted while pytest runs; tests pass their own fake sender.
-The SOS "SMS" stub (app/services/sos_delivery.py) is not changed by this module.
+SOS alerts to contacts without an email use this module too (app/services/sos_delivery.py).
 """
 
 import logging
@@ -26,6 +32,12 @@ logger = logging.getLogger("irisclick.sms")
 SEMAPHORE_URL = "https://api.semaphore.co/api/v4/messages"
 TIMEOUT_S = 15
 KEY_ENV, SENDER_ENV, ONLY_TO_ENV = "SEMAPHORE_API_KEY", "SEMAPHORE_SENDER_NAME", "SMS_ONLY_TO"
+# iProg SMS (owner's choice): a Philippine gateway, no phone needed.
+IPROG_URL = "https://www.iprogsms.com/api/v1/sms_messages"
+PROVIDER_ENV, IPROG_TOKEN_ENV = "SMS_PROVIDER", "IPROG_API_TOKEN"
+IPROG, SEMAPHORE = "iprog", "semaphore"
+NAMES = {IPROG: "iProg SMS", SEMAPHORE: "Semaphore"}
+KEYS = {IPROG: IPROG_TOKEN_ENV, SEMAPHORE: KEY_ENV}
 
 
 class SmsError(Exception):
@@ -55,7 +67,7 @@ _test_sender: Callable[[str, str], None] | None = None
 
 @contextmanager
 def fake_sender(send: Callable[[str, str], None]) -> Iterator[None]:
-    """Tests only: route texts to ``send(number, text)`` instead of Semaphore."""
+    """Tests only: route texts to ``send(number, text)`` instead of a real gateway."""
     global _test_sender
     _test_sender = send
     try:
@@ -64,11 +76,23 @@ def fake_sender(send: Callable[[str, str], None]) -> Iterator[None]:
         _test_sender = None
 
 
+def provider() -> str:
+    """Which adapter sends: SMS_PROVIDER, else iProg when its token is set, else Semaphore."""
+    chosen = _setting(PROVIDER_ENV).lower()
+    if chosen in KEYS:
+        return chosen
+    return IPROG if _setting(IPROG_TOKEN_ENV) else SEMAPHORE
+
+
+def provider_name() -> str:
+    return NAMES[provider()]
+
+
 def configured() -> bool:
-    """SMS can be sent: a key is set (and this is not a test run without a fake sender)."""
+    """SMS can be sent: the chosen adapter has a key (and this is not a test run without a fake sender)."""
     if _test_sender is not None:
         return True
-    return bool(_setting(KEY_ENV)) and not _under_tests()
+    return bool(_setting(KEYS[provider()])) and not _under_tests()
 
 
 def only_to() -> list[str]:
@@ -108,6 +132,24 @@ def _semaphore(number: str, text: str) -> None:
         raise SmsError("failed")
 
 
+def _iprog(number: str, text: str) -> None:
+    # The token goes in the JSON body (never in the URL, so it stays out of logs); iProg takes 639...
+    body = {"api_token": _setting(IPROG_TOKEN_ENV), "phone_number": number.lstrip("+"), "message": text}
+    try:
+        response = requests.post(IPROG_URL, json=body, timeout=TIMEOUT_S)
+        answer = response.json() if response.content else None
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("SMS not sent: %s", type(exc).__name__)  # never the token, number or text
+        raise SmsError("failed") from exc
+    # iProg answers HTTP 200 with its own status in the body: 200 and a message id when queued.
+    ok = (response.status_code == 200 and isinstance(answer, dict)
+          and str(answer.get("status")) == "200" and answer.get("message_id"))
+    if not ok:
+        logger.warning("SMS not sent: iProg answered %s / %s", response.status_code,
+                       answer.get("status") if isinstance(answer, dict) else None)
+        raise SmsError("failed")
+
+
 def send(number: str, text: str) -> None:
     """Text ``number`` (+639...). Raises SmsError; never pretends a text was sent."""
     normalized = mobiles.normalize_mobile(number)
@@ -121,4 +163,4 @@ def send(number: str, text: str) -> None:
         return
     if not configured():
         raise SmsError("not_configured")
-    _semaphore(normalized, text)
+    {IPROG: _iprog, SEMAPHORE: _semaphore}[provider()](normalized, text)
