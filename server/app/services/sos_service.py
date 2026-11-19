@@ -102,6 +102,17 @@ def location_text(user: User) -> str | None:
     return ", ".join([*parts, CITY])
 
 
+SMS_SIGNATURE = "PDAO Lapu-Lapu"
+
+
+def build_sms_message(user: User, location: str | None, when: datetime) -> str:
+    """The SOS text for contacts reached by SMS: short (one or two texts) instead of the full email."""
+    time_text = to_local(when).strftime("%b %d, %I:%M %p").replace(" 0", " ")  # Nov 19, 4:30 PM
+    return (f"SOS: {user.full_name} needs help now. "
+            f"Location: {location or 'unknown, please call them'}. Time: {time_text}. "
+            f"Please call or go to them. - {SMS_SIGNATURE}")
+
+
 def build_message(user: User, location: str | None, when: datetime, app_name: str = "IrisClick") -> str:
     time_text = to_local(when).strftime("%B %d, %Y at %I:%M %p")  # Philippine time, also on Vercel
     return "\n".join([
@@ -153,6 +164,7 @@ def activate(db: Session, user: User, activation_id: str) -> str:
     location = location_text(user)
     message = build_message(user, location, now,
                             system_settings_service.app_name(db, get_settings()))
+    sms_message = build_sms_message(user, location, now)  # SMS contacts get the short text
     rows = []
     for contact in contacts:
         channel = CHANNEL_EMAIL if contact.email_address else CHANNEL_SMS
@@ -160,7 +172,8 @@ def activate(db: Session, user: User, activation_id: str) -> str:
             user_id=user.user_id, contact_id=contact.contact_id, activation_id=activation_id,
             channel=channel,
             recipient=contact.email_address if channel == CHANNEL_EMAIL else contact.contact_number,
-            message_sent=message, location_text=location, status=SOS_PENDING, date_sent=now))
+            message_sent=message if channel == CHANNEL_EMAIL else sms_message,
+            location_text=location, status=SOS_PENDING, date_sent=now))
     db.add_all(rows)
     db.flush()
     row_ids = [r.sos_id for r in rows]

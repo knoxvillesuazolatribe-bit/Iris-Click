@@ -49,10 +49,12 @@ MESSAGES = {
     "ticket_expired": "This took too long. Please start again.",
     "not_found": "That account is not on this computer.",
 }
+# iProg puts the account's header ("IrisClick") on the first line, so the texts don't repeat it;
+# each fits in one SMS (one credit).
 TEXTS = {
-    PURPOSE_VERIFY: "IrisClick: your code is {code}. It expires in 10 minutes. Do not share it with anyone.",
-    PURPOSE_RESET: ("IrisClick: your code to reset your PIN is {code}. It expires in 10 minutes. "
-                    "If you did not ask for it, ignore this message."),
+    PURPOSE_VERIFY: "Your verification code is {code}. It expires in 10 minutes. Do not share it with anyone.",
+    PURPOSE_RESET: ("Your PIN reset code is {code}. It expires in 10 minutes. "
+                    "If you did not ask for this, ignore it."),
 }
 
 
