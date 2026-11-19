@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.accounts import mobiles
 from app.config import get_settings
 from app.models.sos import SOS_FAILED, SOS_PENDING, SOS_SENT, SosContact, SosHistory
 from app.models.timestamps import as_utc, utc_now
@@ -167,22 +168,34 @@ def activate(db: Session, user: User, activation_id: str) -> str:
     sms_message = build_sms_message(user, location, now)  # SMS contacts get the short text
     rows = []
     for contact in contacts:
-        channel = CHANNEL_EMAIL if contact.email_address else CHANNEL_SMS
-        rows.append(SosHistory(
-            user_id=user.user_id, contact_id=contact.contact_id, activation_id=activation_id,
-            channel=channel,
-            recipient=contact.email_address if channel == CHANNEL_EMAIL else contact.contact_number,
-            message_sent=message if channel == CHANNEL_EMAIL else sms_message,
-            location_text=location, status=SOS_PENDING, date_sent=now))
+        for channel in alert_channels(contact):  # owner: a contact with both gets a text AND an email
+            rows.append(SosHistory(
+                user_id=user.user_id, contact_id=contact.contact_id, activation_id=activation_id,
+                channel=channel,
+                recipient=contact.email_address if channel == CHANNEL_EMAIL else contact.contact_number,
+                message_sent=message if channel == CHANNEL_EMAIL else sms_message,
+                location_text=location, status=SOS_PENDING, date_sent=now))
     db.add_all(rows)
     db.flush()
     row_ids = [r.sos_id for r in rows]
     log_activity("sos_activated",
-                 f"{user.full_name} activated SOS: alerting {len(rows)} contact(s)",
+                 f"{user.full_name} activated SOS: alerting {len(contacts)} contact(s), {len(rows)} alert(s)",
                  user.user_id, session=db)
     db.commit()
     dispatcher.submit(activation_id, row_ids, user.user_id, user.full_name)
     return activation_id
+
+
+def alert_channels(contact: SosContact) -> list[str]:
+    """How one contact is alerted: a text to a mobile number and an email, each when there is one.
+    A number that is not a mobile (e.g. a landline) is skipped when there is an email to use instead;
+    with no email it is still tried, so the SOS screen says why it could not be texted."""
+    channels = []
+    if contact.contact_number and (mobiles.normalize_mobile(contact.contact_number) or not contact.email_address):
+        channels.append(CHANNEL_SMS)
+    if contact.email_address:
+        channels.append(CHANNEL_EMAIL)
+    return channels
 
 
 def _belongs_to(db: Session, user: User, activation_id: str) -> bool:
@@ -234,6 +247,9 @@ def activation_view(db: Session, user: User, activation_id: str) -> dict:
         "activated_at": min(as_utc(r.date_sent) for r in rows),
         "location_text": rows[0].location_text,
         "total": len(rows),
+        # A contact counts as notified when at least one of their alerts (text or email) was sent.
+        "contacts_total": len({r.contact_id for r in rows}),
+        "contacts_notified": len({r.contact_id for r in rows if r.status == SOS_SENT}),
         "sent": sum(r.status == SOS_SENT for r in rows),
         "failed": sum(r.status == SOS_FAILED for r in rows),
         "pending": sum(r.status == SOS_PENDING for r in rows),

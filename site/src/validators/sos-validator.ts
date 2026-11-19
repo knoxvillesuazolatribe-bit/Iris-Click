@@ -55,6 +55,9 @@ export const sosActivationSchema = z.object({
   activated_at: z.string(),
   location_text: z.string().nullable(),
   total: z.number().int(),
+  // Contacts, not alerts: one contact may get a text and an email (0 from an older server).
+  contacts_total: z.number().int().default(0),
+  contacts_notified: z.number().int().default(0),
   sent: z.number().int(),
   failed: z.number().int(),
   pending: z.number().int(),
