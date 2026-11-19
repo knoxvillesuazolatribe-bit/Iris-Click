@@ -85,6 +85,9 @@ export function SosSentPage() {
 
   const head = headline(activation)
   const nothingSent = activation.sent === 0 && activation.pending === 0
+  // Count people, not alerts (a contact may get a text and an email); older servers send 0 here.
+  const contactsTotal = activation.contacts_total || activation.total
+  const notified = activation.contacts_total ? activation.contacts_notified : activation.sent
 
   return (
     <main className="bg-background text-foreground mx-auto flex min-h-svh max-w-4xl flex-col gap-8 p-6">
@@ -102,7 +105,7 @@ export function SosSentPage() {
           {head.text}
         </h1>
         <p className="text-3xl font-bold">
-          {activation.sent} of {activation.total} contact{activation.total === 1 ? '' : 's'} notified
+          {notified} of {contactsTotal} contact{contactsTotal === 1 ? '' : 's'} notified
         </p>
         <p className="text-muted-foreground text-xl">{TIME_FORMAT.format(new Date(activation.activated_at))}</p>
       </header>

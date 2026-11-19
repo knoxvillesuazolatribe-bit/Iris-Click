@@ -72,6 +72,8 @@ class SosActivationRead(BaseModel):
     activated_at: datetime
     location_text: str | None
     total: int
+    contacts_total: int = 0      # contacts alerted (one contact may get a text and an email)
+    contacts_notified: int = 0   # contacts with at least one alert sent
     sent: int
     failed: int
     pending: int
