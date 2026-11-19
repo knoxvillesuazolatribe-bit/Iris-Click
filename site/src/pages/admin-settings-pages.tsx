@@ -209,7 +209,7 @@ export function AdminSystemPage() {
           <CardTitle className="flex items-center gap-2"><MessageSquare aria-hidden /> SMS</CardTitle>
           <CardDescription>{load.system.sms_configured
             ? 'SMS sending is connected. Test texts go only to the number in SMS_ONLY_TO.'
-            : 'Needs an SMS sender (TextBee on your own phone, or Semaphore), which is not connected yet.'}</CardDescription>
+            : 'Needs the iProg SMS token (IPROG_API_TOKEN), which is not set yet.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button variant="outline" disabled={busy !== null} onClick={() => void test('sms')}>Test SMS</Button>

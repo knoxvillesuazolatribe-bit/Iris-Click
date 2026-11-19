@@ -124,15 +124,15 @@ def test_email(body: TestEmailRequest, db: Session = Depends(get_db),
     return result
 
 
-SMS_TEST_NOT_SET_UP = ("No SMS was sent: SMS sending is not set up yet. Connect TextBee (your own "
-                       "Android phone) or Semaphore first.")
+SMS_TEST_NOT_SET_UP = ("No SMS was sent: SMS sending is not set up yet. Put the iProg SMS API token "
+                       "in IPROG_API_TOKEN first.")
 
 
 @router.post("/system/test-sms", response_model=TestResult)
 def test_sms(_admin: User = Depends(require_admin)):
     if not sms.configured():
         return TestResult(sent=False, detail=SMS_TEST_NOT_SET_UP)
-    lock = sms.only_to()  # extension: TextBee or Semaphore (file 07, Phase 5); tests go only to SMS_ONLY_TO
+    lock = sms.only_to()  # extension: iProg SMS (file 07, Phase 5); tests go only to SMS_ONLY_TO
     if not lock:
         return TestResult(sent=False, detail="Set SMS_ONLY_TO in server/.env to the number that gets test texts.")
     try:
@@ -142,13 +142,8 @@ def test_sms(_admin: User = Depends(require_admin)):
             return TestResult(sent=False, detail="Semaphore did not send the text: the account has no approved "
                               "sender name yet. Apply for one in Semaphore (Sender Names), then put it in "
                               "server/.env as SEMAPHORE_SENDER_NAME.")
-        if exc.reason == "limit_reached":
-            return TestResult(sent=False, detail="TextBee did not send the text: the plan's daily or monthly "
-                              "limit is used up.")
-        if exc.reason == "no_phone":
-            return TestResult(sent=False, detail="TextBee did not send the text: no phone is ready. Open the "
-                              "TextBee app on the phone and make sure it is enabled and online.")
-        if sms.provider() == sms.TEXTBEE:
-            return TestResult(sent=False, detail="TextBee did not send the text. Check TEXTBEE_API_KEY.")
+        if sms.provider() == sms.IPROG:
+            return TestResult(sent=False, detail="iProg SMS did not send the text. Check IPROG_API_TOKEN and the "
+                              "credits. Smart and TNT numbers need an approved sender name on iProg.")
         return TestResult(sent=False, detail="Semaphore did not send the text. Check the API key and the credits.")
     return TestResult(sent=True, detail=f"Test text sent through {sms.provider_name()} to the SMS_ONLY_TO number.")

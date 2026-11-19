@@ -1,4 +1,4 @@
-"""How an SOS alert reaches a contact: email over SMTP, or SMS (not set up yet).
+"""How an SOS alert reaches a contact: email over SMTP, or SMS through app/accounts/sms.py.
 
 Team decision D8: email via SMTP with credentials in server/.env; SMS behind
 a provider interface, which is a stub until a gateway (e.g. Semaphore) is
@@ -80,6 +80,32 @@ class EmailSender:
             if s.smtp_username:
                 client.login(s.smtp_username, s.smtp_password.get_secret_value())
             client.send_message(message)
+
+
+# Adviser/owner: SOS texts go through the same sender as the sign-in codes (app/accounts/sms.py).
+SMS_REFUSED = {
+    "not_configured": (SMS_NOT_SET_UP, False),
+    "not_allowed": ("This contact's number can't be texted: it is not a mobile number, or SMS is still "
+                    "in testing mode (SMS_ONLY_TO). Add an email for them.", False),
+    "no_sender_name": ("The SMS gateway has no approved sender name yet, so this contact was not texted.", False),
+    "failed": ("The text could not be sent. Trying again.", True),
+}
+
+
+class AccountsSms:
+    """SOS by SMS: the iProg sender of app/accounts/sms.py. Temporary failures are retried."""
+
+    def configured(self) -> bool:
+        from app.accounts import sms
+        return sms.configured()
+
+    def send(self, to: str, subject: str, body: str) -> None:
+        from app.accounts import sms
+        try:
+            sms.send(to, body)
+        except sms.SmsError as exc:
+            message, retryable = SMS_REFUSED.get(exc.reason, SMS_REFUSED["failed"])
+            raise DeliveryError(message, retryable=retryable) from exc
 
 
 class NotConfiguredSms:

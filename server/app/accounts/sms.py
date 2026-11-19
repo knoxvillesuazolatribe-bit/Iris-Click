@@ -1,18 +1,18 @@
 """Sending a text message (file 07, Phase 5): one small interface and two adapters.
 
-TextBee sends from the SIM of an Android phone running the TextBee app (the owner's own
-number); Semaphore is a paid gateway that needs an approved sender name.
+iProg SMS (the owner's choice) is a Philippine gateway: no phone is needed. Its shared sender
+reaches Globe, TM, DITO and GOMO; Smart and TNT need an approved sender name. Semaphore is
+the earlier adapter, kept for setups that still use it.
 
 Settings (server/.env or Vercel, never in code or logs):
-    SMS_PROVIDER            "textbee" or "semaphore"; empty = textbee when TEXTBEE_API_KEY is set
-    TEXTBEE_API_KEY         the TextBee API key; empty = TextBee is not set up
-    TEXTBEE_DEVICE_ID       optional, the phone to send from; empty = TextBee's default phone
+    SMS_PROVIDER            "iprog" or "semaphore"; empty = iProg when IPROG_API_TOKEN is set
+    IPROG_API_TOKEN         the iProg SMS API token; empty = iProg is not set up
     SEMAPHORE_API_KEY       the Semaphore API key; empty = Semaphore is not set up
     SEMAPHORE_SENDER_NAME   optional, an approved sender name; empty = Semaphore's default
     SMS_ONLY_TO             testing lock: while set, texts go ONLY to this number (comma list allowed)
 
 Safety: nothing is ever texted while pytest runs; tests pass their own fake sender.
-The SOS "SMS" stub (app/services/sos_delivery.py) is not changed by this module.
+SOS alerts to contacts without an email use this module too (app/services/sos_delivery.py).
 """
 
 import logging
@@ -32,15 +32,16 @@ logger = logging.getLogger("irisclick.sms")
 SEMAPHORE_URL = "https://api.semaphore.co/api/v4/messages"
 TIMEOUT_S = 15
 KEY_ENV, SENDER_ENV, ONLY_TO_ENV = "SEMAPHORE_API_KEY", "SEMAPHORE_SENDER_NAME", "SMS_ONLY_TO"
-# TextBee (adviser/owner choice): texts go out from the owner's phone through the TextBee app.
-TEXTBEE_URL = "https://api.textbee.dev/api/v1/gateway/send-sms"
-PROVIDER_ENV, TEXTBEE_KEY_ENV, TEXTBEE_DEVICE_ENV = "SMS_PROVIDER", "TEXTBEE_API_KEY", "TEXTBEE_DEVICE_ID"
-TEXTBEE, SEMAPHORE = "textbee", "semaphore"
+# iProg SMS (owner's choice): a Philippine gateway, no phone needed.
+IPROG_URL = "https://www.iprogsms.com/api/v1/sms_messages"
+PROVIDER_ENV, IPROG_TOKEN_ENV = "SMS_PROVIDER", "IPROG_API_TOKEN"
+IPROG, SEMAPHORE = "iprog", "semaphore"
+NAMES = {IPROG: "iProg SMS", SEMAPHORE: "Semaphore"}
+KEYS = {IPROG: IPROG_TOKEN_ENV, SEMAPHORE: KEY_ENV}
 
 
 class SmsError(Exception):
-    """A text was not sent. ``reason``: not_configured | not_allowed | no_sender_name |
-    limit_reached | no_phone | failed."""
+    """A text was not sent. ``reason``: not_configured | not_allowed | no_sender_name | failed."""
 
     def __init__(self, reason: str):
         super().__init__(reason)
@@ -66,7 +67,7 @@ _test_sender: Callable[[str, str], None] | None = None
 
 @contextmanager
 def fake_sender(send: Callable[[str, str], None]) -> Iterator[None]:
-    """Tests only: route texts to ``send(number, text)`` instead of Semaphore."""
+    """Tests only: route texts to ``send(number, text)`` instead of a real gateway."""
     global _test_sender
     _test_sender = send
     try:
@@ -76,23 +77,22 @@ def fake_sender(send: Callable[[str, str], None]) -> Iterator[None]:
 
 
 def provider() -> str:
-    """Which adapter sends: SMS_PROVIDER, else TextBee when its key is set, else Semaphore."""
+    """Which adapter sends: SMS_PROVIDER, else iProg when its token is set, else Semaphore."""
     chosen = _setting(PROVIDER_ENV).lower()
-    if chosen in (TEXTBEE, SEMAPHORE):
+    if chosen in KEYS:
         return chosen
-    return TEXTBEE if _setting(TEXTBEE_KEY_ENV) else SEMAPHORE
+    return IPROG if _setting(IPROG_TOKEN_ENV) else SEMAPHORE
 
 
 def provider_name() -> str:
-    return "TextBee" if provider() == TEXTBEE else "Semaphore"
+    return NAMES[provider()]
 
 
 def configured() -> bool:
     """SMS can be sent: the chosen adapter has a key (and this is not a test run without a fake sender)."""
     if _test_sender is not None:
         return True
-    key = TEXTBEE_KEY_ENV if provider() == TEXTBEE else KEY_ENV
-    return bool(_setting(key)) and not _under_tests()
+    return bool(_setting(KEYS[provider()])) and not _under_tests()
 
 
 def only_to() -> list[str]:
@@ -132,30 +132,22 @@ def _semaphore(number: str, text: str) -> None:
         raise SmsError("failed")
 
 
-def _textbee(number: str, text: str) -> None:
-    body = {"recipients": [number], "message": text}  # TextBee wants +63... (international form)
-    device = _setting(TEXTBEE_DEVICE_ENV)
-    if device:
-        body["deviceId"] = device
+def _iprog(number: str, text: str) -> None:
+    # The token goes in the JSON body (never in the URL, so it stays out of logs); iProg takes 639...
+    body = {"api_token": _setting(IPROG_TOKEN_ENV), "phone_number": number.lstrip("+"), "message": text}
     try:
-        response = requests.post(TEXTBEE_URL, json=body, timeout=TIMEOUT_S,
-                                 headers={"x-api-key": _setting(TEXTBEE_KEY_ENV)})
+        response = requests.post(IPROG_URL, json=body, timeout=TIMEOUT_S)
         answer = response.json() if response.content else None
     except (requests.RequestException, ValueError) as exc:
-        logger.warning("SMS not sent: %s", type(exc).__name__)  # never the key, number or text
+        logger.warning("SMS not sent: %s", type(exc).__name__)  # never the token, number or text
         raise SmsError("failed") from exc
-    data = answer.get("data") if isinstance(answer, dict) else None
-    ok = (response.status_code in (200, 201) and isinstance(data, dict)
-          and data.get("success") is not False and not data.get("failureCount"))
+    # iProg answers HTTP 200 with its own status in the body: 200 and a message id when queued.
+    ok = (response.status_code == 200 and isinstance(answer, dict)
+          and str(answer.get("status")) == "200" and answer.get("message_id"))
     if not ok:
-        logger.warning("SMS not sent: TextBee answered %s", response.status_code)
-        if response.status_code == 429:  # the plan's daily or monthly limit is used up
-            raise SmsError("limit_reached")
-        if response.status_code == 400:  # no enabled phone, or the text could not reach the phone
-            raise SmsError("no_phone")
+        logger.warning("SMS not sent: iProg answered %s / %s", response.status_code,
+                       answer.get("status") if isinstance(answer, dict) else None)
         raise SmsError("failed")
-    if isinstance(data.get("warning"), dict):
-        logger.warning("TextBee: %s", data["warning"].get("code"))  # e.g. SMS_PERMISSION_MISSING
 
 
 def send(number: str, text: str) -> None:
@@ -171,7 +163,4 @@ def send(number: str, text: str) -> None:
         return
     if not configured():
         raise SmsError("not_configured")
-    if provider() == TEXTBEE:
-        _textbee(normalized, text)
-    else:
-        _semaphore(normalized, text)
+    {IPROG: _iprog, SEMAPHORE: _semaphore}[provider()](normalized, text)

@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.models import database
 from app.models.sos import SOS_FAILED, SOS_PENDING, SOS_SENT, SosHistory
 from app.models.timestamps import utc_now
-from app.services.sos_delivery import DeliveryError, EmailSender, NotConfiguredSms
+from app.services.sos_delivery import AccountsSms, DeliveryError, EmailSender
 from app.services.system_log_service import log_activity
 
 logger = logging.getLogger("irisclick.sos")
@@ -31,7 +31,7 @@ class SosDispatcher:
         # Tests run sends inline (no thread) with no delays.
         self.inline = inline
         self.email_factory: Callable = lambda: EmailSender(get_settings())
-        self.sms_factory: Callable = NotConfiguredSms
+        self.sms_factory: Callable = AccountsSms  # SOS texts: iProg SMS (app/accounts/sms.py)
         self.sleep: Callable[[float], None] = time.sleep
         self._active: set[int] = set()
         self._threads: list[threading.Thread] = []

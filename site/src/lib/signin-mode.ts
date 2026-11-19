@@ -26,7 +26,7 @@ export function signinMode(): Promise<SigninMode> {
   return ask().then((answer) => answer.mode)
 }
 
-/** Can the server text codes (TextBee or Semaphore set up)? False whenever anything goes wrong. */
+/** Can the server text codes (iProg SMS set up)? False whenever anything goes wrong. */
 export function smsEnabled(): Promise<boolean> {
   return ask().then((answer) => answer.smsEnabled)
 }
