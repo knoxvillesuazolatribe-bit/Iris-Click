@@ -114,8 +114,7 @@ export function AdminSystemPage() {
   const [nameNotice, setNameNotice] = useState<string | null>(null)
   const [to, setTo] = useState('')
   const [emailResult, setEmailResult] = useState<TestResult | null>(null)
-  const [smsResult, setSmsResult] = useState<TestResult | null>(null)
-  const [busy, setBusy] = useState<'name' | 'email' | 'sms' | null>(null)
+  const [busy, setBusy] = useState<'name' | 'email' | null>(null)
 
   useEffect(() => {
     let current = true
@@ -156,15 +155,12 @@ export function AdminSystemPage() {
     }
   }
 
-  const test = async (kind: 'email' | 'sms') => {
-    setBusy(kind)
+  const testEmail = async () => {
+    setBusy('email')
     try {
-      if (kind === 'email') setEmailResult(await adminService.testEmail(to.trim()))
-      else setSmsResult(await adminService.testSms())
+      setEmailResult(await adminService.testEmail(to.trim()))
     } catch (err) {
-      const result = { sent: false, detail: errorMessage(err, 'The test could not run.') }
-      if (kind === 'email') setEmailResult(result)
-      else setSmsResult(result)
+      setEmailResult({ sent: false, detail: errorMessage(err, 'The test could not run.') })
     } finally {
       setBusy(null)
     }
@@ -182,7 +178,7 @@ export function AdminSystemPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Mail aria-hidden /> Email for SOS</CardTitle>
-          <CardDescription>The email account is set in server\.env (passwords never appear here).</CardDescription>
+          <CardDescription>Set up by the system administrator. Passwords are never shown here.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -193,7 +189,7 @@ export function AdminSystemPage() {
             <dt className="font-medium">Sends from</dt>
             <dd>{system.email.from_address ?? '—'}</dd>
           </dl>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); void test('email') }}>
+          <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); void testEmail() }}>
             <div className="grid gap-1">
               <Label htmlFor="test-to">Send a test email to</Label>
               <Input id="test-to" type="email" required className="h-10 w-72" value={to} onChange={(e) => setTo(e.target.value)} placeholder="you@example.com" />
@@ -207,13 +203,18 @@ export function AdminSystemPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><MessageSquare aria-hidden /> SMS</CardTitle>
-          <CardDescription>{load.system.sms_configured
-            ? 'SMS sending is connected. Test texts go only to the number in SMS_ONLY_TO.'
-            : 'Needs the iProg SMS token (IPROG_API_TOKEN), which is not set yet.'}</CardDescription>
+          <CardDescription>Texts sign-up and Forgot PIN codes, and SOS alerts to emergency contacts.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Button variant="outline" disabled={busy !== null} onClick={() => void test('sms')}>Test SMS</Button>
-          {resultAlert(smsResult)}
+        <CardContent className="space-y-2 text-sm">
+          <p className="flex items-center gap-2">
+            <span className="font-medium">Status</span>
+            <Badge variant={load.system.sms_configured ? 'secondary' : 'destructive'}>
+              {load.system.sms_configured ? 'Connected' : 'Not set up'}
+            </Badge>
+          </p>
+          <p className="text-muted-foreground">
+            Each text uses 1 iProg credit. If texts stop arriving, check the credit balance in iProg.
+          </p>
         </CardContent>
       </Card>
 
