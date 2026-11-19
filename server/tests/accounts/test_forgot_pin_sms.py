@@ -88,7 +88,8 @@ def test_without_sms_the_number_is_saved_unverified(api):
 
 def test_verify_the_mobile_number_at_sign_up(api, texts, test_database):
     uid = verified_mari(api, texts)
-    assert texts[0][0] == "+639178082488" and "IrisClick" in texts[0][1]
+    # The iProg header supplies "IrisClick"; the text itself carries the code.
+    assert texts[0][0] == "+639178082488" and texts[0][1].startswith("Your verification code is ")
     with test_database() as db:
         assert db.get(UserAccount, uid).mobile_verified_at is not None
         logs = db.scalars(select(SystemLog)).all()
