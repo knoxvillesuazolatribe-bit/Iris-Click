@@ -48,6 +48,8 @@ MESSAGES = {
     "too_many_tries": "Too many wrong codes. Ask for a new one.",
     "ticket_expired": "This took too long. Please start again.",
     "not_found": "That account is not on this computer.",
+    "no_mobile": "There is no mobile number on your account. Ask PDAO staff to add one.",
+    "already_verified": "Your mobile number is already verified.",
 }
 # iProg puts the account's header ("IrisClick") on the first line, so the texts don't repeat it;
 # each fits in one SMS (one credit).
@@ -186,6 +188,39 @@ def verify_mobile(db: Session, mobile_number: object, code: object) -> str:
         raise SmsCodeError(422, "bad_mobile")
     check_code(db, purpose=PURPOSE_VERIFY, number=number, code=code)
     return make_ticket(PURPOSE_VERIFY, 0, mobile_hash(number))
+
+
+# ---------- verify the number already on the account (accounts made while SMS was off) ----------
+
+def my_mobile(db: Session, user_id: int) -> tuple[str, bool]:
+    """(masked number, verified) for the signed-in person's own account."""
+    account = db.get(UserAccount, user_id)
+    if account is None:
+        return "", False
+    return mobiles.mask_mobile(account.mobile_number), account.mobile_verified_at is not None
+
+
+def send_my_verify(db: Session, user_id: int) -> Sent:
+    """Text a code to the number already on the account; nobody can choose where it goes."""
+    account = db.get(UserAccount, user_id)
+    if account is None or not account.mobile_number:
+        raise SmsCodeError(409, "no_mobile")
+    if account.mobile_verified_at is not None:
+        raise SmsCodeError(409, "already_verified")
+    return send_code(db, purpose=PURPOSE_VERIFY, number=account.mobile_number, user_id=user_id)
+
+
+def verify_my_mobile(db: Session, user_id: int, code: object, now: datetime | None = None) -> None:
+    """Check the code sent to the account's own number, then mark that number verified."""
+    account = db.get(UserAccount, user_id)
+    if account is None or not account.mobile_number:
+        raise SmsCodeError(409, "no_mobile")
+    if account.mobile_verified_at is not None:
+        return
+    check_code(db, purpose=PURPOSE_VERIFY, number=account.mobile_number, code=code, now=now)
+    account.mobile_verified_at = now or utc_now()
+    log_activity("mobile_verified", f"{account.username} verified their mobile number", user_id, session=db)
+    db.commit()
 
 
 def confirm_mobile(db: Session, user_id: int, ticket: object, now: datetime | None = None) -> bool:

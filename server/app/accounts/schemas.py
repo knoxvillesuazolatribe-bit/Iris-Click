@@ -36,6 +36,17 @@ class TicketRead(BaseModel):
     ticket: str
 
 
+class MyMobileRead(BaseModel):
+    """The signed-in person's own number (masked) and whether it is verified (Forgot PIN needs it)."""
+    to: str               # masked: 09** *** 2488, "" when no number is on the account
+    verified: bool
+    sms_enabled: bool
+
+
+class MyMobileCodeRequest(BaseModel):
+    code: str = Field(max_length=12)
+
+
 class ForgotSendRequest(BaseModel):
     user_id: int
 

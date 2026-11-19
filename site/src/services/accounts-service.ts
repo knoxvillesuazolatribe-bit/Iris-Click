@@ -6,6 +6,7 @@ import {
   accountSessionSchema,
   canSignUpSchema,
   codeSentSchema,
+  myMobileSchema,
   setupCodeSchema,
   thisComputerSchema,
   ticketSchema,
@@ -45,6 +46,10 @@ export const accountsService = {
   /** Signed in: mark the number verified (after the account was made). */
   mobileConfirm: (deviceId: string, mobileTicket: string) =>
     appClient.post('/accounts/mobile/confirm', { mobile_ticket: mobileTicket }, { headers: deviceHeaders(deviceId) }),
+  /** Signed in: my number (masked), verified or not; verify the number already on the account. */
+  myMobile: () => appClient.get('/accounts/me/mobile').then((r) => myMobileSchema.parse(r.data)),
+  myMobileSend: () => appClient.post('/accounts/me/mobile/send').then((r) => codeSentSchema.parse(r.data)),
+  myMobileVerify: (code: string) => appClient.post('/accounts/me/mobile/verify', { code }),
   forgotSend: (deviceId: string, userId: number) =>
     appClient.post('/accounts/forgot-pin/send', { user_id: userId }, { headers: deviceHeaders(deviceId) })
       .then((r) => codeSentSchema.parse(r.data)),

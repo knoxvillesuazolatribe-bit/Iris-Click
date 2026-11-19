@@ -15,6 +15,9 @@ POST /accounts/setup-complete the ticket + new PIN (+ username and mobile for a 
 POST /accounts/mobile/send     text a code to verify the mobile number (sign-up, setup code)
 POST /accounts/mobile/verify   the code -> a short ticket saying the number is verified
 POST /accounts/mobile/confirm  (signed in) mark the account's number verified with that ticket
+GET  /accounts/me/mobile        (signed in) my number, masked, and whether it is verified
+POST /accounts/me/mobile/send   (signed in) text a code to the number already on my account
+POST /accounts/me/mobile/verify (signed in) the code -> my number is verified (Forgot PIN works)
 POST /accounts/forgot-pin/send      text a reset code to the account's verified number
 POST /accounts/forgot-pin/verify    the code -> a short reset ticket
 POST /accounts/forgot-pin/complete  the ticket + new PIN -> signed in, other sessions ended
@@ -31,7 +34,7 @@ from starlette.responses import JSONResponse
 from app.accounts import devices, mode, service, setup_codes, sms, sms_codes, usernames
 from app.accounts.schemas import (AccountSessionRead, AddressRead, AddressRequest, CodeSentRead,
                                   ForgotCompleteRequest, ForgotSendRequest, ForgotVerifyRequest, MobileCodeRequest,
-                                  MobileRequest, MobileTicketRequest, RemoveRequest, SetupCodeRead, TicketRead,
+                                  MobileRequest, MyMobileCodeRequest, MyMobileRead, MobileTicketRequest, RemoveRequest, SetupCodeRead, TicketRead,
                                   SetupCodeRequest, SetupCompleteRequest, SigninModeRead, SigninRequest,
                                   SignupRequest, ThisComputerRead, TileRead, TilesRead, UsernameCheckRead,
                                   UsernameCheckRequest)
@@ -257,6 +260,34 @@ def mobile_confirm(body: MobileTicketRequest, user: User = Depends(require_assis
         return _sms_refusal(exc)
     if not confirmed:
         raise HTTPException(status_code=409, detail="That code was for another number.")
+    return Response(status_code=204)
+
+
+# Accounts made while SMS was off have an unverified number, so Forgot PIN refuses them.
+# The signed-in person can verify the number already on the account (never a new one).
+
+@router.get("/me/mobile", response_model=MyMobileRead)
+def my_mobile(user: User = Depends(require_assistive), db: Session = Depends(get_db)) -> MyMobileRead:
+    to, verified = sms_codes.my_mobile(db, user.user_id)
+    return MyMobileRead(to=to, verified=verified, sms_enabled=sms.configured())
+
+
+@router.post("/me/mobile/send", response_model=CodeSentRead)
+def my_mobile_send(user: User = Depends(require_assistive), db: Session = Depends(get_db)):
+    try:
+        sent = sms_codes.send_my_verify(db, user.user_id)
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
+    return CodeSentRead(to=sent.to, resend_after=sent.resend_after)
+
+
+@router.post("/me/mobile/verify", status_code=204)
+def my_mobile_verify(body: MyMobileCodeRequest, user: User = Depends(require_assistive),
+                     db: Session = Depends(get_db)) -> Response:
+    try:
+        sms_codes.verify_my_mobile(db, user.user_id, body.code)
+    except sms_codes.SmsCodeError as exc:
+        return _sms_refusal(exc)
     return Response(status_code=204)
 
 
