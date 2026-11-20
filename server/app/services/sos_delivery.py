@@ -5,6 +5,7 @@ a provider interface, which is a stub until a gateway (e.g. Semaphore) is
 paid for. Every failure says why and whether trying again could help.
 """
 
+import logging
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -12,6 +13,8 @@ from email.utils import formatdate, make_msgid
 from typing import Protocol
 
 from app.config import Settings
+
+logger = logging.getLogger("irisclick.sos")
 
 EMAIL_NOT_SET_UP = ("Email is not set up on this computer, so this alert was not sent. "
                     "Ask your administrator to add the SMTP details.")
@@ -64,7 +67,10 @@ class EmailSender:
             raise DeliveryError("The mail server refused the sending address (SMTP_FROM).",
                                 retryable=False) from exc
         except (smtplib.SMTPException, OSError) as exc:
-            raise DeliveryError(CANNOT_REACH, retryable=True) from exc
+            # The kind of failure (timeout, unknown host, Gmail hanging up...) is what tells
+            # an admin what to fix; it never contains the password.
+            logger.warning("SOS email to the mail server failed: %s: %s", type(exc).__name__, exc)
+            raise DeliveryError(f"{CANNOT_REACH} ({type(exc).__name__})", retryable=True) from exc
 
     def _deliver(self, message: EmailMessage) -> None:
         s = self._s
