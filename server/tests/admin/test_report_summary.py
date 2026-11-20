@@ -107,7 +107,7 @@ def test_pdf_includes_the_summary(admin, data, monkeypatch):
     monkeypatch.setattr(report_pdf, "Paragraph",
                         lambda text, *a, **k: texts.append(text) or real(text, *a, **k))
     admin.get("/api/admin/reports/calibration/pdf")
-    assert "Average accuracy (successful)" in texts and "92.50%" in texts
+    assert "AVERAGE ACCURACY (SUCCESSFUL)" in texts and "92.50%" in texts  # KPI labels are in capitals
 
 
 def test_a_broken_summary_never_breaks_the_report(admin, data, monkeypatch):

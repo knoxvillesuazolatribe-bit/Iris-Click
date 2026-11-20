@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { errorMessage } from '@/api/app-client'
 import { AdminLayout } from '@/components/admin-layout'
 import { ExportSuccessDialog } from '@/components/export-success-dialog'
+import { ReportPreview } from '@/components/report-preview'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,47 +166,7 @@ export function AdminReportPage() {
         <Alert variant="destructive" role="alert"><AlertDescription>{previewError}</AlertDescription></Alert>
       )}
 
-      {report && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{report.title}</CardTitle>
-            <CardDescription>
-              {report.date_from} to {report.date_to} · {report.user_name ?? 'Everyone'} · {report.rows.length} row(s)
-              {report.note && <> · {report.note}</>}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {report.summary.length > 0 && (
-              <dl aria-label="Summary" className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-                {report.summary.map((item) => (
-                  <div key={item.label} className="bg-muted rounded-lg px-3 py-2">
-                    <dt className="text-muted-foreground text-xs">{item.label}</dt>
-                    <dd className="text-lg font-semibold">{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {report.rows.length === 0 ? (
-              <p className="text-muted-foreground">No records found for these filters. You can still export the report.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-muted-foreground border-b">
-                    <tr>{report.columns.map((c) => <th key={c} className="py-2 pr-4">{c}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {report.rows.map((row, i) => (
-                      <tr key={i} className="border-b align-top last:border-0">
-                        {row.map((cell, j) => <td key={j} className="py-2 pr-4 break-words whitespace-pre-wrap">{cell}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {report && <ReportPreview report={report} />}
     </AdminLayout>
   )
 }
