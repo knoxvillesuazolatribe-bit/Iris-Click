@@ -35,6 +35,10 @@ TRIES_PER_CODE = 5
 RESEND_AFTER = timedelta(seconds=60)
 TEXTS_PER_HOUR = 3
 TEXTS_PER_DAY = 5
+# Security audit: also per computer and site-wide, so a script naming many different numbers
+# cannot drain the SMS credits (each text costs one).
+TEXTS_PER_HOUR_PER_DEVICE = 10
+TEXTS_PER_HOUR_SITE = 60
 TICKET_LIFETIME_S = 15 * 60
 
 logger = logging.getLogger("irisclick.sms")
@@ -134,8 +138,15 @@ def send_code(db: Session, *, purpose: str, number: str, user_id: int | None = N
     if last is not None and as_utc(last) + RESEND_AFTER > now:
         wait = int((as_utc(last) + RESEND_AFTER - now).total_seconds()) + 1
         raise SmsCodeError(429, "resend_wait", wait_seconds=wait)
-    if (_recent(db, number_hash, now - timedelta(hours=1)) >= TEXTS_PER_HOUR
+    hour_ago = now - timedelta(hours=1)
+    if (_recent(db, number_hash, hour_ago) >= TEXTS_PER_HOUR
             or _recent(db, number_hash, now - timedelta(days=1)) >= TEXTS_PER_DAY):
+        raise SmsCodeError(429, "sms_limit")
+    sent_last_hour = select(func.count()).select_from(SmsCode).where(SmsCode.created_at >= hour_ago)
+    if ((device_id is not None and (db.scalar(sent_last_hour.where(SmsCode.device_id == device_id)) or 0)
+         >= TEXTS_PER_HOUR_PER_DEVICE)
+            or (db.scalar(sent_last_hour) or 0) >= TEXTS_PER_HOUR_SITE):
+        logger.warning("SMS not sent: the hourly limit for this computer or the whole site was reached")
         raise SmsCodeError(429, "sms_limit")
     code = "".join(secrets.choice("0123456789") for _ in range(CODE_DIGITS))
     try:

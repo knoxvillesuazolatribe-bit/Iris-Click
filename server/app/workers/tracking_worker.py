@@ -43,6 +43,7 @@ from app.core.calibration.recenter import (
 from app.workers.start_recentre import StartRecentre  # quick re-centre once per start
 from app.workers import web_home  # extension: control bar Home opens the website's Home
 from app.workers import keyboard_request  # adviser: the On-Screen Keyboard app tile
+from app.workers.paused_resume import RESUME_HINT, PausedResume  # audit: resume hands-free
 from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
@@ -248,6 +249,7 @@ class TrackingWorker:
         self.paused = False
         self._pause_reason = ""
         self._was_paused = False
+        self._paused_resume = PausedResume()
         self._showing_cursor = False
         self._tick_count = 0
         self._trail: deque[tuple[float, float, float]] = deque()
@@ -301,8 +303,14 @@ class TrackingWorker:
         self._pause_reason = reason
         self._reset_motion()
         logger.info("Tracking paused: %s", reason)
-        self.voice.announce(f"Tracking paused. {reason} Choose Resume to continue.",
+        self._paused_resume.reset()
+        self.voice.announce(f"Tracking paused. {reason} {RESUME_HINT}",
                             time.monotonic())
+
+    def _resume(self, now: float):
+        self.paused, self._pause_reason = False, ""
+        self._paused_resume.reset()
+        self.voice.announce("Tracking resumed.", now)
 
     def _reset_motion(self):
         self.pipeline.reset()
@@ -363,8 +371,7 @@ class TrackingWorker:
             now = time.monotonic()
             if command == PAUSE:
                 if self.paused:
-                    self.paused, self._pause_reason = False, ""
-                    self.voice.announce("Tracking resumed.", now)
+                    self._resume(now)
                 else:
                     self._pause("")
             elif command == TOGGLE_VOICE:
@@ -539,7 +546,7 @@ class TrackingWorker:
         if self.paused:
             self._was_paused = True
             self.dwell.reset()
-            self._hide(f"Paused. {self._pause_reason}".strip(), "paused")
+            self._hide(f"Paused. {self._pause_reason} {RESUME_HINT}".replace("  ", " ").strip(), "paused")
             return
         if self._was_paused:
             self._was_paused = False
@@ -670,7 +677,13 @@ class TrackingWorker:
 
     def _handle_blink(self, reading):
         side = self.blink.update(reading.left_ear, reading.right_ear)
-        if side is None or self.paused:
+        if side is None:
+            return
+        if self.paused:
+            # Audit: hands-free way out of Paused (the cursor is hidden and winks do nothing).
+            if side == BOTH and self._paused_resume.both_blink(time.monotonic()):
+                logger.info("Double both-eye blink while paused: resume")
+                self._resume(time.monotonic())
             return
         with contextlib.suppress(Exception):  # Phase 3 hook: live wink counter
             self._live.note_wink(side)

@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import APIRouter
 from sqlalchemy.exc import SQLAlchemyError
@@ -22,7 +23,8 @@ def health() -> HealthRead:
 async def database_health() -> DatabaseHealthRead:
     settings = get_settings()
     backend = "postgresql" if settings.uses_postgres else "sqlite"
-    host = settings.db_host or None
+    # Security audit: the hosted copy answers the internet, so it never names the database host.
+    host = None if os.environ.get("VERCEL") else (settings.db_host or None)
     try:
         await run_in_threadpool(check_connection)
     except SQLAlchemyError as exc:
