@@ -40,17 +40,21 @@ MAX_OFFSET = 0.15
 MIN_SPREAD = 0.15
 
 
+OFF_VALUES = ("off", "0", "false", "no")
+
+
 def enabled_from_env() -> bool:
+    """On by default; CLICK_LEARNING=off (environment or server/.env) turns it off."""
     if os.environ.get(ENV_NAME) is not None:
-        return os.environ[ENV_NAME].strip().lower() in ("on", "1", "true", "yes")
+        return os.environ[ENV_NAME].strip().lower() not in OFF_VALUES
     try:
         from dotenv import dotenv_values
 
         from app.config import SERVER_DIR
-        value = dotenv_values(SERVER_DIR / ".env").get(ENV_NAME) or ""
+        value = dotenv_values(SERVER_DIR / ".env").get(ENV_NAME)
     except Exception:  # noqa: BLE001
-        return False
-    return value.strip().lower() in ("on", "1", "true", "yes")
+        return True
+    return value is None or value.strip().lower() not in OFF_VALUES
 
 
 def _matrix(correction: ScreenCorrection | None) -> np.ndarray:
