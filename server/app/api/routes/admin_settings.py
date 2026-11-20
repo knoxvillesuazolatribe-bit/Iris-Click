@@ -79,9 +79,12 @@ def _system(db: Session) -> SystemRead:
     sender = EmailSender(env)
     return SystemRead(
         app_name=system_settings_service.app_name(db, env), app_name_default=env.app_name,
-        email=EmailStatus(configured=sender.configured(), host=env.smtp_host or None,
-                          port=env.smtp_port, security=env.smtp_security,
-                          from_address=sender.from_address or None),
+        email=(EmailStatus(configured=sender.configured(), host="api.brevo.com", port=443,
+                           security="Brevo, https", from_address=sender.from_address or None)
+               if sender.uses_brevo else
+               EmailStatus(configured=sender.configured(), host=env.smtp_host or None,
+                           port=env.smtp_port, security=env.smtp_security,
+                           from_address=sender.from_address or None)),
         sms_configured=sms.configured())
 
 

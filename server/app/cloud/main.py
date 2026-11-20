@@ -127,7 +127,7 @@ def launch_tile(tile_id: int, user: User = Depends(require_assistive), db: Sessi
 
 CHECKED_SETTINGS = ("IRISCLICK_ACCESS_CODE", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER",
                     "DB_PASSWORD", "DB_SSLMODE", "SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD",
-                    "SMTP_FROM")
+                    "SMTP_FROM", "BREVO_API_KEY")
 
 setup_check = APIRouter(prefix="/cloud", tags=["online copy"])
 
@@ -156,7 +156,8 @@ def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked),
     except Exception as exc:  # noqa: BLE001 - reported to the admin, never raised
         reason = str(getattr(exc, "orig", None) or exc).strip().splitlines()
         text = f"{type(getattr(exc, 'orig', None) or exc).__name__}: {reason[0] if reason else ''}"
-        for secret in (settings.db_password.get_secret_value(), settings.smtp_password.get_secret_value()):
+        for secret in (settings.db_password.get_secret_value(), settings.smtp_password.get_secret_value(),
+                       settings.brevo_api_key.get_secret_value()):
             if secret:
                 text = text.replace(secret, "***")
         report.update(database="error", error=text[:300])

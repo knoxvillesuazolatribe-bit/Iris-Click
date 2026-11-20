@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
     smtp_timeout_s: float = Field(15.0, gt=0)
+    # Brevo's email API (https://www.brevo.com). When set, SOS emails go through Brevo over
+    # HTTPS instead of SMTP: Gmail hangs up on SMTP sign-ins from the website's cloud servers.
+    # The sender stays SMTP_FROM (or SMTP_USERNAME), which must be a verified Brevo sender.
+    brevo_api_key: SecretStr = SecretStr("")
 
     # Time zone for dates and times people read (report PDFs, SOS messages). Servers
     # such as Vercel run on UTC, so this is set here rather than taken from the server.
