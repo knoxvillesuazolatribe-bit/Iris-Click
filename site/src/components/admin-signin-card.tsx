@@ -111,7 +111,7 @@ export function AdminSigninCard({ userId, name }: { userId: number; name: string
             <AlertDescription>
               <p className="my-1 font-mono text-3xl font-bold tracking-widest">{code.code}</p>
               <p>Shown only now. Give it to {name}; it works once, until {DATE.format(new Date(code.expires_at))}.</p>
-              <p>On their computer: Add account → I have a setup code from PDAO.</p>
+              <p>On their computer: pick their name, then Forgot PIN → I have a setup code.</p>
             </AlertDescription>
           </Alert>
         )}
