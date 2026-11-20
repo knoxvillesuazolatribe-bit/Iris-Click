@@ -119,7 +119,7 @@ def test_a_connection_failure_names_its_cause_and_is_logged(caplog):
     with caplog.at_level("WARNING", logger="irisclick.sos"), pytest.raises(DeliveryError) as caught:
         EmailSender(_settings()).send("a@b.co", "S", "B")
     assert "(SMTPServerDisconnected)" in caught.value.message
-    assert "SMTPServerDisconnected: Connection unexpectedly closed" in caplog.text
+    assert "failed at send: SMTPServerDisconnected: Connection unexpectedly closed" in caplog.text
     assert _settings().smtp_password.get_secret_value() not in caplog.text
 
 
@@ -130,3 +130,23 @@ def test_sms_is_not_set_up_yet():
         sms.send("+639171234567", "S", "B")
     assert caught.value.message == SMS_NOT_SET_UP
     assert caught.value.retryable is False
+
+
+def test_the_log_names_the_step_that_failed(monkeypatch, caplog):
+    def hang_up_at_starttls(self, context=None):
+        raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+
+    monkeypatch.setattr(FakeSMTP, "starttls", hang_up_at_starttls)
+    with caplog.at_level("WARNING", logger="irisclick.sos"), pytest.raises(DeliveryError):
+        EmailSender(_settings()).send("a@b.co", "S", "B")
+    assert "failed at tls: SMTPServerDisconnected" in caplog.text
+
+
+def test_a_connection_that_cannot_open_is_the_connect_step(monkeypatch, caplog):
+    def refuse(*args, **kwargs):
+        raise ConnectionRefusedError("refused")
+
+    monkeypatch.setattr(sos_delivery.smtplib, "SMTP", refuse)
+    with caplog.at_level("WARNING", logger="irisclick.sos"), pytest.raises(DeliveryError):
+        EmailSender(_settings()).send("a@b.co", "S", "B")
+    assert "failed at connect: ConnectionRefusedError" in caplog.text

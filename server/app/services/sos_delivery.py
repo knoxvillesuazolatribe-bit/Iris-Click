@@ -55,6 +55,7 @@ class EmailSender:
         message["Date"] = formatdate(localtime=True)
         message["Message-ID"] = make_msgid(domain="irisclick.local")
         message.set_content(body)
+        self.step = "connect"
         try:
             self._deliver(message)
         except smtplib.SMTPAuthenticationError as exc:
@@ -69,12 +70,17 @@ class EmailSender:
         except (smtplib.SMTPException, OSError) as exc:
             # The kind of failure (timeout, unknown host, Gmail hanging up...) is what tells
             # an admin what to fix; it never contains the password.
-            logger.warning("SOS email to the mail server failed: %s: %s", type(exc).__name__, exc)
+            # The step (connect, tls, login, send) shows whether the server refused the
+            # connection itself or a later stage.
+            logger.warning("SOS email to the mail server failed at %s: %s: %s", self.step,
+                           type(exc).__name__, exc)
             raise DeliveryError(f"{CANNOT_REACH} ({type(exc).__name__})", retryable=True) from exc
 
     def _deliver(self, message: EmailMessage) -> None:
+        """Connect, secure, sign in and send; ``self.step`` names the stage in progress."""
         s = self._s
         timeout = s.smtp_timeout_s
+        self.step = "connect"
         if s.smtp_security == "ssl":
             client = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=timeout,
                                       context=ssl.create_default_context())
@@ -82,9 +88,12 @@ class EmailSender:
             client = smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=timeout)
         with client:
             if s.smtp_security == "starttls":
+                self.step = "tls"
                 client.starttls(context=ssl.create_default_context())
             if s.smtp_username:
+                self.step = "login"
                 client.login(s.smtp_username, s.smtp_password.get_secret_value())
+            self.step = "send"
             client.send_message(message)
 
 
