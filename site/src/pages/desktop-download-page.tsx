@@ -1,8 +1,9 @@
-import { ArrowLeft, Download, LoaderCircle, Monitor, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Download, LoaderCircle, Monitor, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { InstallerNote } from '@/components/installer-note'
 import { browserName, FALLBACK_DOWNLOAD, latestDesktop, type Latest } from '@/lib/desktop-status'
 
 const ALLOW_STEPS: Record<ReturnType<typeof browserName>, string[]> = {
@@ -96,6 +97,8 @@ export function DesktopDownloadPage({ onRetry }: Props) {
           {checking ? <LoaderCircle className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />} Try again
         </GazeButton>
       </div>
+
+      <InstallerNote sha256={latest?.sha256} icon={ShieldCheck} />
 
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Install (Windows, about 2 minutes)</h2>

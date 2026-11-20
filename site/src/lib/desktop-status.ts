@@ -4,7 +4,11 @@ import { apiClient } from '@/api/api-client'
 /** Hosted website: is IrisClick Desktop running on this PC, and is it up to date? */
 
 const versionSchema = z.object({ app: z.string(), version: z.string() })
-const latestSchema = z.object({ version: z.string(), download_url: z.url(), notes: z.string().optional() })
+const latestSchema = z.object({
+  version: z.string(), download_url: z.url(), notes: z.string().optional(),
+  /** SHA-256 of the installer, so people can check the download is the real, untouched file. */
+  sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+})
 
 export type Latest = z.infer<typeof latestSchema>
 export type DesktopStatus = { running: true; version: string } | { running: false }

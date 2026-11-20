@@ -15,6 +15,15 @@ AppName=IrisClick Desktop
 AppVersion={#AppVersion}
 AppPublisher=IrisClick (PDAO Lapu-Lapu City)
 AppComments=Hands-free computer access with a webcam. Works with the IrisClick website.
+AppPublisherURL=https://irisclick.vercel.app
+AppSupportURL=https://irisclick.vercel.app
+; File details Windows shows in Properties > Details and in the SmartScreen prompt.
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany=IrisClick (PDAO Lapu-Lapu City)
+VersionInfoDescription=IrisClick Desktop Setup
+VersionInfoProductName=IrisClick Desktop
+VersionInfoProductVersion={#AppVersion}
+VersionInfoCopyright=IrisClick capstone team
 DefaultDirName={localappdata}\Programs\IrisClick Desktop
 DefaultGroupName=IrisClick
 DisableProgramGroupPage=yes
@@ -28,6 +37,12 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=no
+; Code signing, off until a trusted certificate exists: build with /DSignTool="<name>" after
+; defining that sign tool in Inno Setup (Tools > Configure Sign Tools, or iscc /S<name>=...).
+#ifdef SignTool
+SignTool={#SignTool}
+SignedUninstaller=yes
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "Put an IrisClick shortcut on the desktop"
