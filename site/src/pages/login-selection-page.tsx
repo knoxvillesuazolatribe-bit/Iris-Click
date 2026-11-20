@@ -33,12 +33,9 @@ export function LoginSelectionPage() {
         <p className="max-w-xl text-center text-lg leading-relaxed text-slate-700">
           <strong className="font-semibold">Need help?</strong> Ask a Persons with Disability Affairs Office (PDAO)
           staff member or someone you trust to assist you, or email{' '}
-          <a
-            href="mailto:irisclickph@gmail.com"
-            className="text-primary focus-visible:ring-primary rounded-sm font-medium underline underline-offset-4 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
-          >
+          <span className="cursor-default rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 font-semibold whitespace-nowrap text-teal-700">
             irisclickph@gmail.com
-          </a>{' '}
+          </span>{' '}
           for support.
         </p>
       </div>
