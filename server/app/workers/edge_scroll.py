@@ -6,7 +6,9 @@ scrolls one wheel notch every SCROLL_EVERY_S until the gaze leaves.
 
 Nothing is called while tracking is paused, the mouse is in use, a re-centre
 runs or the eyes are closing, so those never scroll; a gap in calls resets
-the timer. This is vertical only and separate from edge_reach, which shapes
+the timer. Scrolling speeds up the longer the gaze stays in the band
+(SPEED_STEPS: 1, then 2, then 3 notches per step), so a long page is quick to
+get through while a short look still moves one notch. This is vertical only and separate from edge_reach, which shapes
 left/right cursor reach.
 
 The wheel goes to the window in the middle of the screen at the gaze's x, not
@@ -26,6 +28,8 @@ logger = logging.getLogger("irisclick.worker.edge_scroll")
 
 UP, DOWN = "up", "down"
 SCROLL_EVERY_S = 0.2
+# (seconds of scrolling in one band, notches per step), checked in order.
+SPEED_STEPS = ((2.5, 3), (1.0, 2), (0.0, 1))
 # No cursor update for this long (paused, eyes closed…): start the dwell again.
 GAP_RESET_S = 0.3
 WHEEL_DELTA = 120
@@ -81,7 +85,11 @@ class EdgeScroller:
         self._zone: str | None = None
         self._since = 0.0
         self._next_scroll = 0.0
+        self._scroll_started: float | None = None
         self._last_update: float | None = None
+
+    def notches(self, scrolling_s: float) -> int:
+        return next(n for after, n in SPEED_STEPS if scrolling_s >= after)
 
     def zone(self, x: float, y: float) -> str | None:
         if y < self.band_px:
@@ -108,11 +116,15 @@ class EdgeScroller:
         if zone != self._zone:
             self._zone, self._since = zone, now
             self._next_scroll = now + self.dwell_s
+            self._scroll_started = None
         if zone is None or now < self._next_scroll:
             return None
         self._next_scroll = now + SCROLL_EVERY_S
+        if self._scroll_started is None:
+            self._scroll_started = now
+        notches = self.notches(now - self._scroll_started)
         middle_x = int(min(max(x, 0), self.screen_w - 1))
-        self.wheel(middle_x, self.screen_h // 2, 1 if zone == UP else -1)
+        self.wheel(middle_x, self.screen_h // 2, notches if zone == UP else -notches)
         if self.on_scroll is not None:
             self.on_scroll(zone, self.band_px, int(SCROLL_EVERY_S * 2000))
         return zone

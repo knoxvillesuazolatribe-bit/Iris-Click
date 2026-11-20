@@ -32,6 +32,7 @@ from logging.handlers import RotatingFileHandler
 from app.config import Settings, get_settings
 from app.core.actions.dwell_click import DwellClicker
 from app.core.actions.mouse_controller import MouseController
+from app.core.actions.target_snap import snap_radius_for
 from app.core.calibration.posture import PostureMonitor
 from app.core.calibration.profile import load_profile
 from app.core.calibration.recenter import (
@@ -44,6 +45,7 @@ from app.workers.start_recentre import StartRecentre  # quick re-centre once per
 from app.workers import web_home  # extension: control bar Home opens the website's Home
 from app.workers import keyboard_request  # adviser: the On-Screen Keyboard app tile
 from app.workers.paused_resume import RESUME_HINT, PausedResume  # audit: resume hands-free
+from app.workers.click_learning import ClickLearner, enabled_from_env as click_learning_on
 from app.core.gaze.screen_mapper import ScreenCorrection
 from app.core.detection.blink_detector import BOTH, LEFT, RIGHT, BlinkDetector
 from app.core.detection.iris_detector import distance_advice
@@ -114,6 +116,11 @@ POST_BLINK_HOLD_S = 0.3
 GLIDE_LEAD_S = TICK_MS / 1000.0
 # Length of the cursor path drawn while the camera preview is on.
 TRAIL_S = 1.0
+# Click learning: the gaze estimate behind a wink is the mean of the raw
+# estimates in this window before the lid started to close (the last
+# CLICK_GAZE_SKIP_S is already dragged by the lid).
+CLICK_GAZE_WINDOW_S = 0.45
+CLICK_GAZE_SKIP_S = 0.1
 
 REASON_TEXT = {
     "no_face": "Face not visible. Face the screen or improve the lighting.",
@@ -193,8 +200,9 @@ class PidFile:
 
 class TrackingWorker:
     def __init__(self, settings: Settings, tracker: GazeTracker, model, pid_file: PidFile,
-                 profile_id: str | None = None, posture=None):
-        """``posture``: PostureReference the active mapping was fitted in, or None."""
+                 profile_id: str | None = None, posture=None, aim_error: float | None = None):
+        """``posture``: PostureReference the active mapping was fitted in, or None.
+        ``aim_error``: the calibration's per-dot error (screen fraction), or None."""
         self.settings = settings
         self.tracker = tracker
         self.model = model
@@ -221,9 +229,13 @@ class TrackingWorker:
         self.pipeline = GazePipeline()
         self.blink = BlinkDetector(threshold=settings.blink_threshold)
         edge_level = read_device_settings(settings).edge_sensitivity or settings.edge_sensitivity
+        overrides = {"edge_sensitivity": edge_level}
+        if "target_snap_radius_px" not in settings.model_fields_set:
+            # Snap reach fits this person's aim; a radius set in .env still wins.
+            overrides["snap_radius_px"] = snap_radius_for(
+                aim_error, self.screen_w, self.screen_h, settings.target_snap_radius_px)
         self.navigator = CursorNavigator(
-            NavigationConfig.from_settings(settings, edge_sensitivity=edge_level),
-            self.screen_w, self.screen_h)
+            NavigationConfig.from_settings(settings, **overrides), self.screen_w, self.screen_h)
         self.bar.set_edge_level(edge_level)
         self.tray.set_edge_level(edge_level)
         self._glide_lead = 0.0 if self.navigator.config.mode == "legacy" else GLIDE_LEAD_S
@@ -254,8 +266,14 @@ class TrackingWorker:
         self._tick_count = 0
         self._trail: deque[tuple[float, float, float]] = deque()
         self._raw_point = None
+        self.click_learner = ClickLearner(enabled=click_learning_on())
+        self._raw_history: deque[tuple[float, float, float]] = deque()
+        self._wink_gaze = None
+        self._wink_target = None
         self._set_preview(settings.camera_preview_enabled)
-        logger.info("Gaze navigation mode: %s", self.navigator.config.mode)
+        logger.info("Gaze navigation mode: %s (snap radius %.0f px, click learning %s)",
+                    self.navigator.config.mode, self.navigator.config.snap_radius_px,
+                    "on" if self.click_learner.enabled else "off")
         self._camera_restart: threading.Thread | None = None
         self._next_camera_retry = 0.0
         self._quitting = False
@@ -324,6 +342,9 @@ class TrackingWorker:
         self._showing_cursor = False
         self._trail.clear()
         self._raw_point = None
+        self._raw_history.clear()
+        self._wink_gaze = None
+        self._wink_target = None
         self.mouse.forget_position()
 
     def _set_preview(self, enabled: bool):
@@ -522,6 +543,8 @@ class TrackingWorker:
             # The lid dragged the cursor before the eye counted as closed; go
             # back to where the user was looking and click there.
             self._wink_point = self.blink_anchor.anchor()
+            self._wink_gaze = self._gaze_before(now_s)
+            self._wink_target = self._target
             if self._wink_point is not None and self._showing_cursor:
                 self.glide.reset()
                 self.mouse.move(*self._wink_point, force=True)
@@ -542,6 +565,7 @@ class TrackingWorker:
             self.dwell.reset()
             return
         self._wink_point = None
+        self._wink_gaze = self._wink_target = None
 
         if self.paused:
             self._was_paused = True
@@ -575,6 +599,9 @@ class TrackingWorker:
                                 "to adjust. Wink left to click.", now_s)
         self._raw_point = (min(max(estimate.raw_x, 0.0), self.screen_w - 1.0),
                            min(max(estimate.raw_y, 0.0), self.screen_h - 1.0))
+        self._raw_history.append((now_s, *self._raw_point))
+        while self._raw_history and now_s - self._raw_history[0][0] > 1.0:
+            self._raw_history.popleft()
 
         if not config.glides:
             self.glide.reset()
@@ -675,6 +702,24 @@ class TrackingWorker:
             source = "landmark fallback" if self.pipeline.using_reference_model else "Tracking"
             self._set_status(source, "tracking")
 
+    def _gaze_before(self, now: float):
+        """Mean raw gaze estimate (px) just before the lid started closing, or None."""
+        points = [(x, y) for t, x, y in self._raw_history
+                  if CLICK_GAZE_SKIP_S <= now - t <= CLICK_GAZE_WINDOW_S]
+        if not points:
+            return None
+        return (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
+
+    def _learn_from_click(self):
+        """A snapped left-wink click shows where the eyes really were: correct the drift."""
+        if self.model is None or not hasattr(self.model, "set_correction"):
+            return
+        correction = self.click_learner.observe_click(
+            self._wink_gaze, self._wink_target, (self.screen_w, self.screen_h),
+            self.model.correction)
+        if correction is not None:
+            self.model.set_correction(correction)
+
     def _handle_blink(self, reading):
         side = self.blink.update(reading.left_ear, reading.right_ear)
         if side is None:
@@ -697,6 +742,8 @@ class TrackingWorker:
             else:
                 self.mouse.left_click()
             logger.info("Left wink: left click")
+            with contextlib.suppress(Exception):
+                self._learn_from_click()
         elif side == RIGHT:
             if self.settings.right_blink_action == "right_click":
                 self.mouse.right_click()  # adviser: context menu (Open, Open file location, Uninstall...)
@@ -720,6 +767,7 @@ class TrackingWorker:
         # Dots are fitted against the uncorrected mapping; restored on failure.
         self._correction_before_recenter = self.model.correction
         self.model.set_correction(None)
+        self.click_learner.reset()  # its pairs were measured against the old correction
         self._reset_motion()
         self.overlay.hide_cursor()
         self.recenter = RecenterSession(now)
@@ -862,7 +910,8 @@ def main(argv=None) -> int:
                 "on" if tracker.deep_gaze_available else "off",
                 "on" if tracker.refine_pupils else "off")
     try:
-        TrackingWorker(settings, tracker, model, pid_file, profile.id, posture).run()
+        TrackingWorker(settings, tracker, model, pid_file, profile.id, posture,
+                       aim_error=profile.accuracy_fraction).run()
     finally:
         try:
             tracker.stop()

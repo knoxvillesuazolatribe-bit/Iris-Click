@@ -13,9 +13,28 @@ from dataclasses import dataclass
 # after the gaze rests on (or clearly nearer to) it for SWITCH_SECONDS; release
 # to free movement after RELEASE_SECONDS of looking well away.
 SWITCH_SECONDS = 0.15
-RELEASE_SECONDS = 0.35
+RELEASE_SECONDS = 0.25
 STICKY_RADIUS_FACTOR = 1.35
 SWITCH_HYSTERESIS_PX = 40.0
+# Break free: moving this much farther from the control than where the lock
+# started also releases it. The start distance already holds the person's gaze
+# error, so this is a deliberate move away, not noise (held RELEASE_SECONDS).
+ESCAPE_PX = 90.0
+
+# Snap radius from the person's own aim error (calibration or re-centre, in
+# screen fractions): a precise aim gets a tight, less sticky radius, a rough one
+# a wider reach. Small controls are only reachable when the radius covers the error.
+RADIUS_PER_ERROR = 0.8
+MIN_RADIUS_PX = 100.0
+MAX_RADIUS_PX = 220.0
+
+
+def snap_radius_for(error_fraction, screen_w, screen_h, default):
+    """Snap radius (px) for an aim error in screen fractions; ``default`` when unknown."""
+    if error_fraction is None or not math.isfinite(error_fraction) or error_fraction <= 0:
+        return float(default)
+    radius = error_fraction * (screen_w + screen_h) / 2.0 * RADIUS_PER_ERROR
+    return min(max(radius, MIN_RADIUS_PX), MAX_RADIUS_PX)
 
 
 @dataclass(frozen=True)
@@ -72,14 +91,20 @@ class TargetLock:
         self._switch_to = None
         self._switch_since = None
         self._away_since = None
+        self._locked_at = 0.0
+
+    def _lock(self, target, x, y):
+        self.reset()
+        self.active = target
+        if target is not None:
+            self._locked_at = target.distance_to(x, y)
 
     def snap(self, x, y, targets, now):
         """Return (x, y, target): the locked target's centre, or the gaze point."""
         nearest = choose_target(x, y, targets, self.radius)
         active = self.active if self.active in targets else None
         if active is None:
-            self.reset()
-            self.active = nearest
+            self._lock(nearest, x, y)
         else:
             active_distance = active.distance_to(x, y)
             rival = None
@@ -91,15 +116,15 @@ class TargetLock:
                 self._switch_to = self._switch_since = None
             elif rival != self._switch_to:
                 self._switch_to, self._switch_since = rival, now
+            sticky = min(self.radius * STICKY_RADIUS_FACTOR, self._locked_at + ESCAPE_PX)
             if rival is not None and now - self._switch_since >= SWITCH_SECONDS:
-                self.reset()
-                self.active = rival
-            elif active_distance <= self.radius * STICKY_RADIUS_FACTOR or rival is not None:
+                self._lock(rival, x, y)
+            elif active_distance <= sticky or rival is not None:
                 self._away_since = None
             else:
                 if self._away_since is None:
                     self._away_since = now
-                if now - self._away_since >= RELEASE_SECONDS:
+                if now - self._away_since >= RELEASE_SECONDS - 1e-9:
                     self.reset()
         if self.active is None:
             return x, y, None
