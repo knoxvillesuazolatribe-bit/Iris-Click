@@ -22,7 +22,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
-from app.api.deps import DatabaseSafeRoute, get_db, require_assistive
+from app.api.deps import DatabaseSafeRoute, current_sign_in, get_db, require_assistive
 from app.cloud import access
 from app.cloud import desktop as cloud_desktop
 from app.cloud import desktop_api as cloud_desktop_api
@@ -133,10 +133,14 @@ setup_check = APIRouter(prefix="/cloud", tags=["online copy"])
 
 
 @setup_check.get("/check")
-def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked)) -> dict:
+def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked),
+                signed_in=Depends(current_sign_in)) -> dict:
     """Which settings this deployment has (set/missing, never values) and whether the
-    database answers, with the driver's reason when it does not. Behind the access code."""
+    database answers, with the driver's reason when it does not. Security audit: with no
+    access code (the open website), everyone sees only the build and ok/error; the settings
+    list, port and reason are for admins. Behind an access code, passing it is enough."""
     settings = get_settings()
+    trusted = (signed_in is not None and signed_in.user.role == "admin") or access.configured_code() is not None
     report = {
         "build": {"environment": os.environ.get("VERCEL_ENV", "local"),
                   "branch": os.environ.get("VERCEL_GIT_COMMIT_REF", ""),
@@ -156,6 +160,8 @@ def check_setup(_admin: None = Depends(cloud_computers.admin_when_locked)) -> di
             if secret:
                 text = text.replace(secret, "***")
         report.update(database="error", error=text[:300])
+    if not trusted:
+        return {"build": report["build"], "database": report["database"]}
     return report
 
 

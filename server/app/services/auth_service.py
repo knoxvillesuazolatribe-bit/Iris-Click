@@ -6,10 +6,13 @@ Every attempt writes a system_logs row: ``login`` or ``login_failed``.
 import threading
 import time
 from collections import deque
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.system_log import SystemLog
+from app.models.timestamps import utc_now
 from app.models.user import ROLE_ADMIN, STATUS_ACTIVE, User
 from app.services.password_hashing import hash_password, needs_rehash, verify_password
 from app.services.system_log_service import log_activity
@@ -66,10 +69,23 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def recent_failures(db: Session, key: str, now: datetime | None = None) -> int:
+    """Failed admin sign-ins for this email in the last FAILURE_WINDOW_S, from system_logs.
+    Security audit: on Vercel every request may run in a fresh copy whose memory (the
+    LoginThrottle) is empty, so the lockout must also hold across copies."""
+    since = (now or utc_now()) - timedelta(seconds=FAILURE_WINDOW_S)
+    return db.scalar(select(func.count()).select_from(SystemLog).where(
+        SystemLog.activity_type == "login_failed",
+        SystemLog.activity_description == f"Admin sign-in failed for {key}",
+        SystemLog.log_date >= since)) or 0
+
+
 def authenticate_admin(db: Session, email: str, password: str) -> User:
     """The active admin for these credentials (logs the attempt); raises AuthError."""
     key = normalize_email(email)
     locked_s = throttle.seconds_locked(key)
+    if locked_s <= 0 and recent_failures(db, key) >= MAX_FAILURES:
+        locked_s = LOCKOUT_S
     if locked_s > 0:
         minutes = max(1, round(locked_s / 60))
         log_activity("login_failed", f"Admin sign-in blocked for {key}: too many attempts")

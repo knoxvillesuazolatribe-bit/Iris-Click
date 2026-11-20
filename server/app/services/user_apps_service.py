@@ -117,6 +117,9 @@ def _scanned(path: str) -> InstalledApp | None:
 
 # --- Checks ---------------------------------------------------------------------------------
 
+UNSAFE_URL_CHARS = frozenset('"<>\\^`{|}')  # quotes, angle brackets, backslash, pipe...
+
+
 def clean_url(raw: str) -> str:
     """http/https only; "youtube.com" becomes "https://youtube.com"."""
     url = (raw or "").strip()
@@ -124,11 +127,15 @@ def clean_url(raw: str) -> str:
         raise UserAppsError(422, "Type the website address.")
     if any(ch.isspace() or ord(ch) < 32 for ch in url):
         raise UserAppsError(422, "A website address cannot contain spaces.")
+    if any(ch in UNSAFE_URL_CHARS for ch in url):  # security audit: never part of a real address
+        raise UserAppsError(422, "That website address has characters that are not allowed.")
     if "://" not in url and ":" not in url.split("/")[0]:
         url = "https://" + url
     parts = urlsplit(url)
     if parts.scheme.lower() not in ("http", "https") or not parts.hostname or "." not in parts.hostname:
         raise UserAppsError(422, "Only website addresses starting with http:// or https:// can be added.")
+    if parts.username is not None or parts.password is not None:  # "https://bank.com@evil.com" hides the real site
+        raise UserAppsError(422, "Type the website address without a name or password in it.")
     if len(url) > MAX_URL:
         raise UserAppsError(422, "That website address is too long.")
     return url

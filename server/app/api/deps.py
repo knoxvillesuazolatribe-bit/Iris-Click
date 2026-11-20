@@ -1,5 +1,6 @@
 """Shared pieces for the account routes: sign-in checks and database errors."""
 
+import os
 from collections.abc import Callable, Iterator
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -66,7 +67,8 @@ def set_session_cookie(response: Response, token: str, role: str) -> None:
         session_service.COOKIE_NAME, token,
         max_age=session_service.session_max_age_s(role),
         path=session_service.COOKIE_PATH,
-        httponly=True, samesite="lax", secure=False,  # served over http://localhost only
+        httponly=True, samesite="lax",
+        secure=bool(os.environ.get("VERCEL")),  # HTTPS online; the PC serves http://127.0.0.1
     )
 
 
