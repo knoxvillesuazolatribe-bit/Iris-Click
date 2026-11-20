@@ -121,6 +121,9 @@ class FakeSMTP:
     def __exit__(self, *exc):
         return False
 
+    def ehlo(self, name=""):
+        return 250, b"ok"
+
     def starttls(self, context=None):
         pass
 
