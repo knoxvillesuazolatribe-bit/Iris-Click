@@ -199,7 +199,7 @@ def _badge(text: str, bold: str) -> Table:
     """A pill as wide as its word: soft background, thin border, dark text of the same colour."""
     background, border, ink = TONES[status_tone(text)]
     style = ParagraphStyle("badge", fontName=bold, fontSize=7.5, leading=9, textColor=ink)
-    pill = Table([[Paragraph(escape(text), style)]], colWidths=[pdfmetrics.stringWidth(text, bold, 7.5) + 5 * mm],
+    pill = Table([[Paragraph(escape(text), style)]], colWidths=[pdfmetrics.stringWidth(text, bold, 7.5) + 6.5 * mm],
                  hAlign="LEFT")
     pill.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), background), ("BOX", (0, 0), (-1, -1), 0.5, border),

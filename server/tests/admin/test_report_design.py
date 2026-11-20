@@ -41,3 +41,14 @@ def test_empty_cells_show_a_dash_and_statuses_are_pills(monkeypatch):
 
 def test_the_logo_ships_with_the_server():
     assert report_pdf.LOGO.exists()  # Vercel cannot read the website's files
+
+
+@pytest.mark.parametrize("font", ["Helvetica-Bold", None])
+@pytest.mark.parametrize("word", ["Successful", "Failed", "Sent", "Pending"])
+def test_a_status_pill_never_breaks_its_word(word, font):
+    """Vercel has no Arial: with Helvetica, "Failed" once broke into "Faile / d"."""
+    bold = font or report_pdf._fonts()[1]
+    pill = report_pdf._badge(word, bold)
+    paragraph = pill._cellvalues[0][0]
+    paragraph.wrap(pill._colWidths[0] - 5 * report_pdf.mm, 100)
+    assert len(paragraph.blPara.lines) == 1
