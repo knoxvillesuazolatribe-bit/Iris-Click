@@ -111,7 +111,16 @@ def test_errors_say_whether_retrying_can_help(error, retryable):
         EmailSender(_settings()).send("a@b.co", "S", "B")
     assert caught.value.retryable is retryable
     if retryable:
-        assert caught.value.message == CANNOT_REACH
+        assert caught.value.message == f"{CANNOT_REACH} ({type(error).__name__})"
+
+
+def test_a_connection_failure_names_its_cause_and_is_logged(caplog):
+    FakeSMTP.fail_with = smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+    with caplog.at_level("WARNING", logger="irisclick.sos"), pytest.raises(DeliveryError) as caught:
+        EmailSender(_settings()).send("a@b.co", "S", "B")
+    assert "(SMTPServerDisconnected)" in caught.value.message
+    assert "SMTPServerDisconnected: Connection unexpectedly closed" in caplog.text
+    assert _settings().smtp_password.get_secret_value() not in caplog.text
 
 
 def test_sms_is_not_set_up_yet():
