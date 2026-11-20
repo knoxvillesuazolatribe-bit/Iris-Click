@@ -13,7 +13,7 @@ type Load = { state: 'loading' } | { state: 'error'; message: string } | { state
 
 const CONFIRM: Record<Action, { ask: string; yes: string }> = {
   reset: {
-    ask: 'Make a setup code? Their current PIN stops working; they choose a new one with the code.',
+    ask: 'Make a setup code? Their current PIN stops working. On their computer they choose Forgot PIN, then “I have a setup code”.',
     yes: 'Yes, make a code',
   },
   unlock: { ask: 'Clear their wrong PIN tries on every computer?', yes: 'Yes, unlock' },
@@ -86,7 +86,7 @@ export function AdminSigninCard({ userId, name }: { userId: number; name: string
         {load.state === 'error' && <p className="text-destructive">{load.message}</p>}
         {load.state === 'ready' && !account && (
           <p className="text-muted-foreground">
-            No account on a computer yet. Make a setup code so they can choose a username and PIN on their computer.
+            No account on a computer yet. They can make one on their computer with “I'm new: create my account”.
           </p>
         )}
         {account && (
@@ -130,17 +130,13 @@ export function AdminSigninCard({ userId, name }: { userId: number; name: string
             <Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button>
           </div>
         ) : (
-          load.state === 'ready' && (
+          load.state === 'ready' && account && (
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => setConfirm('reset')}><Ticket aria-hidden /> {account ? 'Reset PIN' : 'Make setup code'}</Button>
-              {account && (
-                <>
-                  <Button variant="outline" disabled={account.lock === 'ok'} onClick={() => setConfirm('unlock')}>
-                    <LockOpen aria-hidden /> Unlock
-                  </Button>
-                  <Button variant="outline" onClick={() => setConfirm('signout')}><LogOut aria-hidden /> Sign out everywhere</Button>
-                </>
-              )}
+              <Button onClick={() => setConfirm('reset')}><Ticket aria-hidden /> Reset PIN</Button>
+              <Button variant="outline" disabled={account.lock === 'ok'} onClick={() => setConfirm('unlock')}>
+                <LockOpen aria-hidden /> Unlock
+              </Button>
+              <Button variant="outline" onClick={() => setConfirm('signout')}><LogOut aria-hidden /> Sign out everywhere</Button>
             </div>
           )
         )}

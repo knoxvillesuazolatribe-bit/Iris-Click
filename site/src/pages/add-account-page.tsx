@@ -1,5 +1,5 @@
 import { isAxiosError } from 'axios'
-import { ArrowLeft, KeyRound, LoaderCircle, ShieldCheck, Sparkles, Ticket, UserRoundPlus } from 'lucide-react'
+import { ArrowLeft, KeyRound, LoaderCircle, ShieldCheck, Sparkles, UserRoundPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { GazeButton } from '@/components/gaze-button'
@@ -322,10 +322,6 @@ export function AddAccountPage() {
           </GazeButton>
           <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" onClick={() => { setPath('existing'); go('calibrate') }}>
             <KeyRound aria-hidden /> I already have an account
-          </GazeButton>
-          <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal"
-            onClick={() => { setPath('code'); setSetup(null); setCode(''); go('code') }}>
-            <Ticket aria-hidden /> I have a setup code from PDAO
           </GazeButton>
         </section>
       )}
