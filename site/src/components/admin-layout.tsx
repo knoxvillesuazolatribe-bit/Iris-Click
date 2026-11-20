@@ -4,7 +4,6 @@ import { Link, NavLink } from 'react-router'
 import { SignOutButton } from '@/components/sign-out-button'
 import { useAppName } from '@/lib/use-app-name'
 import { cn } from '@/lib/utils'
-import { useSessionStore } from '@/store/session-store'
 
 const LINKS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -24,7 +23,6 @@ interface AdminLayoutProps {
 /** Admin pages: menu, page title and sign-out (mouse and keyboard use, normal sizes). */
 export function AdminLayout({ title, description, actions, children }: AdminLayoutProps) {
   const appName = useAppName()
-  const admin = useSessionStore((s) => s.user)
   return (
     <div className="bg-background text-foreground min-h-svh">
       <header className="bg-card border-b">
@@ -51,9 +49,8 @@ export function AdminLayout({ title, description, actions, children }: AdminLayo
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-4">
-            <span className="text-muted-foreground text-sm">{admin?.full_name}</span>
-            <SignOutButton />
+          <div className="ml-auto flex shrink-0 items-center">
+            <SignOutButton compact />
           </div>
         </div>
       </header>
