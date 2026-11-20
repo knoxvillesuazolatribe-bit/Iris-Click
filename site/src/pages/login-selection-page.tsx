@@ -34,10 +34,10 @@ export function LoginSelectionPage() {
           <strong className="font-semibold">Need help?</strong> Ask a Persons with Disability Affairs Office (PDAO)
           staff member or someone you trust to assist you, or email{' '}
           <a
-            href="mailto:irisclick@gmail.com"
+            href="mailto:irisclickph@gmail.com"
             className="text-primary focus-visible:ring-primary rounded-sm font-medium underline underline-offset-4 hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
           >
-            irisclick@gmail.com
+            irisclickph@gmail.com
           </a>{' '}
           for support.
         </p>
