@@ -6,6 +6,7 @@ paid for. Every failure says why and whether trying again could help.
 """
 
 import logging
+import os
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -20,6 +21,19 @@ EMAIL_NOT_SET_UP = ("Email is not set up on this computer, so this alert was not
                     "Ask your administrator to add the SMTP details.")
 SMS_NOT_SET_UP = "SMS sending is not set up yet, so this contact was not texted. Add an email for them."
 CANNOT_REACH = "Could not reach the email server. Check the internet connection."
+# Online, introduce the server to the mail server by the site's name instead of whatever
+# name the cloud machine has; on a PC smtplib's own default (the computer's name) is kept.
+ONLINE_HELLO_NAME = "irisclick.vercel.app"
+
+
+def secret_shape(value: str) -> str:
+    """How a pasted secret looks, never what it is: length and stray spaces or line breaks."""
+    notes = [f"{len(value)} characters"]
+    if value != value.strip():
+        notes.append("spaces or line breaks at the ends")
+    if " " in value.strip():
+        notes.append("spaces inside")
+    return ", ".join(notes)
 
 
 class DeliveryError(Exception):
@@ -72,8 +86,11 @@ class EmailSender:
             # an admin what to fix; it never contains the password.
             # The step (connect, tls, login, send) shows whether the server refused the
             # connection itself or a later stage.
-            logger.warning("SOS email to the mail server failed at %s: %s: %s", self.step,
-                           type(exc).__name__, exc)
+            logger.warning("SOS email to the mail server failed at %s: %s: %s (hello reply %s; "
+                           "username %s; password %s)", self.step, type(exc).__name__, exc,
+                           getattr(self, "hello_reply", None),
+                           secret_shape(self._s.smtp_username),
+                           secret_shape(self._s.smtp_password.get_secret_value()))
             raise DeliveryError(f"{CANNOT_REACH} ({type(exc).__name__})", retryable=True) from exc
 
     def _deliver(self, message: EmailMessage) -> None:
@@ -81,18 +98,27 @@ class EmailSender:
         s = self._s
         timeout = s.smtp_timeout_s
         self.step = "connect"
+        self.hello_reply = None
+        hello_name = ONLINE_HELLO_NAME if os.environ.get("VERCEL") else None
         if s.smtp_security == "ssl":
             client = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=timeout,
-                                      context=ssl.create_default_context())
+                                      context=ssl.create_default_context(), local_hostname=hello_name)
         else:
-            client = smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=timeout)
+            client = smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=timeout, local_hostname=hello_name)
         with client:
+            self.step = "hello"
+            self.hello_reply = client.ehlo()[0]
             if s.smtp_security == "starttls":
                 self.step = "tls"
                 client.starttls(context=ssl.create_default_context())
-            if s.smtp_username:
+                self.step = "hello"
+                self.hello_reply = client.ehlo()[0]
+            username = s.smtp_username.strip()
+            if username:
                 self.step = "login"
-                client.login(s.smtp_username, s.smtp_password.get_secret_value())
+                # Pasted values can carry an invisible space or line break; Gmail addresses
+                # and app passwords never have spaces at their ends.
+                client.login(username, s.smtp_password.get_secret_value().strip())
             self.step = "send"
             client.send_message(message)
 
