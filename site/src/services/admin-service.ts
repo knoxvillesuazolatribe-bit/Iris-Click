@@ -46,7 +46,8 @@ export const adminService = {
   user: (id: number) => appClient.get(`/admin/users/${id}`).then((r) => adminUserDetailSchema.parse(r.data)),
   updateProfile: (id: number, form: ProfileForm) =>
     appClient
-      .put(`/admin/users/${id}`, { full_name: form.full_name, address: form.address || null, barangay: form.barangay || null })
+      .put(`/admin/users/${id}`, { full_name: form.full_name, address: form.address || null, barangay: form.barangay || null,
+        city: form.city || null })
       .then((r) => adminUserRowSchema.parse(r.data)),
   setStatus: (id: number, status: 'active' | 'inactive') =>
     appClient.post(`/admin/users/${id}/status`, { status }).then((r) => adminUserRowSchema.parse(r.data)),

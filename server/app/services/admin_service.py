@@ -93,10 +93,11 @@ def _clean(value: str | None) -> str | None:
 
 
 def update_profile(db: Session, admin: User, user: User, full_name: str,
-                   address: str | None, barangay: str | None) -> User:
+                   address: str | None, barangay: str | None, city: str | None = None) -> User:
     user.full_name = full_name.strip()
     user.address = _clean(address)
     user.barangay = _clean(barangay)
+    user.city = _clean(city)
     log_activity("user_updated", f"{admin.full_name} updated the profile of {user.full_name}",
                  admin.user_id, session=db)
     db.commit()

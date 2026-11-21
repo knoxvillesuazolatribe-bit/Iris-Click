@@ -32,6 +32,7 @@ export const adminUserSchema = z.object({
   status: z.enum(['active', 'inactive']),
   address: z.string().nullable(),
   barangay: z.string().nullable(),
+  city: z.string().nullable().optional(),
   created_at: z.string(),
 })
 export type AdminUser = z.infer<typeof adminUserSchema>
@@ -44,5 +45,6 @@ export const assistiveCreateSchema = z.object({
     .max(100, 'Use 100 characters or fewer'),
   barangay: z.string().trim().max(100, 'Use 100 characters or fewer'),
   address: z.string().trim().max(255, 'Use 255 characters or fewer'),
+  city: z.string().trim().max(60, 'Use 60 characters or fewer'),
 })
 export type AssistiveCreateInput = z.infer<typeof assistiveCreateSchema>

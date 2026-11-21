@@ -143,6 +143,8 @@ class AddressRequest(BaseModel):
     """The person's own address for Emergency SOS (step 12). Blank barangay is allowed."""
     address: str = Field(min_length=1, max_length=255)
     barangay: str = Field(default="", max_length=100)
+    # Blank keeps Lapu-Lapu City.
+    city: str = Field(default="", max_length=60)
 
 
 class AddressRead(BaseModel):

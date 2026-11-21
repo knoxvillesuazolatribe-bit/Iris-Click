@@ -57,7 +57,7 @@ def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_adm
 def create_assistive_user(body: AssistiveCreateRequest, db: Session = Depends(get_db),
                           admin: User = Depends(require_admin)) -> AdminUserRead:
     user = User(full_name=body.full_name, role=ROLE_ASSISTIVE_USER,
-                address=body.address or None, barangay=body.barangay or None)
+                address=body.address or None, barangay=body.barangay or None, city=body.city or None)
     db.add(user)
     db.flush()
     log_activity("user_created", f"{admin.full_name} created assistive user {user.full_name}",
@@ -80,7 +80,7 @@ def user_detail(user_id: int, db: Session = Depends(get_db),
 def update_user(user_id: int, body: AdminUserUpdate, db: Session = Depends(get_db),
                 admin: User = Depends(require_admin)):
     user = _target(db, user_id)
-    admin_service.update_profile(db, admin, user, body.full_name, body.address, body.barangay)
+    admin_service.update_profile(db, admin, user, body.full_name, body.address, body.barangay, body.city)
     return _row(db, user)
 
 

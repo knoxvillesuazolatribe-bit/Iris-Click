@@ -33,6 +33,7 @@ const FIELDS = [
   { name: 'full_name', label: 'Full name' },
   { name: 'barangay', label: 'Barangay' },
   { name: 'address', label: 'Address' },
+  { name: 'city', label: 'City (leave blank for Lapu-Lapu City)' },
 ] as const
 
 /** Screens 22–25: one assistive user (profile, calibration, settings, contacts, status). */
@@ -77,7 +78,7 @@ export function AdminUserPage() {
         ? (accounts ? 'Active: can sign in on their computers.' : 'Active: can sign in from the name tiles.')
         : 'Inactive: hidden from the name tiles and cannot sign in.'}>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ProfileCard key={`${user.user_id}-${user.full_name}-${user.address}-${user.barangay}`} detail={load.detail} onSaved={reload} />
+        <ProfileCard key={`${user.user_id}-${user.full_name}-${user.address}-${user.barangay}-${user.city}`} detail={load.detail} onSaved={reload} />
         <Card>
           <CardHeader>
             <CardTitle>Calibration</CardTitle>
@@ -151,7 +152,7 @@ function ProfileCard({ detail, onSaved }: { detail: AdminUserDetail; onSaved: ()
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: { full_name: user.full_name, address: user.address ?? '', barangay: user.barangay ?? '' },
+    defaultValues: { full_name: user.full_name, address: user.address ?? '', barangay: user.barangay ?? '', city: user.city ?? '' },
   })
   const onSubmit = form.handleSubmit(async (values) => {
     setNotice(null)
@@ -166,7 +167,7 @@ function ProfileCard({ detail, onSaved }: { detail: AdminUserDetail; onSaved: ()
     <Card>
       <CardHeader>
         <CardTitle>Profile</CardTitle>
-        <CardDescription>The address and barangay are the location shared by SOS.</CardDescription>
+        <CardDescription>The address, barangay and city are the location shared by SOS.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} noValidate className="grid gap-4">

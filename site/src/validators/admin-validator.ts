@@ -33,6 +33,7 @@ export const profileFormSchema = z.object({
   full_name: z.string().trim().min(1, 'Enter the full name').max(100, 'Use 100 characters or fewer'),
   address: z.string().trim().max(255, 'Use 255 characters or fewer'),
   barangay: z.string().trim().max(100, 'Use 100 characters or fewer'),
+  city: z.string().trim().max(60, 'Use 60 characters or fewer'),
 })
 export type ProfileForm = z.infer<typeof profileFormSchema>
 

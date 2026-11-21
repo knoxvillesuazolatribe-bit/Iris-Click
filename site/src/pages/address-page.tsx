@@ -6,9 +6,12 @@ import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
-type Field = 'address' | 'barangay'
+type Field = 'address' | 'barangay' | 'city'
 
-const LIMITS: Record<Field, number> = { address: 255, barangay: 100 }
+const LIMITS: Record<Field, number> = { address: 255, barangay: 100, city: 60 }
+/** Cities near the Lapu-Lapu PDAO; "Other" types any city. The SOS text ends with the city. */
+const CITIES = ['Lapu-Lapu City', 'Mandaue City', 'Cebu City', 'Cordova'] as const
+const OTHER = 'Other'
 const ROWS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM-,.']
 
 /** Capitals at the start of each word ("123 Purok Mangga"), as addresses are written. */
@@ -29,7 +32,8 @@ function typeAddress(text: string, key: string, max: number): string {
 export function AddressPage() {
   const navigate = useNavigate()
   const [field, setField] = useState<Field>('address')
-  const [values, setValues] = useState<Record<Field, string>>({ address: '', barangay: '' })
+  const [values, setValues] = useState<Record<Field, string>>({ address: '', barangay: '', city: '' })
+  const [city, setCity] = useState<string>(CITIES[0])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,9 +44,12 @@ export function AddressPage() {
 
   const save = async () => {
     if (!values.address.trim()) return setError('Type your address first.')
+    const chosenCity = city === OTHER ? values.city.trim() : city
+    if (!chosenCity) return setError('Type your city first.')
     setBusy(true)
     try {
-      await appClient.put('/accounts/me/address', { address: values.address.trim(), barangay: values.barangay.trim() })
+      await appClient.put('/accounts/me/address', {
+        address: values.address.trim(), barangay: values.barangay.trim(), city: chosenCity })
       void navigate('/sos', { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Could not save your address. Please try again.'))
@@ -59,7 +66,8 @@ export function AddressPage() {
         field === name ? 'border-primary ring-primary/30 ring-4' : 'border-muted')}>
       <span className="text-muted-foreground block text-lg">{label}</span>
       <span className="block min-h-9 text-2xl font-semibold break-words">
-        {values[name] || <span className="text-muted-foreground font-normal">{name === 'address' ? 'House no., street, purok' : 'Optional'}</span>}
+        {values[name] || <span className="text-muted-foreground font-normal">
+          {name === 'address' ? 'House no., street, purok' : name === 'city' ? 'Type your city' : 'Optional'}</span>}
       </span>
     </button>
   )
@@ -82,6 +90,19 @@ export function AddressPage() {
       <div className="grid w-full gap-4 sm:grid-cols-2">
         {fieldButton('address', 'Address')}
         {fieldButton('barangay', 'Barangay')}
+      </div>
+      <div role="group" aria-label="City" className="flex w-full flex-col gap-3">
+        <span className="text-muted-foreground text-lg">City</span>
+        <div className="flex flex-wrap gap-3">
+          {[...CITIES, OTHER].map((name) => (
+            <GazeButton key={name} variant={city === name ? 'default' : 'outline'} aria-pressed={city === name}
+              disabled={busy} className="min-h-16 text-xl"
+              onClick={() => { setError(null); setCity(name); if (name === OTHER) setField('city') }}>
+              {city === name && <Check aria-hidden />} {name}
+            </GazeButton>
+          ))}
+        </div>
+        {city === OTHER && fieldButton('city', 'Other city')}
       </div>
       <div role="group" aria-label="Address keyboard" className="flex w-full flex-col items-center gap-3">
         {ROWS.map((row) => (
