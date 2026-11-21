@@ -22,7 +22,8 @@ from app.services.local_time import to_local
 from app.services.system_log_service import log_activity
 
 MAX_CONTACTS = 10
-CITY = "Lapu-Lapu City"
+# A person with no city on file lives in Lapu-Lapu City (the PDAO's city).
+DEFAULT_CITY = "Lapu-Lapu City"
 # A second press within this window shows the alert already being sent.
 DUPLICATE_WINDOW = timedelta(seconds=60)
 # Pending this long with no sender working on it: the server restarted mid-retry.
@@ -91,7 +92,7 @@ def delete_contact(db: Session, user: User, contact_id: int, actor: User | None 
 # --- Location and message ----------------------------------------------------
 
 def location_text(user: User) -> str | None:
-    """The address and barangay on file, or None when both are blank."""
+    """Address, barangay and city on file, or None when address and barangay are blank."""
     parts = []
     if user.address and user.address.strip():
         parts.append(user.address.strip())
@@ -100,7 +101,8 @@ def location_text(user: User) -> str | None:
         parts.append(barangay if barangay.lower().startswith(("barangay", "brgy")) else f"Barangay {barangay}")
     if not parts:
         return None
-    return ", ".join([*parts, CITY])
+    city = (user.city or "").strip() or DEFAULT_CITY
+    return ", ".join([*parts, city])
 
 
 SMS_SIGNATURE = "PDAO Lapu-Lapu"

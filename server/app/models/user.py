@@ -37,6 +37,8 @@ class User(Base):
     # Sent with an SOS alert as the user's location (team decision D8).
     address: Mapped[str | None] = mapped_column(String(255))
     barangay: Mapped[str | None] = mapped_column(String(100))
+    # NULL means Lapu-Lapu City (services/sos_service.DEFAULT_CITY).
+    city: Mapped[str | None] = mapped_column(String(60))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now,
                                                  server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now,

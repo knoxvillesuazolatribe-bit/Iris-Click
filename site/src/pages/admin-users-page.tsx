@@ -26,6 +26,7 @@ const TEXT_FIELDS = [
   { name: 'full_name', label: 'Full name', autoComplete: 'name' },
   { name: 'barangay', label: 'Barangay', autoComplete: 'address-level3' },
   { name: 'address', label: 'Address', autoComplete: 'street-address' },
+  { name: 'city', label: 'City (leave blank for Lapu-Lapu City)', autoComplete: 'address-level2' },
 ] as const
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 
@@ -42,7 +43,7 @@ export function AdminUsersPage() {
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const form = useForm<AssistiveCreateInput>({
     resolver: zodResolver(assistiveCreateSchema),
-    defaultValues: { full_name: '', barangay: '', address: '' },
+    defaultValues: { full_name: '', barangay: '', address: '', city: '' },
   })
 
   useEffect(() => {

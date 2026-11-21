@@ -218,10 +218,11 @@ def setup_complete(body: SetupCompleteRequest, request: Request, device: Device 
 def my_address(body: AddressRequest, user: User = Depends(require_assistive), db: Session = Depends(get_db)):
     """Sent with an SOS alert as the location (D8). The log never holds the address itself."""
     address, barangay = " ".join(body.address.split()), " ".join(body.barangay.split())
+    city = " ".join(body.city.split())
     if not address:
         raise HTTPException(status_code=422, detail="Type your address first.")
     row = db.get(User, user.user_id)
-    row.address, row.barangay = address, barangay or None
+    row.address, row.barangay, row.city = address, barangay or None, city or None
     log_activity("address_updated", f"{row.full_name} updated their address for Emergency SOS", row.user_id,
                  session=db)
     db.commit()

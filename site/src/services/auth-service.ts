@@ -31,6 +31,7 @@ export const adminUsersService = {
         full_name: input.full_name,
         barangay: input.barangay || null,
         address: input.address || null,
+        city: input.city || null,
       })
       .then((r) => adminUserSchema.parse(r.data)),
 }

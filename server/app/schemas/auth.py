@@ -41,6 +41,7 @@ class AssistiveCreateRequest(BaseModel):
     full_name: Name
     address: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)] | None = None
     barangay: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None = None
+    city: Annotated[str, StringConstraints(strip_whitespace=True, max_length=60)] | None = None
 
 
 class AdminUserRead(BaseModel):
@@ -53,4 +54,5 @@ class AdminUserRead(BaseModel):
     status: Literal["active", "inactive"]
     address: str | None
     barangay: str | None
+    city: str | None = None
     created_at: datetime
