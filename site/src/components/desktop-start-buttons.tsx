@@ -14,13 +14,15 @@ interface Props {
   /** Signs the chosen user in on the website; resolves true on success. */
   signIn: () => Promise<boolean>
   onError: (message: string) => void
+  /** False once the person has a saved calibration: Home already offers Recalibrate. */
+  showCalibrate?: boolean
 }
 
 /**
  * Hosted website, after choosing a name: start eye tracking on this PC (IrisClick
  * Desktop, with the user's own calibration), calibrate, or continue without it.
  */
-export function DesktopStartButtons({ signIn, onError }: Props) {
+export function DesktopStartButtons({ signIn, onError, showCalibrate = true }: Props) {
   const navigate = useNavigate()
   const [busy, setBusy] = useState<'start' | 'calibrate' | 'home' | null>(null)
 
@@ -69,10 +71,12 @@ export function DesktopStartButtons({ signIn, onError }: Props) {
         {busy === 'start' ? <LoaderCircle className="animate-spin" aria-hidden /> : <Play aria-hidden />}
         Start eye tracking
       </GazeButton>
-      <GazeButton variant="outline" className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void go('calibrate')}>
-        {busy === 'calibrate' ? <LoaderCircle className="animate-spin" aria-hidden /> : <Crosshair aria-hidden />}
-        Calibrate
-      </GazeButton>
+      {showCalibrate && (
+        <GazeButton variant="outline" className="min-h-28 w-full text-2xl" disabled={busy !== null} onClick={() => void go('calibrate')}>
+          {busy === 'calibrate' ? <LoaderCircle className="animate-spin" aria-hidden /> : <Crosshair aria-hidden />}
+          Calibrate
+        </GazeButton>
+      )}
       <GazeButton variant="outline" className="min-h-20 w-full text-xl" disabled={busy !== null} onClick={() => void go('home')}>
         {busy === 'home' ? <LoaderCircle className="animate-spin" aria-hidden /> : <House aria-hidden />}
         Continue without eye tracking
