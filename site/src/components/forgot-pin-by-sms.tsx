@@ -20,7 +20,8 @@ interface Props {
   tile: AccountTile
   onDone: (session: AccountSession) => void
   onBack: () => void
-  onSetupCode: () => void
+  /** Only while PDAO setup codes are on. */
+  onSetupCode?: () => void
 }
 
 /**

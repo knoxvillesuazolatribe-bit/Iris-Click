@@ -51,7 +51,7 @@ def tiles(api, computer=PC1):
 def test_the_website_can_always_ask_which_sign_in_to_show(monkeypatch):
     monkeypatch.delenv(mode.ENV_NAME, raising=False)
     monkeypatch.setattr(mode, "signin_mode", lambda env_file=None: "legacy")
-    assert new_client().get("/api/signin/mode").json() == {"mode": "legacy", "sms_enabled": False}
+    assert new_client().get("/api/signin/mode").json() == {"mode": "legacy", "sms_enabled": False, "setup_codes_enabled": True}
 
 
 def test_in_legacy_mode_every_account_route_is_closed(monkeypatch, test_database):

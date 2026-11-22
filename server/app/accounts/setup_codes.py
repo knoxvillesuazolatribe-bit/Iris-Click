@@ -17,6 +17,7 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import time
 from dataclasses import dataclass
@@ -44,6 +45,29 @@ class SetupCodeError(Exception):
 
 
 WRONG_CODE = "That setup code is not right, or it has expired. Check it with PDAO staff."
+
+# Setup codes are switched off for now (2026-11-22): set SETUP_CODES=on (Vercel environment or
+# server/.env) to bring them back. The code, the setup_codes table and the tests all stay.
+ENV_NAME = "SETUP_CODES"
+OFF = "Setup codes are turned off."
+
+
+def enabled(env_file=None) -> bool:
+    value = os.environ.get(ENV_NAME)
+    if value is None:
+        try:
+            from dotenv import dotenv_values
+
+            from app.config import SERVER_DIR
+            value = dotenv_values(env_file or SERVER_DIR / ".env").get(ENV_NAME)
+        except Exception:  # noqa: BLE001 - unreadable settings mean off
+            value = None
+    return (value or "").strip().lower() in ("on", "1", "true", "yes")
+
+
+def _require_enabled() -> None:
+    if not enabled():
+        raise SetupCodeError(404, "setup_codes_off", OFF)
 TICKET_EXPIRED = "This took too long. Please type your setup code again."
 
 
@@ -70,6 +94,7 @@ class NewCode:
 
 def create_code(db: Session, admin: User, user_id: int, now: datetime | None = None) -> NewCode:
     """A fresh code for an active assistive user; earlier unused codes stop working."""
+    _require_enabled()
     now = now or utc_now()
     user = db.get(User, user_id)
     if user is None or user.role != ROLE_ASSISTIVE_USER or user.status != STATUS_ACTIVE:
@@ -139,6 +164,7 @@ def _usable(db: Session, now: datetime) -> list[SetupCode]:
 
 def redeem(db: Session, device: Device | None, code: object, address: str | None = None,
            now: datetime | None = None) -> Redeemed:
+    _require_enabled()
     now = now or utc_now()
     if device is None:
         raise SetupCodeError(400, "device_required", "Open IrisClick Desktop on this computer, then try again.")
@@ -166,6 +192,7 @@ def complete(db: Session, device: Device | None, *, ticket: str, pin: str, pin_c
              consent: bool = False, username: str | None = None, mobile_number: str | None = None,
              now: datetime | None = None):
     """Set the new PIN (and, for a first account, the username and mobile number); signs in."""
+    _require_enabled()
     from app.accounts import service  # service imports nothing from here
     now = now or utc_now()
     if device is None:

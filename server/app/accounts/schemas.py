@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 class SigninModeRead(BaseModel):
     mode: Literal["legacy", "device_accounts"]
     sms_enabled: bool = False
+    # PDAO setup codes (Reset PIN, "I have a setup code"); off unless SETUP_CODES=on.
+    setup_codes_enabled: bool = False
 
 
 class MobileRequest(BaseModel):

@@ -5,6 +5,7 @@ import { z } from 'zod'
 export const signinModeSchema = z.object({
   mode: z.enum(['legacy', 'device_accounts']),
   sms_enabled: z.boolean().default(false),
+  setup_codes_enabled: z.boolean().default(false),
 })
 export type SigninMode = z.infer<typeof signinModeSchema>['mode']
 

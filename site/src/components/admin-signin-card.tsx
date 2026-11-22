@@ -1,6 +1,7 @@
 import { KeyRound, LockOpen, LogOut, Ticket } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage } from '@/api/app-client'
+import { setupCodesEnabled } from '@/lib/signin-mode'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,10 @@ export function AdminSigninCard({ userId, name }: { userId: number; name: string
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [code, setCode] = useState<SetupCodeMade | null>(null)
+  const [codes, setCodes] = useState(false) // Reset PIN makes a setup code: hidden while those are off
+  useEffect(() => {
+    void setupCodesEnabled().then(setCodes)
+  }, [])
 
   const refresh = useCallback(async () => {
     try {
@@ -132,7 +137,7 @@ export function AdminSigninCard({ userId, name }: { userId: number; name: string
         ) : (
           load.state === 'ready' && account && (
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => setConfirm('reset')}><Ticket aria-hidden /> Reset PIN</Button>
+              {codes && <Button onClick={() => setConfirm('reset')}><Ticket aria-hidden /> Reset PIN</Button>}
               <Button variant="outline" disabled={account.lock === 'ok'} onClick={() => setConfirm('unlock')}>
                 <LockOpen aria-hidden /> Unlock
               </Button>

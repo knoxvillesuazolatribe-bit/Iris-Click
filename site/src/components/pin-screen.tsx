@@ -86,8 +86,8 @@ export function ForgotPinScreen({ reason, onBack, onSetupCode }: { reason?: stri
   return (
     <section className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">
       <h1 className="text-4xl font-bold">Forgot your PIN?</h1>
-      <p className="text-muted-foreground text-2xl">{reason ?? "We couldn't send a code. Ask PDAO staff to reset your PIN."}</p>
-      <p className="text-muted-foreground text-xl">They will give you an 8-number setup code to choose a new PIN.</p>
+      <p className="text-muted-foreground text-2xl">{reason ?? "We couldn't send a code. Ask PDAO staff for help."}</p>
+      {onSetupCode && <p className="text-muted-foreground text-xl">They will give you an 8-number setup code to choose a new PIN.</p>}
       <div className="flex flex-wrap justify-center gap-6">
         {onSetupCode && <GazeButton className="min-h-20 min-w-60 text-xl" onClick={onSetupCode}>I have a setup code</GazeButton>}
         <GazeButton autoFocus variant="outline" className="min-h-20 min-w-60 text-xl" onClick={onBack}>Back</GazeButton>
