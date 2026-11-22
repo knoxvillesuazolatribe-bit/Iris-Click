@@ -100,7 +100,8 @@ def _signed_in(result: SignedInAccount, request: Request, db: Session) -> JSONRe
 
 @mode_router.get("/mode", response_model=SigninModeRead)
 def signin_mode() -> SigninModeRead:
-    return SigninModeRead(mode=mode.signin_mode(), sms_enabled=sms.configured())
+    return SigninModeRead(mode=mode.signin_mode(), sms_enabled=sms.configured(),
+                          setup_codes_enabled=setup_codes.enabled())
 
 
 # A person never calibrated has no accuracy: the field is left out rather than sent as null.

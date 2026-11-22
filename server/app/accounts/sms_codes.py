@@ -43,12 +43,12 @@ TICKET_LIFETIME_S = 15 * 60
 
 logger = logging.getLogger("irisclick.sms")
 
-CANT_SEND = "We couldn't send a code. Ask PDAO staff to reset your PIN."
+CANT_SEND = "We couldn't send a code. Ask PDAO staff for help."
 MESSAGES = {
     "sms_off": "We can't text you yet. If you forget your PIN, ask PDAO staff.",
     "cant_send": CANT_SEND,
     "not_verified": ("Your mobile number hasn't been checked yet, so we can't text you a code. "
-                     "Ask PDAO staff to reset your PIN."),
+                     "Ask PDAO staff for help."),
     "bad_mobile": "Enter a mobile number like 0917 123 4567.",
     "resend_wait": "Please wait a moment before asking for another code.",
     "sms_limit": "Too many codes were sent to this number. Try again later, or ask PDAO staff.",

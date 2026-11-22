@@ -48,7 +48,8 @@ def test_on_the_hosted_copy_only_the_mode_is_open_before_the_access_code(monkeyp
     monkeypatch.setenv(mode.ENV_NAME, "device_accounts")
     monkeypatch.setattr(access, "sleep", lambda _s: None)
     with hosted() as web:
-        assert web.get("/api/signin/mode").json() == {"mode": "device_accounts", "sms_enabled": False}
+        assert web.get("/api/signin/mode").json() == {"mode": "device_accounts", "sms_enabled": False,
+                                                    "setup_codes_enabled": True}
         for method, path in [("get", "/api/accounts/tiles"), ("post", "/api/accounts/signup"),
                              ("post", "/api/accounts/signin"), ("post", "/api/accounts/username-check")]:
             response = getattr(web, method)(path, headers={devices.DEVICE_HEADER: PC1})
