@@ -40,7 +40,9 @@ MESSAGES = {
     pins.TOO_EASY: "That PIN is too easy. Choose another.",
     "pin_mismatch": "The PINs don't match. Try again.",
     "signup_limit": "Too many new accounts were made on this computer today. Try again tomorrow.",
-    "wrong_pin": "Username or PIN is incorrect.",
+    "wrong_pin": "That PIN is not right.",
+    "unknown_username": ("There's no IrisClick account with this username. Check the spelling, "
+                         "or go back and choose I'm new."),
     "pin_required": "Enter your PIN.",
     "wait": "Too many wrong tries. Please wait, then try again.",
     "reset_needed": "Too many wrong tries. Use Forgot PIN, or ask your PDAO administrator to reset your PIN.",
@@ -228,6 +230,17 @@ def _check_pin(db: Session, device: Device, account: UserAccount | None, pin: ob
     raise AccountError(401, "wrong_pin")
 
 
+def _refuse_unknown_username(db: Session, device: Device, address: str | None, now: datetime) -> None:
+    """No such (active) account: say so, so the person can fix the spelling (2026-11-23). Each miss
+    still counts as a wrong try for this computer and network address, so the usual lockout also
+    stops anyone from testing which usernames exist."""
+    state = limits.pin_state(db, device_id=device.device_id, user_id=None, address=address, now=now)
+    if not state.allowed:
+        raise _refuse(state)
+    limits.record_wrong_try(db, device_id=device.device_id, user_id=None, address=address, now=now)
+    raise AccountError(404, "unknown_username")
+
+
 def sign_in(db: Session, device: Device | None, *, user_id: int | None = None, username: str | None = None,
             pin: str | None = None, remember: bool | None = None, address: str | None = None,
             now: datetime | None = None) -> SignedInAccount:
@@ -251,7 +264,9 @@ def sign_in(db: Session, device: Device | None, *, user_id: int | None = None, u
         account = db.scalar(select(UserAccount).where(UserAccount.username_key == key)) if key else None
         if account is not None and (account.pin_hash is None or _active(db, account.user_id) is None):
             account = None
-        _check_pin(db, device, account, pin, address, now, say_tries_left=False)
+        if account is None:
+            _refuse_unknown_username(db, device, address, now)
+        _check_pin(db, device, account, pin, address, now, say_tries_left=True)
     limits.clear_wrong_tries(db, user_id=account.user_id, device_id=device.device_id)
     added = _use_on(db, device, account.user_id, remember if pin is not None else None, now)
     if added:
