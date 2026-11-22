@@ -32,7 +32,8 @@ type View =
   | { kind: 'confirm-remove'; tile: Tile }
   | { kind: 'pin'; tile: Tile; purpose: 'signin' | 'remove' }
   | { kind: 'forgot'; tile: Tile; purpose: 'signin' | 'remove' }
-  | { kind: 'welcome'; username: string }
+  // calibrated: the person has a saved calibration, so the start screen leaves out Calibrate.
+  | { kind: 'welcome'; username: string; calibrated: boolean }
 
 /**
  * Accounts on this computer (file 07, screens A1-A4): the accounts added to this
@@ -123,7 +124,8 @@ export function AccountsPage() {
       user: { user_id: session.user_id, full_name: session.full_name, role: session.role },
     })
     if (ONLINE_COPY) void linkDesktop() // tell IrisClick Desktop who is signed in
-    setView({ kind: 'welcome', username: session.username })
+    const tile = load.state === 'ready' ? load.tiles.accounts.find((t) => t.user_id === session.user_id) : undefined
+    setView({ kind: 'welcome', username: session.username, calibrated: tile?.accuracy != null })
   }
 
   const pick = async (tile: Tile) => {
@@ -217,7 +219,8 @@ export function AccountsPage() {
         <section className="flex w-full max-w-3xl flex-col items-center gap-8 text-center">
           <h1 className="text-4xl font-bold break-all">Hello, {view.username}</h1>
           <p className="text-muted-foreground text-xl">How would you like to start?</p>
-          <DesktopStartButtons signIn={() => Promise.resolve(true)} onError={setMessage} />
+          <DesktopStartButtons signIn={() => Promise.resolve(true)} onError={setMessage}
+            showCalibrate={!view.calibrated} />
         </section>
       ) : view.kind === 'pin' ? (
         <PinScreen username={view.tile.username} purpose={view.purpose} busy={busy} refusal={refusal}
