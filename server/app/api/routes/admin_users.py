@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.accounts.guards import PEOPLE_CREATE, PEOPLE_SET, legacy_only
-from app.api.deps import DatabaseSafeRoute, get_db, require_admin
+from app.api.deps import DatabaseSafeRoute, admin_view_only, get_db, require_admin
 from app.config import get_settings
 from app.models.user import ROLE_ASSISTIVE_USER, User
 from app.schemas.accessibility import AccessibilitySettingsRead, AccessibilitySettingsWrite
@@ -125,8 +125,11 @@ def reset_user_settings(user_id: int, db: Session = Depends(get_db),
 
 
 # --- Emergency contacts ------------------------------------------------------------------
+# Admins view a person's contacts on the user detail; changing them is the person's own job
+# (admin_view_only refuses the three routes below; remove it to allow admin edits again).
 
-@router.post("/{user_id}/contacts", response_model=SosContactRead, status_code=201)
+@router.post("/{user_id}/contacts", response_model=SosContactRead, status_code=201,
+             dependencies=[Depends(admin_view_only)])
 def add_contact(user_id: int, body: SosContactWrite, db: Session = Depends(get_db),
                 admin: User = Depends(require_admin)):
     try:
@@ -136,7 +139,8 @@ def add_contact(user_id: int, body: SosContactWrite, db: Session = Depends(get_d
         _fail(exc)
 
 
-@router.put("/{user_id}/contacts/{contact_id}", response_model=SosContactRead)
+@router.put("/{user_id}/contacts/{contact_id}", response_model=SosContactRead,
+            dependencies=[Depends(admin_view_only)])
 def update_contact(user_id: int, contact_id: int, body: SosContactWrite,
                    db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     try:
@@ -146,7 +150,7 @@ def update_contact(user_id: int, contact_id: int, body: SosContactWrite,
         _fail(exc)
 
 
-@router.delete("/{user_id}/contacts/{contact_id}", status_code=204)
+@router.delete("/{user_id}/contacts/{contact_id}", status_code=204, dependencies=[Depends(admin_view_only)])
 def delete_contact(user_id: int, contact_id: int, db: Session = Depends(get_db),
                    admin: User = Depends(require_admin)):
     try:

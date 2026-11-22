@@ -56,6 +56,15 @@ def require_admin(signed_in: SignedIn = Depends(require_signed_in)) -> User:
     return signed_in.user
 
 
+ADMIN_VIEW_ONLY = "Admins can only view this."
+
+
+def admin_view_only(_admin: User = Depends(require_admin)) -> None:
+    """An admin route that is switched off: admins may view a person's contacts and apps but not
+    change them (2026-11-22). Others still get require_admin's answer first."""
+    raise HTTPException(status_code=403, detail=ADMIN_VIEW_ONLY)
+
+
 def require_assistive(signed_in: SignedIn = Depends(require_signed_in)) -> User:
     if signed_in.user.role != ROLE_ASSISTIVE_USER:
         raise HTTPException(status_code=403, detail="Pick your name on the sign-in screen first.")

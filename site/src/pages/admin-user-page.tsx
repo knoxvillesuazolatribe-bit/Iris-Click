@@ -127,7 +127,9 @@ export function AdminUserPage() {
       <Card>
         <CardHeader>
           <CardTitle>Emergency contacts</CardTitle>
-          <CardDescription>Alerted by text and email when {user.full_name} presses SOS.</CardDescription>
+          <CardDescription>
+            Alerted by text and email when {user.full_name} presses SOS. Only {user.full_name} can add or change contacts.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ContactsManager
@@ -136,6 +138,7 @@ export function AdminUserPage() {
             onUpdate={(id, form) => adminService.updateContact(userId, id, form)}
             onDelete={(id) => adminService.deleteContact(userId, id)}
             onChanged={reload}
+            readOnly
           />
         </CardContent>
       </Card>

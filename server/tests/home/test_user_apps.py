@@ -251,20 +251,23 @@ def test_only_assistive_users(api, signed_in_admin, start_menu):
 
 # --- Admin --------------------------------------------------------------------------------------
 
-def test_admin_can_view_and_edit_a_users_apps(signed_in_admin, make_user, start_menu, test_database):
+def test_admin_can_view_but_not_change_a_users_apps(signed_in_admin, make_user, start_menu, test_database):
+    """Apps are the person's own; the admin page only shows them (2026-11-22)."""
     ana = make_user("Ana Cruz")
     base = f"/api/admin/users/{ana}/apps"
-    assert [t["label"] for t in signed_in_admin.get(base).json()["tiles"]] == [
-        "Browser", "Calculator", "Calendar (website)", "Word"]
-    body = signed_in_admin.post(base, json={"kind": "website", "label": "Facebook",
-                                            "url": "https://facebook.com"}).json()
-    facebook = body["tiles"][-1]["tile_id"]
-    assert signed_in_admin.patch(f"{base}/{facebook}", json={"position": 0}).json()["tiles"][0]["label"] == "Facebook"
-    assert signed_in_admin.delete(f"{base}/{facebook}").status_code == 204
-    assert signed_in_admin.get(f"{base}/available").json()[0]["name"] == "Notepad"
-    assert signed_in_admin.post(f"{base}/reset").status_code == 200
-    added = logs(test_database, "app_tile_added")[0].activity_description
-    assert added.startswith("Facebook added to the apps of Ana Cruz by ")
+    before = [t["label"] for t in signed_in_admin.get(base).json()["tiles"]]
+    assert before == ["Browser", "Calculator", "Calendar (website)", "Word"]
+    first = signed_in_admin.get(base).json()["tiles"][0]["tile_id"]
+    refused = [
+        signed_in_admin.post(base, json={"kind": "website", "label": "Facebook", "url": "https://facebook.com"}),
+        signed_in_admin.patch(f"{base}/{first}", json={"position": 2}),
+        signed_in_admin.delete(f"{base}/{first}"),
+        signed_in_admin.post(f"{base}/reset"),
+    ]
+    assert [r.status_code for r in refused] == [403, 403, 403, 403]
+    assert refused[0].json()["detail"] == "Admins can only view this."
+    assert [t["label"] for t in signed_in_admin.get(base).json()["tiles"]] == before
+    assert logs(test_database, "app_tile_added") == []
 
 
 def test_admin_apps_need_an_assistive_user_and_an_admin(api, signed_in_admin, admin_id, make_user,
