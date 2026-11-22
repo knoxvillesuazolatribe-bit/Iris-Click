@@ -24,7 +24,8 @@ type Step = 'choose' | 'code' | 'consent' | 'calibrate' | 'username' | 'mobile' 
   | 'saving'
 
 const NEW_STEPS: Step[] = ['choose', 'consent', 'calibrate', 'username', 'mobile', 'pin', 'pin-confirm']
-const EXISTING_STEPS: Step[] = ['choose', 'calibrate', 'username', 'pin']
+// I already have an account: username and PIN only, no calibration (2026-11-23). Only "I'm new" calibrates.
+const EXISTING_STEPS: Step[] = ['choose', 'username', 'pin']
 // PDAO setup code: a first account (no username yet) or a new PIN for an existing account.
 const CODE_FIRST_STEPS: Step[] = ['choose', 'code', 'consent', 'username', 'mobile', 'pin', 'pin-confirm']
 const CODE_RESET_STEPS: Step[] = ['choose', 'code', 'pin', 'pin-confirm']
@@ -43,8 +44,8 @@ function formatMobile(digits: string) {
 /**
  * Add account (file 07, screens B0-B7, Figure 16): a new person accepts the consent,
  * calibrates in IrisClick Desktop, then chooses a username, a mobile number for PIN
- * recovery and a PIN. "I already have an account" calibrates on this computer and signs
- * in with username and PIN, which adds the account here. The calibration is kept by
+ * recovery and a PIN. "I already have an account" signs in with username and PIN (no calibration),
+ * which adds the account here and opens the Dashboard. The new account's calibration is kept by
  * IrisClick Desktop until the account exists, then attached to it; leaving discards it.
  */
 /**
@@ -92,6 +93,8 @@ export function AddAccountPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  // "I already have an account": the username typed does not exist, so nothing was linked.
+  const [unknownUser, setUnknownUser] = useState(false)
   const calibration = useRef<PendingCalibration | null>(null)
   const finished = useRef(false)
 
@@ -115,6 +118,7 @@ export function AddAccountPage() {
   const go = (next: Step) => {
     setMessage(null)
     setSuggestions([])
+    setUnknownUser(false)
     setStep(next)
   }
 
@@ -134,7 +138,8 @@ export function AddAccountPage() {
     go(previous)
   }
 
-  const finish = async (session: AccountSession, text: string) => {
+  /** ``to``: where to go next; new accounts return to the name tiles, an existing account opens Home. */
+  const finish = async (session: AccountSession, text: string, to = '/user/select') => {
     useSessionStore.setState({
       status: 'signed-in',
       user: { user_id: session.user_id, full_name: session.full_name, role: session.role },
@@ -149,7 +154,7 @@ export function AddAccountPage() {
       note += ' The calibration could not be added to the account; you can calibrate again from the welcome screen.'
     }
     finished.current = true
-    void navigate('/user/select', { replace: true, state: { notice: note } })
+    void navigate(to, { replace: true, state: { notice: note } })
   }
 
   const refused = (err: unknown, fallback: string) => {
@@ -161,6 +166,9 @@ export function AddAccountPage() {
     } else if (USERNAME_STEP_CODES.includes(answer.code)) {
       setStep('username')
       setSuggestions(answer.suggestions ?? [])
+    } else if (answer.code === 'unknown_username') {
+      setStep('username')
+      setUnknownUser(true)
     } else if (MOBILE_STEP_CODES.includes(answer.code)) setStep('mobile')
     else if (PIN_STEP_CODES.includes(answer.code) || answer.code === 'wrong_pin') setStep('pin')
     else if (answer.code === 'wait' || answer.code === 'reset_needed') setStep('pin')
@@ -170,7 +178,9 @@ export function AddAccountPage() {
     // Anything else (server down, ...): never stay on "Saving…"; try again from the PIN.
     else setStep('pin')
     setPin('')
-    setMessage(answer.detail)
+    const left = answer.tries_left
+    setMessage(answer.code === 'wrong_pin' && left !== undefined
+      ? `${answer.detail} ${left} ${left === 1 ? 'try' : 'tries'} left.` : answer.detail)
   }
 
   /** "I'm new": check the daily limit first, so nobody calibrates only to be refused at the end. */
@@ -280,7 +290,7 @@ export function AddAccountPage() {
     setStep('saving')
     try {
       const session = await accountsService.signInWithUsername(deviceId, username, enteredPin)
-      await finish(session, `${session.username} was added to this computer.`)
+      await finish(session, `${session.username} was added to this computer.`, '/home')
     } catch (err) {
       refused(err, 'Could not sign you in. Please try again.')
     } finally {
@@ -320,7 +330,7 @@ export function AddAccountPage() {
           <GazeButton autoFocus className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" disabled={busy} onClick={() => void startNew()}>
             <UserRoundPlus aria-hidden /> I'm new: create my account
           </GazeButton>
-          <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" onClick={() => { setPath('existing'); go('calibrate') }}>
+          <GazeButton variant="outline" className="h-auto min-h-24 w-full py-4 text-2xl whitespace-normal" onClick={() => { setPath('existing'); go('username') }}>
             <KeyRound aria-hidden /> I already have an account
           </GazeButton>
         </section>
@@ -374,8 +384,20 @@ export function AddAccountPage() {
               ))}
             </div>
           )}
-          <UsernameKeys value={username} onChange={(v) => { setUsername(v); setMessage(null) }} disabled={busy}
-            okDisabled={username.length < 3} onOk={() => void checkUsername()} />
+          {unknownUser ? (
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <GazeButton autoFocus className="min-h-20 min-w-72 text-xl"
+                onClick={() => { setUsername(''); setMessage(null); setUnknownUser(false) }}>
+                Try another username
+              </GazeButton>
+              <GazeButton variant="outline" className="min-h-20 min-w-72 text-xl" onClick={() => go('choose')}>
+                <ArrowLeft aria-hidden /> Back to Add your account
+              </GazeButton>
+            </div>
+          ) : (
+            <UsernameKeys value={username} onChange={(v) => { setUsername(v); setMessage(null) }} disabled={busy}
+              okDisabled={username.length < 3} onOk={() => void checkUsername()} />
+          )}
         </section>
       )}
 

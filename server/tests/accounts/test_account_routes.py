@@ -231,14 +231,32 @@ def test_i_already_have_an_account_adds_it_to_a_second_computer(api):
     assert [t["username"] for t in tiles(api, PC1)["accounts"]] == ["mari_lapu"]
 
 
-def test_a_wrong_username_and_a_wrong_pin_look_the_same(api):
+def test_an_unknown_username_and_a_wrong_pin_each_say_what_is_wrong(api):
+    """I already have an account (2026-11-23): a username that doesn't exist cancels the linking with
+    its own message; a wrong PIN says so with the tries left."""
     sign_up(api)
     other = new_client()
     unknown = signin(other, PC2, username="nobody_here", pin=PIN)
+    assert (unknown.status_code, unknown.json()["code"]) == (404, "unknown_username")
+    assert "no IrisClick account with this username" in unknown.json()["detail"]
     wrong = signin(other, PC2, username="mari_lapu", pin="000001")
-    assert unknown.status_code == wrong.status_code == 401
-    assert unknown.json() == wrong.json() == {"detail": "Username or PIN is incorrect.", "code": "wrong_pin"}
-    assert signin(other, PC2, username="mari_lapu").json() == unknown.json()  # no PIN sent
+    assert (wrong.status_code, wrong.json()["code"]) == (401, "wrong_pin")
+    assert wrong.json()["detail"] == "That PIN is not right." and "tries_left" in wrong.json()
+    assert tiles(other, PC2)["accounts"] == []  # nothing was linked
+    assert signin(other, PC2, username="mari_lapu", pin=PIN).status_code == 200
+
+
+def test_guessing_usernames_hits_the_same_lockout(api):
+    """Each unknown username counts as a wrong try, so the usual wait stops username guessing."""
+    sign_up(api)
+    other = new_client()
+    from app.accounts import limits
+
+    tries = limits.TRIES_PER_HOUR_PER_DEVICE + 1
+    codes = [signin(other, PC2, username=f"guess_{i}", pin=PIN).json()["code"] for i in range(tries)]
+    assert codes[0] == "unknown_username"
+    assert "wait" in codes  # the computer has to wait before trying again
+    assert signin(other, PC2, username="mari_lapu", pin=PIN).json()["code"] == "wait"
 
 
 def test_sign_in_needs_one_of_tile_or_username_and_a_known_tile(api):
@@ -258,7 +276,7 @@ def test_a_deactivated_person_has_no_tile_and_cannot_sign_in(api, test_database)
     assert tiles(api)["accounts"] == []
     assert signin(new_client(), user_id=uid, pin=PIN).status_code == 404
     refused = signin(new_client(), PC2, username="mari_lapu", pin=PIN)
-    assert (refused.status_code, refused.json()["code"]) == (401, "wrong_pin")
+    assert (refused.status_code, refused.json()["code"]) == (404, "unknown_username")
 
 
 # ---------- remove and sign out ----------
