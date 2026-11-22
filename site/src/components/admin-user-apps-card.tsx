@@ -10,7 +10,7 @@ export function AdminUserAppsCard({ userId, name }: { userId: number; name: stri
     <Card>
       <CardHeader>
         <CardTitle>Apps</CardTitle>
-        <CardDescription>The app tiles on {name}’s Home screen. Remove, move or add apps and websites.</CardDescription>
+        <CardDescription>The app tiles on {name}’s Home screen. Only {name} can add, remove or move them.</CardDescription>
       </CardHeader>
       <CardContent>
         <UserAppTiles api={api} variant="admin"

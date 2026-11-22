@@ -22,7 +22,7 @@ type Ask = { kind: 'remove'; tile: AppTile } | { kind: 'reset' } | null
 
 interface UserAppTilesProps {
   api: TilesApi
-  /** Home: tiles open apps and "Edit Apps" switches to edit mode. Admin: always editing. */
+  /** Home: tiles open apps and "Edit Apps" switches to edit mode. Admin: view only (no edit controls). */
   variant?: 'home' | 'admin'
   /** Shown instead when the tiles cannot load (the Phase 9 tiles on Home). */
   fallback?: ReactNode
@@ -51,7 +51,7 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
   const home = variant === 'home'
   const [data, setData] = useState<AppTiles | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
-  const [editing, setEditing] = useState(!home)
+  const [editing, setEditing] = useState(false)
   const [picking, setPicking] = useState(false)
   const [ask, setAsk] = useState<Ask>(null)
   const [busy, setBusy] = useState(false)
@@ -121,7 +121,7 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
   }
 
   const full = data.tiles.length >= data.max_tiles
-  const showAdd = editing || data.tiles.length === 0
+  const showAdd = home && (editing || data.tiles.length === 0)
   return (
     <section aria-labelledby={`apps-${variant}`} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -185,7 +185,7 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
               {problem && (
                 <p role="alert" className="text-destructive text-center text-base font-semibold">{problem}</p>
               )}
-              {(editing || problem) && (
+              {(editing || (home && problem)) && (
                 <GazeButton variant="destructive" disabled={busy} onClick={() => setAsk({ kind: 'remove', tile })}>
                   <X aria-hidden />Remove
                 </GazeButton>
@@ -224,6 +224,8 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
           </li>
         )}
       </ul>
+
+      {!home && data.tiles.length === 0 && <p className="text-muted-foreground text-lg">No apps added yet.</p>}
 
       {picking && (
         <AddAppPicker api={api} data={data} onClose={closePicker}

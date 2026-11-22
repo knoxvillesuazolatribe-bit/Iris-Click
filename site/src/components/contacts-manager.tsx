@@ -35,10 +35,12 @@ interface ContactsManagerProps {
   onDelete: (contactId: number) => Promise<unknown>
   /** Reload the contacts after a change. */
   onChanged: () => void
+  /** View only (admin user page): no Add, Edit or Delete. */
+  readOnly?: boolean
 }
 
 /** Emergency contacts: list, add, edit and delete (user page and admin user page). */
-export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged }: ContactsManagerProps) {
+export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged, readOnly = false }: ContactsManagerProps) {
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const form = useForm<SosContactForm>({ resolver: zodResolver(sosContactFormSchema), defaultValues: EMPTY })
@@ -115,7 +117,7 @@ export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged
         </Alert>
       )}
 
-      {editing === 'new' ? contactForm : (
+      {readOnly ? null : editing === 'new' ? contactForm : (
         <GazeButton className="self-start" disabled={contacts.length >= MAX_CONTACTS || editing !== null}
           onClick={() => startEdit('new')}>
           <UserPlus aria-hidden />
@@ -124,7 +126,9 @@ export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged
       )}
 
       {contacts.length === 0 && editing !== 'new' && (
-        <p className="text-muted-foreground text-xl">No contacts yet. SOS cannot alert anyone until one is added.</p>
+        <p className="text-muted-foreground text-xl">
+          {readOnly ? 'No emergency contacts yet.' : 'No contacts yet. SOS cannot alert anyone until one is added.'}
+        </p>
       )}
 
       <ul className="flex flex-col gap-6">
@@ -146,14 +150,14 @@ export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged
                   </p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-6">
+              {!readOnly && <div className="flex flex-wrap gap-6">
                 <GazeButton variant="outline" disabled={editing !== null} onClick={() => startEdit(c)}>
                   <Pencil aria-hidden />
                   Edit
                 </GazeButton>
                 <TwoPressButton icon={Trash2} label="Delete" confirmLabel="Yes, delete" disabled={editing !== null}
                   onConfirm={() => void remove(c)} />
-              </div>
+              </div>}
             </li>
           ),
         )}

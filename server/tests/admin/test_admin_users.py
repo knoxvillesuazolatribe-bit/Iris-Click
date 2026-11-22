@@ -141,18 +141,24 @@ def test_admin_edits_a_users_settings(admin, make_user, test_database):
         logs(test_database, "settings_reset")[0].activity_description
 
 
-def test_admin_manages_a_users_contacts(admin, make_user, test_database):
+def test_admin_views_a_users_contacts_but_cannot_change_them(admin, make_user, test_database):
+    """Contacts are the person's own; the admin page only lists them (2026-11-22)."""
+    from app.services import sos_service
+
     ana = make_user("Ana Cruz")
-    contact = admin.post(f"/api/admin/users/{ana}/contacts", json={
-        "contact_name": "Maria Cruz", "email_address": "maria@example.com"}).json()
-    admin.put(f"/api/admin/users/{ana}/contacts/{contact['contact_id']}",
-              json={"contact_name": "Maria C.", "email_address": "maria@example.com"})
-    assert [c["contact_name"] for c in admin.get(f"/api/admin/users/{ana}").json()["contacts"]] \
-        == ["Maria C."]
-    assert admin.delete(f"/api/admin/users/{ana}/contacts/{contact['contact_id']}").status_code == 204
-    added = logs(test_database, "sos_contact_added")[0]
-    assert added.activity_description == "Emergency contact added for Ana Cruz by PDAO Admin"
-    ben = make_user("Ben Reyes")
-    other = admin.post(f"/api/admin/users/{ben}/contacts", json={
-        "contact_name": "X", "email_address": "x@y.co"}).json()
-    assert admin.delete(f"/api/admin/users/{ana}/contacts/{other['contact_id']}").status_code == 404
+    with test_database() as db:
+        contact = sos_service.add_contact(db, db.get(User, ana),
+                                          {"contact_name": "Maria Cruz", "email_address": "maria@example.com"})
+        contact_id = contact.contact_id
+    listed = admin.get(f"/api/admin/users/{ana}").json()["contacts"]
+    assert [(c["contact_name"], c["email_address"]) for c in listed] == [("Maria Cruz", "maria@example.com")]
+    refused = [
+        admin.post(f"/api/admin/users/{ana}/contacts", json={"contact_name": "X", "email_address": "x@y.co"}),
+        admin.put(f"/api/admin/users/{ana}/contacts/{contact_id}",
+                  json={"contact_name": "Changed", "email_address": "maria@example.com"}),
+        admin.delete(f"/api/admin/users/{ana}/contacts/{contact_id}"),
+    ]
+    assert [r.status_code for r in refused] == [403, 403, 403]
+    assert refused[0].json()["detail"] == "Admins can only view this."
+    assert [c["contact_name"] for c in admin.get(f"/api/admin/users/{ana}").json()["contacts"]] == ["Maria Cruz"]
+    assert not any("by PDAO Admin" in log.activity_description for log in logs(test_database, "sos_contact_added"))

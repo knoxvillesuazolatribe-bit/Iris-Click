@@ -1,9 +1,12 @@
-"""Admin view and editing of one assistive user's Apps tiles (extension)."""
+"""Admin view of one assistive user's Apps tiles (extension).
+
+Admins only view the tiles; adding, moving, removing and resetting are the person's own job
+(admin_view_only refuses those routes; remove it to allow admin edits again)."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from app.api.deps import DatabaseSafeRoute, get_db, require_admin
+from app.api.deps import DatabaseSafeRoute, admin_view_only, get_db, require_admin
 from app.api.routes.user_apps import apply_update, fail
 from app.models.user import User
 from app.schemas.user_apps import InstalledAppRead, TileAdd, TilesRead, TileUpdate
@@ -26,7 +29,7 @@ def tiles(user_id: int, db: Session = Depends(get_db), _admin: User = Depends(re
     return user_apps_service.overview(db, _target(db, user_id))
 
 
-@router.post("/{user_id}/apps", response_model=TilesRead, status_code=201)
+@router.post("/{user_id}/apps", response_model=TilesRead, status_code=201, dependencies=[Depends(admin_view_only)])
 def add_tile(user_id: int, body: TileAdd, db: Session = Depends(get_db),
              admin: User = Depends(require_admin)):
     user = _target(db, user_id)
@@ -37,7 +40,7 @@ def add_tile(user_id: int, body: TileAdd, db: Session = Depends(get_db),
     return user_apps_service.overview(db, user)
 
 
-@router.patch("/{user_id}/apps/{tile_id}", response_model=TilesRead)
+@router.patch("/{user_id}/apps/{tile_id}", response_model=TilesRead, dependencies=[Depends(admin_view_only)])
 def update_tile(user_id: int, tile_id: int, body: TileUpdate, db: Session = Depends(get_db),
                 admin: User = Depends(require_admin)):
     user = _target(db, user_id)
@@ -48,7 +51,7 @@ def update_tile(user_id: int, tile_id: int, body: TileUpdate, db: Session = Depe
     return user_apps_service.overview(db, user)
 
 
-@router.delete("/{user_id}/apps/{tile_id}", status_code=204)
+@router.delete("/{user_id}/apps/{tile_id}", status_code=204, dependencies=[Depends(admin_view_only)])
 def remove_tile(user_id: int, tile_id: int, db: Session = Depends(get_db),
                 admin: User = Depends(require_admin)):
     try:
@@ -58,7 +61,7 @@ def remove_tile(user_id: int, tile_id: int, db: Session = Depends(get_db),
     return Response(status_code=204)
 
 
-@router.post("/{user_id}/apps/reset", response_model=TilesRead)
+@router.post("/{user_id}/apps/reset", response_model=TilesRead, dependencies=[Depends(admin_view_only)])
 def reset_tiles(user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     user = _target(db, user_id)
     user_apps_service.reset(db, user, actor=admin)
