@@ -60,7 +60,7 @@ export function SosPage() {
     )
   }
 
-  const { contacts, location_text: location, email_configured: emailReady } = load.overview
+  const { contacts, location_text: location, email_configured: emailReady, sms_configured: smsReady } = load.overview
   const hasContacts = contacts.length > 0
   const emailContacts = contacts.filter((c) => c.email_address).length
 
@@ -85,7 +85,7 @@ export function SosPage() {
               </AlertDescription>
             </Alert>
           )}
-          {emailContacts === 0 && (
+          {emailContacts === 0 && !smsReady && (
             <Alert variant="destructive" role="alert">
               <AlertTitle className="text-xl">None of your contacts has an email</AlertTitle>
               <AlertDescription className="text-lg">
@@ -111,7 +111,10 @@ export function SosPage() {
               <li key={c.contact_id}>
                 <span className="font-semibold">{c.contact_name}</span>
                 {c.relationship && <span className="text-muted-foreground"> ({c.relationship})</span>}
-                <span className="text-muted-foreground"> · {c.email_address ?? `${c.contact_number} (SMS not set up)`}</span>
+                <span className="text-muted-foreground"> · {[
+                  c.contact_number && (smsReady ? c.contact_number : `${c.contact_number} (SMS not set up)`),
+                  c.email_address,
+                ].filter(Boolean).join(' · ')}</span>
               </li>
             ))}
           </ul>

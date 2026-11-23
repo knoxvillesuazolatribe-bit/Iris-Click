@@ -73,7 +73,7 @@ export function AdminUsersPage() {
 
   return (
     <AdminLayout title="Users" description={accounts
-      ? 'People create their own accounts on their computer. Here you can view, reset PIN or deactivate them.'
+      ? 'People create their own accounts on their computer. Here you can view them, unlock a locked PIN or deactivate them.'
       : 'Assistive users sign in by looking at their name tile. No password is needed.'}>
       {!accounts && <Card>
         <CardHeader>

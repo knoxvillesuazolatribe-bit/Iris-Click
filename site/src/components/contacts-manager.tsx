@@ -37,10 +37,12 @@ interface ContactsManagerProps {
   onChanged: () => void
   /** View only (admin user page): no Add, Edit or Delete. */
   readOnly?: boolean
+  /** Can SOS text contacts (SMS connected)? Changes the note under the form. */
+  smsReady?: boolean
 }
 
 /** Emergency contacts: list, add, edit and delete (user page and admin user page). */
-export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged, readOnly = false }: ContactsManagerProps) {
+export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged, readOnly = false, smsReady = false }: ContactsManagerProps) {
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const form = useForm<SosContactForm>({ resolver: zodResolver(sosContactFormSchema), defaultValues: EMPTY })
@@ -94,7 +96,9 @@ export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged
         />
       ))}
       <p className="text-muted-foreground text-base md:col-span-2">
-        SOS alerts go by email. SMS is not set up yet, so a contact with only a mobile number will not be reached.
+        {smsReady
+          ? 'SOS alerts go by text (SMS) to the mobile number and by email to the email address.'
+          : 'SOS alerts go by email. SMS is not set up yet, so a contact with only a mobile number will not be reached.'}
       </p>
       <div className="flex flex-wrap gap-6 md:col-span-2">
         <GazeButton type="submit" disabled={form.formState.isSubmitting}>
