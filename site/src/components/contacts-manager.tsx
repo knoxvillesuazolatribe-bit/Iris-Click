@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle, Pencil, Save, Trash2, UserPlus, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { errorMessage } from '@/api/app-client'
 import { GazeButton } from '@/components/gaze-button'
@@ -8,6 +8,7 @@ import { TwoPressButton } from '@/components/two-press-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { smsEnabled } from '@/lib/signin-mode'
 import { sosContactFormSchema, type SosContact, type SosContactForm } from '@/validators/sos-validator'
 
 export const MAX_CONTACTS = 10
@@ -37,12 +38,19 @@ interface ContactsManagerProps {
   onChanged: () => void
   /** View only (admin user page): no Add, Edit or Delete. */
   readOnly?: boolean
-  /** Can SOS text contacts (SMS connected)? Changes the note under the form. */
-  smsReady?: boolean
 }
 
 /** Emergency contacts: list, add, edit and delete (user page and admin user page). */
-export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged, readOnly = false, smsReady = false }: ContactsManagerProps) {
+export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged, readOnly = false }: ContactsManagerProps) {
+  // Can SOS text contacts (SMS connected)? Changes the note under the form and the no-email warning.
+  const [smsReady, setSmsReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    void smsEnabled().then((on) => alive && setSmsReady(on))
+    return () => {
+      alive = false
+    }
+  }, [])
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const form = useForm<SosContactForm>({ resolver: zodResolver(sosContactFormSchema), defaultValues: EMPTY })
@@ -148,7 +156,7 @@ export function ContactsManager({ contacts, onAdd, onUpdate, onDelete, onChanged
                 </p>
                 {c.email_address && <p className="text-xl break-words">Email: {c.email_address}</p>}
                 {c.contact_number && <p className="text-xl">Mobile: {c.contact_number}</p>}
-                {!c.email_address && (
+                {!c.email_address && !smsReady && (
                   <p className="text-destructive text-lg font-semibold">
                     SOS can't text this contact yet. Add an email so they get alerts.
                   </p>

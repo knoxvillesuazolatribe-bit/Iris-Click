@@ -8,7 +8,7 @@ import { ServerDown } from '@/components/server-down'
 import { sosService } from '@/services/sos-service'
 import type { SosContact } from '@/validators/sos-validator'
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; contacts: SosContact[]; smsReady: boolean }
+type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; contacts: SosContact[] }
 
 /** Screen 15a: emergency contacts, usually filled in by a caregiver. */
 export function SosContactsPage() {
@@ -20,7 +20,7 @@ export function SosContactsPage() {
     let current = true
     sosService
       .getOverview()
-      .then((o) => current && setLoad({ state: 'ready', contacts: o.contacts, smsReady: o.sms_configured }))
+      .then((o) => current && setLoad({ state: 'ready', contacts: o.contacts }))
       .catch((err) => current && setLoad({ state: 'error', message: errorMessage(err, 'Could not load contacts.') }))
     return () => {
       current = false
@@ -51,7 +51,6 @@ export function SosContactsPage() {
       {load.state === 'ready' && (
         <ContactsManager
           contacts={load.contacts}
-          smsReady={load.smsReady}
           onAdd={sosService.addContact}
           onUpdate={sosService.updateContact}
           onDelete={sosService.deleteContact}
