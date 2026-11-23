@@ -13,7 +13,7 @@ type Load = { state: 'loading' } | { state: 'error'; message: string } | { state
 
 /** H11: the Users and Settings texts with accounts on this computer. */
 const ACCOUNTS_TEXT: Record<string, string> = {
-  '/admin/users': 'View users, reset PIN, deactivate.',
+  '/admin/users': 'View users, unlock PINs, deactivate.',
   '/admin/settings': 'Email and SMS, app name, word filter.',
 }
 
