@@ -73,8 +73,9 @@ class Settings(BaseSettings):
     recenter_path: Path = STORAGE_DIR / "recenter.json"
     worker_pid_path: Path = STORAGE_DIR / "tracking_worker.pid"
     worker_log_path: Path = STORAGE_DIR / "tracking_worker.log"
-    # Both-eye blink screenshots (team decision D2): <dir>/<user id>/<time>.png
-    screenshots_dir: Path = STORAGE_DIR / "screenshots"
+    # Both-eye blink screenshots (team decision D2). None = the user's Pictures\Screenshots
+    # (see services/screenshot_files.py); SCREENSHOTS_DIR sets another folder.
+    screenshots_dir: Path | None = None
     # Capture backend and pixel format (see core/camera/capture.py). "auto"
     # and an empty FOURCC keep OpenCV's defaults; compare alternatives with
     # scripts/benchmark_gaze.py camera before changing them.

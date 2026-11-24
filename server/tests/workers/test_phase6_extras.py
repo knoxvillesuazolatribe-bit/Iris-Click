@@ -20,7 +20,7 @@ from app.models.user import User
 from app.services import active_user
 from app.workers import extra_keys, tracking_worker
 from app.workers.edge_scroll import DOWN, GAP_RESET_S, SCROLL_EVERY_S, UP, EdgeScroller
-from app.workers.screenshot_capture import COOLDOWN_S, MAX_CLOSURE_S, UNASSIGNED, ScreenshotTaker
+from app.workers.screenshot_capture import COOLDOWN_S, MAX_CLOSURE_S, ScreenshotTaker
 from app.workers.tracking_worker import TrackingWorker
 
 W, H = 1920, 1080
@@ -160,12 +160,12 @@ def test_short_both_eye_blink_saves_a_screenshot(taker, settings, test_database)
     active_user.set_user_id(user_id)
 
     assert _blink(taker, 10.0) is True
-    files = list((settings.screenshots_dir / str(user_id)).glob("*.png"))
+    files = list(settings.screenshots_dir.glob("IrisClick_*.png"))
     assert len(files) == 1 and Image.open(files[0]).size == (64, 36)
     row = _rows(test_database, ScreenshotHistory)[0]
     assert (row.user_id, row.calibration_id, row.file_name) == (user_id, calibration_id, files[0].name)
     assert [l.activity_type for l in _rows(test_database, SystemLog)] == ["screenshot"]
-    assert taker.notes == ["Screenshot saved"]
+    assert taker.notes == [f"Screenshot saved to {settings.screenshots_dir}"]
 
 
 def test_resting_eyes_take_no_screenshot(taker, settings):
@@ -179,19 +179,20 @@ def test_cooldown_between_screenshots(taker):
     assert _blink(taker, 10.0 + COOLDOWN_S + 0.1) is True
 
 
-def test_no_signed_in_user_goes_to_unassigned(taker, settings, test_database):
+def test_no_signed_in_user_is_saved_without_a_user(taker, settings, test_database):
     active_user.set_user_id(None)
     _blink(taker, 10.0)
-    assert len(list((settings.screenshots_dir / UNASSIGNED).glob("*.png"))) == 1
+    assert len(list(settings.screenshots_dir.glob("IrisClick_*.png"))) == 1
     assert _rows(test_database, ScreenshotHistory)[0].user_id is None
 
 
-def test_user_who_signs_in_later_is_used(taker, settings, make_assistive):
+def test_user_who_signs_in_later_is_used(taker, settings, make_assistive, test_database):
     active_user.set_user_id(None)
     later = make_assistive()
     active_user._write(active_user._path, later)  # written by the server process
     _blink(taker, 10.0)
-    assert list((settings.screenshots_dir / str(later)).glob("*.png"))
+    assert list(settings.screenshots_dir.glob("IrisClick_*.png"))
+    assert _rows(test_database, ScreenshotHistory)[0].user_id == later
 
 
 @pytest.fixture
@@ -224,8 +225,8 @@ def test_file_is_kept_when_the_database_is_down(taker, settings, monkeypatch):
     monkeypatch.setattr(database, "get_session_factory", down)
     active_user.set_user_id(None)
     _blink(taker, 10.0)
-    assert list((settings.screenshots_dir / UNASSIGNED).glob("*.png"))
-    assert taker.notes == ["Screenshot saved (not added to your history)"]
+    assert list(settings.screenshots_dir.glob("IrisClick_*.png"))
+    assert taker.notes == [f"Screenshot saved to {settings.screenshots_dir} (not added to your history)"]
 
 
 def test_background_save_runs_off_the_tracking_thread(settings, test_database):
@@ -234,7 +235,7 @@ def test_background_save_runs_off_the_tracking_thread(settings, test_database):
                            grab=lambda: Image.new("RGB", (8, 8)), background=True)
     _blink(shot, 10.0)
     shot.wait_idle()
-    assert notes == ["Screenshot saved"]
+    assert notes == [f"Screenshot saved to {settings.screenshots_dir}"]
 
 
 # --- Hooks in tracking_worker.py ---------------------------------------------------

@@ -85,7 +85,7 @@ class WorkerNotes:
                 bottom = self._anchor.winfo_rooty() + self._anchor.winfo_height()
                 self._toast.show(text, self._screen_w // 2, bottom + GAP_PX, TOAST_MS)
                 if self._announce is not None:
-                    self._announce(text)
+                    self._announce(text.replace("\\", ", "))  # "Pictures\Screenshots" read as "Pictures, Screenshots"
         except queue.Empty:
             pass
         except Exception:  # noqa: BLE001 - a note must never stop the worker

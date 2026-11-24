@@ -4,6 +4,9 @@ Only a deliberate closure counts: the blink detector already ignores closures
 under 0.35 s (natural blinks), and closures over MAX_CLOSURE_S are the user
 resting their eyes. Grabbing, PNG encoding and the database row happen on a
 background thread so the cursor never stutters.
+
+Files go to the user's Pictures/Screenshots folder as IrisClick_YYYY-MM-DD_HH-MM-SS.png
+(see services/screenshot_files.py); the database row records which IrisClick user took it.
 """
 
 import logging
@@ -19,14 +22,13 @@ from app.config import Settings
 from app.models import database
 from app.models.calibration_record import CalibrationRecord
 from app.models.screenshot import ScreenshotHistory
-from app.services import active_user
+from app.services import active_user, screenshot_files
 from app.services.system_log_service import log_activity
 
 logger = logging.getLogger("irisclick.worker.screenshot")
 
 COOLDOWN_S = 2.0
 MAX_CLOSURE_S = 1.5
-UNASSIGNED = "unassigned"
 SAVED = "Screenshot saved"
 
 
@@ -40,7 +42,10 @@ class ScreenshotTaker:
     def __init__(self, settings: Settings, profile_id: str | None = None,
                  notify: Callable[[str], None] | None = None,
                  grab: Callable = _grab_primary_screen, background: bool = True):
-        self.folder = Path(settings.screenshots_dir)
+        default = screenshot_files.screenshots_folder()
+        self.folder = Path(settings.screenshots_dir) if settings.screenshots_dir else default
+        # Shown and spoken after each capture, so the user knows where to look.
+        self.shown_as = screenshot_files.SHOWN_AS if self.folder == default else str(self.folder)
         self.profile_id = profile_id
         self.notify = notify
         self.grab = grab
@@ -90,18 +95,16 @@ class ScreenshotTaker:
 
     def _save(self, when: datetime) -> Path | None:
         user_id = active_user.read_from_disk()
-        folder = self.folder / (str(user_id) if user_id is not None else UNASSIGNED)
-        name = f"{when:%Y-%m-%d_%H-%M-%S}-{when.microsecond // 1000:03d}.png"
-        path = folder / name
         try:
-            folder.mkdir(parents=True, exist_ok=True)
-            self.grab().save(path, format="PNG")
+            path = screenshot_files.save_image(self.grab(), when, self.folder)
         except Exception:  # noqa: BLE001
             logger.exception("Screenshot could not be saved")
             self._tell("Screenshot failed: it could not be saved")
             return None
+        name = path.name
         recorded = self._record(user_id, name, path)
-        self._tell(SAVED if recorded else f"{SAVED} (not added to your history)")
+        saved = f"{SAVED} to {self.shown_as}"
+        self._tell(saved if recorded else f"{saved} (not added to your history)")
         logger.info("Screenshot saved: %s", path)
         return path
 
