@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
   "download_url": "https://github.com/knoxvillesuazolatribe-bit/Iris-Click/releases/download/v1.0.0/IrisClick-Desktop-Setup.exe",
-  "notes": "Winks follow your real eyes (left wink clicks, right wink right-clicks); verify your mobile number later in Settings; SOS texts and emails a contact who has both.",
-  "sha256": "cbdbf4951180c19adad805365c508d66dd949b17d490bda98241fca48d95c88e"
+  "notes": "Screenshots save to Pictures\\Screenshots as IrisClick_<date>_<time>.png; winks follow your real eyes (left wink clicks, right wink right-clicks); verify your mobile number later in Settings; SOS texts and emails a contact who has both.",
+  "sha256": "269923b315c2e83d18eb45976755a1981f067d398200e9a3305f7d54d606d84b"
 }
