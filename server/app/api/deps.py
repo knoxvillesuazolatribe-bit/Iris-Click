@@ -71,10 +71,11 @@ def require_assistive(signed_in: SignedIn = Depends(require_signed_in)) -> User:
     return signed_in.user
 
 
-def set_session_cookie(response: Response, token: str, role: str) -> None:
+def set_session_cookie(response: Response, token: str, role: str, persistent: bool = True) -> None:
+    """persistent=False: no expiry, so the sign-in ends when the browser closes (no "Remember me")."""
     response.set_cookie(
         session_service.COOKIE_NAME, token,
-        max_age=session_service.session_max_age_s(role),
+        max_age=session_service.session_max_age_s(role) if persistent else None,
         path=session_service.COOKIE_PATH,
         httponly=True, samesite="lax",
         secure=bool(os.environ.get("VERCEL")),  # HTTPS online; the PC serves http://127.0.0.1

@@ -88,13 +88,9 @@ def _signed_in(result: SignedInAccount, request: Request, db: Session) -> JSONRe
     db.commit()
     body = AccountSessionRead(user_id=result.user.user_id, full_name=result.user.full_name, username=result.username)
     response = JSONResponse(body.model_dump())
-    if result.remembered:
-        set_session_cookie(response, token, result.user.role)
-    else:
-        # Without "Remember me" the sign-in ends when the browser (or IrisClick) closes: no expiry date,
-        # so the next person must pick their tile and enter the PIN.
-        response.set_cookie(session_service.COOKIE_NAME, token, path=session_service.COOKIE_PATH,
-                            httponly=True, samesite="lax", secure=False)
+    # Without "Remember me" the sign-in ends when the browser (or IrisClick) closes: no expiry date,
+    # so the next person must pick their tile and enter the PIN. Either way the cookie is Secure online.
+    set_session_cookie(response, token, result.user.role, persistent=result.remembered)
     return response
 
 
