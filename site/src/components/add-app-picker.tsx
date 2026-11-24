@@ -81,9 +81,11 @@ export function AddAppPicker({ api, data, onAdded, onClose }: AddAppPickerProps)
               {data.hidden_defaults.map((d) => {
                 const Icon = tileIcon(d.icon)
                 return (
+                  // Long names wrap inside the button instead of spilling past both edges.
                   <GazeButton key={d.tile_id} variant="outline" disabled={busy}
+                    className="h-auto min-w-0 justify-start py-4 text-left whitespace-normal"
                     onClick={() => void run(() => api.restore(d.tile_id))}>
-                    <Icon aria-hidden /><RotateCcw aria-hidden />Add back {d.label}
+                    <Icon aria-hidden /><RotateCcw aria-hidden /><span className="min-w-0">Add back {d.label}</span>
                   </GazeButton>
                 )
               })}
