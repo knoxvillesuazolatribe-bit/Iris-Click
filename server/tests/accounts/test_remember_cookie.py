@@ -37,6 +37,21 @@ def test_without_remember_me_the_sign_in_ends_with_the_browser(api):
     assert "max-age" not in cookie and "expires" not in cookie and "httponly" in cookie
 
 
+def test_online_the_sign_in_cookie_is_secure_with_or_without_remember_me(api, monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    made = api.post("/api/accounts/signup", json=MARI, headers=on())
+    plain = session_cookie(made)
+    assert "secure" in plain and "max-age" not in plain
+    kept = api.post("/api/accounts/signin", json={"user_id": made.json()["user_id"], "pin": PIN, "remember": True},
+                    headers=on())
+    assert "secure" in session_cookie(kept) and "max-age" in session_cookie(kept)
+
+
+def test_on_the_pc_the_sign_in_cookie_works_over_plain_http(api, monkeypatch):
+    monkeypatch.delenv("VERCEL", raising=False)
+    assert "secure" not in session_cookie(api.post("/api/accounts/signup", json=MARI, headers=on()))
+
+
 def test_with_remember_me_the_sign_in_is_kept(api):
     made = api.post("/api/accounts/signup", json={**MARI, "remember": True}, headers=on())
     assert "max-age" in session_cookie(made)
