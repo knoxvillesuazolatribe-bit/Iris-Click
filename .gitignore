@@ -37,3 +37,6 @@ server/app/storage/irisclick_*.log
 server/app/storage/irisclick_*.pid
 server/app/storage/desktop_session.json
 server/app/storage/desktop_sync_state.json
+
+# Database snapshots (may hold personal data; kept local only)
+supabase/archive/
