@@ -30,6 +30,17 @@ def _no_scroll_areas(control_bar: tk.Misc, keyboard: VirtualKeyboard) -> list[tu
     return areas
 
 
+def control_bar_inset(control_bar: tk.Misc, screen_h: int, gap_px: int = 8) -> int:
+    """Height the control bar takes at the top of the screen (0 when it was dragged lower).
+
+    The bar is docked TOP_MARGIN_PX (8) below the edge and reserves the same gap under it.
+    """
+    _, top, _, bottom = widget_rect(control_bar)
+    if top > screen_h // 4:
+        return 0
+    return bottom + gap_px
+
+
 class WorkerExtras:
     def __init__(self, root: tk.Misc, control_bar: tk.Misc, settings: Settings,
                  profile_id: str | None, screen_w: int, screen_h: int,
@@ -47,7 +58,8 @@ class WorkerExtras:
         self.notes, self.screenshot, self.keyboard = notes, screenshot, keyboard
         self.edge_scroll = EdgeScroller(settings, screen_w, screen_h,
                                         exclude=lambda: _no_scroll_areas(control_bar, keyboard),
-                                        on_scroll=notes.show_scroll)
+                                        on_scroll=notes.show_scroll,
+                                        top_inset=lambda: control_bar_inset(control_bar, screen_h))
         self.both = BothBlinkRouter(
             schedule=root.after, cancel=root.after_cancel,
             on_single=lambda: screenshot.take(time.monotonic()),

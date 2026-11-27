@@ -113,6 +113,41 @@ def test_control_bar_is_excluded(settings):
     assert wheel.calls
 
 
+def test_top_band_starts_below_the_docked_control_bar(settings):
+    # The bar reserves the top 80 px like the taskbar: the band is 86 px below that.
+    wheel = Wheel()
+    scroller = EdgeScroller(settings, W, H, wheel=wheel, top_inset=lambda: 80,
+                            exclude=lambda: [(700, 8, 1300, 72)])
+    assert scroller.top_edge() == 80
+    assert scroller.zone(900, 120) == UP           # the browser's tab row, just below the bar
+    assert scroller.zone(900, 80 + 86 - 1) == UP   # last pixel row of the band is 165
+    assert scroller.zone(900, 80 + 86) is None
+    assert scroller.zone(900, 30) is None          # on the bar itself: never scrolls
+    assert scroller.zone(900, H - 10) == DOWN      # bottom band unchanged
+    assert _hold(scroller, 900, 120, 0.0, 1.0)
+    assert wheel.calls and wheel.calls[0][2] > 0   # scrolled up
+
+
+def test_a_broken_or_huge_inset_never_stops_scrolling(settings):
+    def broken():
+        raise RuntimeError("bar gone")
+
+    assert EdgeScroller(settings, W, H, top_inset=broken).top_edge() == 0
+    assert EdgeScroller(settings, W, H, top_inset=lambda: -5).top_edge() == 0
+    assert EdgeScroller(settings, W, H, top_inset=lambda: 5000).top_edge() == H // 4
+
+
+def test_control_bar_inset_follows_where_the_bar_is():
+    from app.workers.worker_extras import control_bar_inset
+
+    def bar(y, height=64):
+        return SimpleNamespace(winfo_rootx=lambda: 700, winfo_rooty=lambda: y,
+                               winfo_width=lambda: 600, winfo_height=lambda: height)
+
+    assert control_bar_inset(bar(8), H) == 8 + 64 + 8   # docked at the top
+    assert control_bar_inset(bar(600), H) == 0          # dragged down the screen
+
+
 def test_disabled_never_scrolls(settings):
     scroller, wheel = _scroller(settings, edge_scroll_enabled=False)
     assert _hold(scroller, 900, 20, 0.0, 2.0) == []
