@@ -11,6 +11,11 @@ the timer. Scrolling speeds up the longer the gaze stays in the band
 get through while a short look still moves one notch. This is vertical only and separate from edge_reach, which shapes
 left/right cursor reach.
 
+The top band starts below the control bar when the bar is docked at the top
+(``top_inset``): the bar reserves that strip like the taskbar, so a band
+measured from the screen's edge was almost all control bar, where scrolling is
+off, and looking up never scrolled.
+
 The wheel goes to the window in the middle of the screen at the gaze's x, not
 to the cursor: at the top edge the cursor is usually on the browser's tab bar,
 where a wheel does not scroll the page. The cursor itself never moves.
@@ -73,7 +78,8 @@ class EdgeScroller:
                  exclude: Callable[[], list[Rect]] = list,
                  wheel: Callable[[int, int, int], bool] = post_wheel,
                  on_scroll: Callable[[str, int, int], None] | None = None,
-                 clock: Callable[[], float] = time.monotonic):
+                 clock: Callable[[], float] = time.monotonic,
+                 top_inset: Callable[[], int] = lambda: 0):
         self.enabled = settings.edge_scroll_enabled
         self.screen_w, self.screen_h = screen_w, screen_h
         self.band_px = max(1, round(screen_h * settings.edge_scroll_band))
@@ -82,6 +88,7 @@ class EdgeScroller:
         self.wheel = wheel
         self.on_scroll = on_scroll
         self.clock = clock
+        self.top_inset = top_inset
         self._zone: str | None = None
         self._since = 0.0
         self._next_scroll = 0.0
@@ -91,8 +98,16 @@ class EdgeScroller:
     def notches(self, scrolling_s: float) -> int:
         return next(n for after, n in SPEED_STEPS if scrolling_s >= after)
 
+    def top_edge(self) -> int:
+        """Where the top band starts: below the docked control bar, else the screen's edge."""
+        try:
+            inset = int(self.top_inset() or 0)
+        except Exception:  # noqa: BLE001 - a broken inset must never stop scrolling
+            return 0
+        return min(max(inset, 0), self.screen_h // 4)
+
     def zone(self, x: float, y: float) -> str | None:
-        if y < self.band_px:
+        if y < self.top_edge() + self.band_px:
             direction = UP
         elif y >= self.screen_h - self.band_px:
             direction = DOWN
