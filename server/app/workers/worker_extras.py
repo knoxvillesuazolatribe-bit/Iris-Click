@@ -15,6 +15,7 @@ from app.workers.edge_scroll import EdgeScroller
 from app.workers.screenshot_capture import ScreenshotTaker
 from app.workers.virtual_keyboard import VirtualKeyboard
 from app.workers.worker_notes import WorkerNotes
+from app.voice.controller import VoiceController
 
 
 def widget_rect(widget: tk.Misc) -> tuple[int, int, int, int]:
@@ -44,7 +45,8 @@ def control_bar_inset(control_bar: tk.Misc, screen_h: int, gap_px: int = 8) -> i
 class WorkerExtras:
     def __init__(self, root: tk.Misc, control_bar: tk.Misc, settings: Settings,
                  profile_id: str | None, screen_w: int, screen_h: int,
-                 announce: Callable[[str, float], None] | None = None):
+                 announce: Callable[[str, float], None] | None = None,
+                 on_mic_state: Callable[[bool, bool], None] = lambda listening, typing: None):
         # The callbacks below capture locals, never self: a cycle back to this object
         # would leave the Tk windows to the garbage collector, which may run on another
         # thread, and Tk aborts when it is torn down off its own thread.
@@ -60,6 +62,8 @@ class WorkerExtras:
                                         exclude=lambda: _no_scroll_areas(control_bar, keyboard),
                                         on_scroll=notes.show_scroll,
                                         top_inset=lambda: control_bar_inset(control_bar, screen_h))
+        # Panel revision: voice commands and voice typing (off until the control bar's Mic button).
+        self.voice = VoiceController(feedback=notes.post_feedback, on_state=on_mic_state)
         self.both = BothBlinkRouter(
             schedule=root.after, cancel=root.after_cancel,
             on_single=lambda: screenshot.take(time.monotonic()),
@@ -73,6 +77,20 @@ class WorkerExtras:
         if self.screenshot.is_resting():
             return IGNORED
         return self.both.blink(now)
+
+    def mic_pressed(self) -> bool:
+        """Mic button: stops voice typing if it is on, else switches the microphone on or off."""
+        if self.voice.typing:
+            self.voice.stop_typing()
+            return True
+        return self.voice.toggle()
+
+    def voice_tick(self) -> None:
+        self.voice.process_pending()
+
+    def stop_voice(self) -> None:
+        if self.voice.listening:
+            self.voice.stop()
 
     def toggle_keyboard(self) -> bool:
         return self.keyboard.toggle()

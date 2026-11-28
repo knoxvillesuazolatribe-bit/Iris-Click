@@ -7,6 +7,7 @@ import { AppShortcuts } from '@/components/app-shortcuts'
 import { UserAppTiles } from '@/components/user-app-tiles'
 import { myTiles } from '@/services/user-apps-service'
 import { GestureGuide } from '@/components/gesture-guide'
+import { VoiceCommandsCard } from '@/components/voice-commands-card'
 import { HomeCard } from '@/components/home-card'
 import { ServerDown } from '@/components/server-down'
 import { SignOutButton } from '@/components/sign-out-button'
@@ -89,6 +90,7 @@ export function HomePage() {
         </div>
       )}
       {load.state === 'ready' && <GestureGuide gestures={load.home.gestures} />}
+      <VoiceCommandsCard />
 
       <footer className="flex flex-wrap gap-8">
         <GazeButton variant="outline" onClick={() => void navigate('/calibration')}>

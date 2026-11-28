@@ -8,7 +8,7 @@ import { GazeButton } from '@/components/gaze-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ONLINE_COPY } from '@/lib/online-copy'
 import { cn } from '@/lib/utils'
-import { DesktopNotRunning, type AppTile, type AppTiles, type TilesApi } from '@/services/user-apps-service'
+import { DesktopNotRunning, myTiles, shareWebsitesWithDesktop, type AppTile, type AppTiles, type TilesApi } from '@/services/user-apps-service'
 
 const FLASH_MS = 2000
 const LONG_NAME = 18
@@ -63,7 +63,10 @@ function Tiles({ api, variant = 'home', fallback }: UserAppTilesProps) {
   useEffect(() => {
     let current = true
     api.overview()
-      .then((d) => current && setData(d))
+      .then((d) => {
+        if (current) setData(d)
+        if (api === myTiles) void shareWebsitesWithDesktop(d.tiles)
+      })
       .catch(() => current && setLoadFailed(true))
     return () => {
       current = false

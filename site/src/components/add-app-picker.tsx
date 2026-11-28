@@ -1,4 +1,4 @@
-import { AppWindow, Globe, LoaderCircle, Plus, RotateCcw, X } from 'lucide-react'
+import { AppWindow, CircleCheck, CircleX, Globe, LoaderCircle, Plus, RotateCcw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errorMessage } from '@/api/app-client'
 import { tileIcon } from '@/components/app-tile-icon'
@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { typeKey } from '@/lib/typing'
+import { checkWebsiteAddress } from '@/lib/valid-data'
 import { cn } from '@/lib/utils'
 import { DesktopNotRunning, type AppTiles, type InstalledApp, type TileAdd, type TilesApi } from '@/services/user-apps-service'
 
@@ -147,6 +148,7 @@ function WebsiteForm({ data, busy, onAdd }: { data: AppTiles; busy: boolean; onA
   const [label, setLabel] = useState('')
   const [url, setUrl] = useState('')
   const [field, setField] = useState<'label' | 'url'>('label')
+  const urlCheck = checkWebsiteAddress(url)
 
   const onKey = (key: string) => {
     if (key === 'ENTER') return
@@ -189,8 +191,15 @@ function WebsiteForm({ data, busy, onAdd }: { data: AppTiles; busy: boolean; onA
       <p className="text-muted-foreground text-lg">
         Typing into: <strong>{field === 'label' ? 'Name' : 'Website address'}</strong>. Only http:// and https:// websites can be added.
       </p>
+      {url.trim() && (
+        <p role="status" className={cn('flex items-center gap-2 text-lg font-semibold',
+          urlCheck.valid ? 'text-emerald-700' : 'text-destructive')}>
+          {urlCheck.valid ? <CircleCheck aria-hidden /> : <CircleX aria-hidden />}
+          {urlCheck.valid ? urlCheck.message : `Invalid input: ${urlCheck.message}`}
+        </p>
+      )}
       <GazeKeyboard onKey={onKey} disabled={busy} />
-      <GazeButton disabled={busy || !label.trim() || !url.trim()} onClick={() => onAdd(label, url)}>
+      <GazeButton disabled={busy || !label.trim() || !urlCheck.valid} onClick={() => onAdd(label, url)}>
         {busy ? <LoaderCircle className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
         Add website
       </GazeButton>
