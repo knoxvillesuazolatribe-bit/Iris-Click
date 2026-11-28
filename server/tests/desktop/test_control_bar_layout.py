@@ -41,7 +41,7 @@ print(json.dumps(result))
 """
 
 ORIGINAL = ["Pause", "Voice: on", "Camera: on", "Edge: medium", "Re-centre", "Recalibrate"]
-ADDED = ["Home", "Back", "Forward", "Next Tab", "Keyboard"]
+ADDED = ["Home", "Back", "Forward", "Next Tab", "Keyboard", "Mic: off"]  # Mic: panel revision
 
 
 @pytest.fixture(scope="module")

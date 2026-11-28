@@ -29,6 +29,7 @@ FORWARD = "forward"  # Phase 6 (H3): Alt+Right
 NEXT_TAB = "next_tab"  # Phase 6 (H3): Ctrl+Tab
 KEYBOARD = "keyboard"  # Phase 9 (H3): open/close the on-screen keyboard
 CALIBRATE_HERE = "calibrate_here"  # desktop calibration window
+MIC = "mic"  # panel revision: voice commands / voice typing (microphone on/off)
 
 
 def _eye_icon(iris_colour: str) -> Image.Image:

@@ -12,6 +12,7 @@ from app.desktop import appbar
 from app.desktop.display import make_tool_window, toplevel_hwnd
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
+    MIC,
     CYCLE_EDGE,
     BACK,
     FORWARD,
@@ -39,8 +40,8 @@ STATUS_COLOURS = {"tracking": SUCCESS, "paused": WARNING, "problem": ERROR}
 FONT = ("Segoe UI", 12, "bold")
 TOP_MARGIN_PX = 8
 DRAG_START_PX = 6  # the bar only counts as dragged (and gives back its strip) after this much movement
-STATUS_CHARS = 34
-STATUS_WRAP_PX = 300
+STATUS_CHARS = 31  # 34 before the Mic button; keeps the bar on one row at 1920 px
+STATUS_WRAP_PX = 270
 # A stray wink can land on Quit by accident; require a second press in time.
 QUIT_CONFIRM_MS = 4000
 
@@ -83,6 +84,9 @@ class ControlBar:
         self._button(self._extra_row, "Forward", FORWARD)  # Phase 6: Alt+Right
         self._button(self._extra_row, "Next Tab", NEXT_TAB)  # Phase 6: Ctrl+Tab
         self._button(self._extra_row, "Keyboard", KEYBOARD)  # Phase 9: on-screen keyboard
+        # Panel revision: voice commands / voice typing. Red while the microphone is on (RA 10173:
+        # the user always sees when IrisClick is listening).
+        self._mic = self._button(self._extra_row, "Mic: off", MIC)
         self._quit = self._button(frame, "Quit", None, command=self._quit_pressed)
         self._extra_row.pack(in_=frame, side="left", before=self._quit)
 
@@ -166,6 +170,15 @@ class ControlBar:
         self._pause.configure(text="Resume" if paused else "Pause",
                               bg=SUCCESS if paused else PANEL,
                               fg=BACKGROUND if paused else TEXT)
+
+    def set_mic(self, listening: bool, typing: bool):
+        """Microphone indicator: off (grey), listening for commands (red), voice typing (amber)."""
+        if typing:
+            self._mic.configure(text="🎤 Typing: stop", bg=WARNING, fg=BACKGROUND)
+        elif listening:
+            self._mic.configure(text="🎤 Mic: on", bg=ERROR, fg=BACKGROUND)
+        else:
+            self._mic.configure(text="Mic: off", bg=PANEL, fg=TEXT)
 
     def set_preview(self, enabled: bool):
         self._camera.configure(text=f"Camera: {'on' if enabled else 'off'}")

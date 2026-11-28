@@ -13,6 +13,9 @@ from app.desktop.display import make_tool_window
 BACKGROUND = "#0F1B2D"
 TEXT = "#FFFFFF"
 BORDER = "#4DA3FF"
+VALID_BORDER = "#3DDC84"    # voice commands: "✔ Valid command"
+INVALID_BORDER = "#FF6B6B"  # voice commands: "✖ Unrecognized / invalid input"
+FEEDBACK_MS = 3000
 FONT = ("Segoe UI", 16, "bold")
 POLL_MS = 100
 TOAST_MS = 2000
@@ -34,8 +37,9 @@ class Note:
         self._hide_job = None
 
     def show(self, text: str, center_x: int, y: int, duration_ms: int | None = None,
-             below: bool = True):
+             below: bool = True, border: str = BORDER):
         """Shows ``text`` centred on ``center_x``; ``y`` is its top (or bottom if not below)."""
+        self.win.configure(bg=border)
         self.label.configure(text=text)
         self.win.update_idletasks()
         width, height = self.win.winfo_reqwidth(), self.win.winfo_reqheight()
@@ -63,12 +67,18 @@ class WorkerNotes:
         self._announce = announce
         self._toast = Note(root)
         self._scroll = Note(root)
-        self._queue: queue.Queue[str] = queue.Queue()
+        self._queue: queue.Queue[tuple[str, str, int, bool]] = queue.Queue()
         root.after(POLL_MS, self._poll)
 
     def post_toast(self, text: str) -> None:
         """Thread-safe: shows ``text`` under the control bar for two seconds."""
-        self._queue.put(text)
+        self._queue.put((text, BORDER, TOAST_MS, True))
+
+    def post_feedback(self, text: str, ok: bool | None) -> None:
+        """Thread-safe: voice-command feedback, green when valid, red when rejected, blue for info.
+        Not read aloud: the voice would be heard by the microphone."""
+        border = BORDER if ok is None else VALID_BORDER if ok else INVALID_BORDER
+        self._queue.put((text, border, FEEDBACK_MS, False))
 
     def show_scroll(self, direction: str, band_px: int, duration_ms: int) -> None:
         """Tk thread: a banner just inside the band being scrolled."""
@@ -81,10 +91,10 @@ class WorkerNotes:
     def _poll(self):
         try:
             while True:
-                text = self._queue.get_nowait()
+                text, border, duration_ms, speak = self._queue.get_nowait()
                 bottom = self._anchor.winfo_rooty() + self._anchor.winfo_height()
-                self._toast.show(text, self._screen_w // 2, bottom + GAP_PX, TOAST_MS)
-                if self._announce is not None:
+                self._toast.show(text, self._screen_w // 2, bottom + GAP_PX, duration_ms, border=border)
+                if speak and self._announce is not None:
                     self._announce(text.replace("\\", ", "))  # "Pictures\Screenshots" read as "Pictures, Screenshots"
         except queue.Empty:
             pass

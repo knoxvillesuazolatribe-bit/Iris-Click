@@ -13,6 +13,7 @@ class TileRead(BaseModel):
     note: str | None = None
     available: bool
     problem: str | None = None
+    url: str | None = None
 
 
 class HiddenDefaultRead(BaseModel):

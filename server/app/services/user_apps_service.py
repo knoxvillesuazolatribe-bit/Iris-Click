@@ -68,6 +68,7 @@ class TileView:
     note: str | None
     available: bool
     problem: str | None
+    url: str | None = None  # website tiles: the checked address (voice "Go to ...")
 
 
 # --- What this computer has (replaced in tests) -------------------------------------------
@@ -210,7 +211,8 @@ def _view(row: UserAppShortcut, here: dict[str, apps_service.App]) -> TileView |
         ok = bool(row.target) and file_exists(row.target)
         return TileView(row.shortcut_id, row.label, row.type, row.icon, None, ok,
                         None if ok else f"{row.label} isn't installed on this computer.")
-    return TileView(row.shortcut_id, row.label, row.type, row.icon, "Website; needs the internet", True, None)
+    return TileView(row.shortcut_id, row.label, row.type, row.icon, "Website; needs the internet", True, None,
+                    row.target)
 
 
 def overview(db: Session, user: User) -> dict:

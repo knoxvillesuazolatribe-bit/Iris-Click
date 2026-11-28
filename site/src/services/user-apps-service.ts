@@ -13,6 +13,7 @@ const tileSchema = z.object({
   note: z.string().nullable(),
   available: z.boolean(),
   problem: z.string().nullable(),
+  url: z.string().nullable().optional(),
 })
 export type AppTile = z.infer<typeof tileSchema>
 
@@ -107,3 +108,18 @@ export const myTiles: TilesApi = {
 /** One user's tiles, edited by the admin (no launching from the admin pages). */
 export const tilesForUser = (userId: number): TilesApi =>
   tilesApi(`/admin/users/${userId}/apps`, `/admin/users/${userId}/apps/available`)
+
+/**
+ * Panel revision: hands this person's website tiles to IrisClick Desktop on this PC, so the voice
+ * command "Go to <tile name>" works. Desktop checks every address again. Silent when Desktop is off.
+ */
+export async function shareWebsitesWithDesktop(tiles: AppTile[]): Promise<void> {
+  const shortcuts = tiles
+    .filter((t) => t.kind === 'website' && t.url)
+    .map((t) => ({ label: t.label, url: t.url as string }))
+  try {
+    await apiClient.put('/desktop/voice-shortcuts', { shortcuts })
+  } catch {
+    // IrisClick Desktop not running or not reachable: "Go to" still knows the built-in sites.
+  }
+}

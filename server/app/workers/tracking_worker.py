@@ -64,6 +64,7 @@ from app.desktop.gaze_overlay import GazeOverlay
 from app.desktop.main_window import ControlBar
 from app.desktop.system_tray import (
     CALIBRATE_HERE,
+    MIC,
     CYCLE_EDGE,
     BACK,
     FORWARD,
@@ -285,7 +286,8 @@ class TrackingWorker:
         self._extras = None
         with contextlib.suppress(Exception):
             self._extras = WorkerExtras(self.root, self.bar.win, settings, profile_id,
-                                        self.screen_w, self.screen_h, self.voice.announce)
+                                        self.screen_w, self.screen_h, self.voice.announce,
+                                        on_mic_state=self.bar.set_mic)
 
     def run(self):
         self.tray.start()
@@ -307,6 +309,8 @@ class TrackingWorker:
             return
         self._quitting = True
         logger.info("Tracking worker quitting")
+        with contextlib.suppress(Exception):  # panel revision: the microphone goes off with the worker
+            self._extras.stop_voice()
         self.root.after(0, self.root.destroy)
 
     def _set_status(self, text: str, kind: str):
@@ -427,6 +431,9 @@ class TrackingWorker:
             elif command == KEYBOARD:  # H3 (Phase 9): open/close the on-screen keyboard
                 with contextlib.suppress(Exception):
                     self._extras.toggle_keyboard()
+            elif command == MIC:  # panel revision: voice commands / voice typing
+                with contextlib.suppress(Exception):
+                    self._extras.mic_pressed()
 
     def _cycle_edge(self, now: float):
         level = next_edge_level(self.navigator.config.edge_sensitivity)
@@ -462,6 +469,8 @@ class TrackingWorker:
 
     def _step(self):
         self._handle_commands()
+        with contextlib.suppress(Exception):  # panel revision: act on what the microphone heard
+            self._extras.voice_tick()
         if self._quitting:
             return
         if self._tick_count % STOP_CHECK_EVERY_TICKS == 0 and self.pid_file.stop_requested():

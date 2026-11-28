@@ -40,3 +40,5 @@ server/app/storage/desktop_sync_state.json
 
 # Database snapshots (may hold personal data; kept local only)
 supabase/archive/
+# Voice commands: this PC's copy of the person's website shortcuts
+server/app/storage/voice_shortcuts.json

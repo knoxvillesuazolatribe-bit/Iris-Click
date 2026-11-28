@@ -56,6 +56,8 @@ def create_app() -> FastAPI:
         app.include_router(desktop_home.router, prefix=settings.api_prefix)
         from app.api.routes import desktop_apps  # extension: open apps from the hosted website
         app.include_router(desktop_apps.router, prefix=settings.api_prefix)
+        from app.api.routes import desktop_voice  # panel revision: voice commands / valid data
+        app.include_router(desktop_voice.router, prefix=settings.api_prefix)
         from app.api.routes import desktop_device  # extension: accounts on this computer
         app.include_router(desktop_device.router, prefix=settings.api_prefix)
         from app.api.routes import desktop_pending  # extension: accounts on this computer
